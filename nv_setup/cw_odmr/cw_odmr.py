@@ -114,7 +114,7 @@ def main():
     # Parameters
     # -------------------------
     readout_len_ns = int(5 * u.ms)   # 5 ms readout
-    n_windows_per_point = 1000 # 100ms per point  
+    n_windows_per_point = 20 # 100ms per point
     amp_dbm = -12 #anything bigger than -10 does nothing 
 
     dwell =  0.01
@@ -123,8 +123,8 @@ def main():
 
     # frequency parameters
     f_center = 2.88e9
-    span = 0.01e9
-    N = 3 # was 101 previously
+    span = 0.5e9 # was 0.1e9 previouslys
+    N = 101 # was 101 previously
 
 
     # connect to RF src
@@ -139,7 +139,6 @@ def main():
     job = qm.execute(prog)
 
     freqs, f_start, f_end = calc_freq_range(f_center, span, N)
-    # freqs, f_start, f_end = np.array([2.88e9]), 2.88e9, 2.88e9 # TODO: testing range only
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
     point_duration_s = (readout_len_ns * n_windows_per_point) / 1e9
 
@@ -167,13 +166,6 @@ def main():
     save_path = os.path.join(directory, f"cw_odmr_{timestamp}.npy")
     np.save(save_path, counts)
 
-
-    # datestamp = now.strftime("%Y-%m-%d")
-    # timestamp = now.strftime("%H-%M-%S")
-    # directory = f"./NVCFM_Data/{datestamp}"
-    # if not os.path.exists(directory):
-    #     os.makedirs(directory)
-    # np.save(f"{directory}/cw_odmr_{timestamp}.npy",counts)
     
 if __name__ == "__main__":
     main()
