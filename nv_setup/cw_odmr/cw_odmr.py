@@ -9,6 +9,8 @@ import os
 import numpy as np
 import pyvisa
 import datetime
+import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 
@@ -117,12 +119,12 @@ def main():
 
     dwell =  0.01
 
-    n_iter = 10
+    n_iter = 1 # used to be 10
 
     # frequency parameters
     f_center = 2.88e9
-    span = 0.1e9
-    N = 101
+    span = 0.01e9
+    N = 3 # was 101 previously
 
 
     # connect to RF src
@@ -137,7 +139,8 @@ def main():
     job = qm.execute(prog)
 
     freqs, f_start, f_end = calc_freq_range(f_center, span, N)
-    print("Frequency range from ", f_start/1e9, " to end ", f_end/1e9)
+    # freqs, f_start, f_end = np.array([2.88e9]), 2.88e9, 2.88e9 # TODO: testing range only
+    print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
     point_duration_s = (readout_len_ns * n_windows_per_point) / 1e9
 
     enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
@@ -148,8 +151,29 @@ def main():
         enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
     plot_odmr(freqs, counts)
     now = datetime.datetime.now()
-    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
-    np.save(f"C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\cw_odmr_{timestamp}.npy",counts)
+
+    script_path = Path(__file__).resolve()
+    project_root = script_path.parent.parent.parent
+
+    datestamp = now.strftime("%Y-%m-%d")
+    timestamp = now.strftime("%H-%M-%S")
+
+    # Combine script directory with your desired data path
+    directory = os.path.join(project_root, "NVCFM_Data", datestamp)
+
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    save_path = os.path.join(directory, f"cw_odmr_{timestamp}.npy")
+    np.save(save_path, counts)
+
+
+    # datestamp = now.strftime("%Y-%m-%d")
+    # timestamp = now.strftime("%H-%M-%S")
+    # directory = f"./NVCFM_Data/{datestamp}"
+    # if not os.path.exists(directory):
+    #     os.makedirs(directory)
+    # np.save(f"{directory}/cw_odmr_{timestamp}.npy",counts)
     
 if __name__ == "__main__":
     main()

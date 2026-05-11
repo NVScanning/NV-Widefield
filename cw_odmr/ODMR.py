@@ -12,6 +12,7 @@ from zhinst.toolkit import Session
 # Connection helpers
 # ----------------------------
 def connect_mfli(host: str, device_id: str, demod_index: int = 0):
+    # mfli is the lock-in amp
     session = Session(host)
     mfli = session.connect_device(device_id)
     print("Connected to MFLI")
@@ -22,6 +23,7 @@ def connect_mfli(host: str, device_id: str, demod_index: int = 0):
 
 
 def connect_sg386(resource: str, timeout_ms: int = 5000):
+    # sg386 is the RF generator
     rm = pyvisa.ResourceManager()
     sg = rm.open_resource(
         resource,
@@ -45,7 +47,7 @@ def calc_freq_range(f_center: float, span: float, n: int):
 
 def compute_dwell_from_demod(demod, multiplier: float = 3.0):
     """Compute dwell time as multiplier * demod time constant."""
-    tau = demod.timeconstant()
+    tau = demod.timeconstant() # ms
     print("LPF time constant at:", tau*1e3, "ms")
     return float(multiplier * tau), float(tau)
 
@@ -152,7 +154,8 @@ def save_data(mode, n_magnet, n_iter, amp_dbm, freqs, lia_signal):
 
 
 def plot_odmr(freqs: np.ndarray, R: np.ndarray):
-
+    # freqs in Hz, R in Volts, do unit conversion when plotting
+    # R is magnitude of phase-matched signal as from LabOne software
     plt.figure(figsize=(8, 5))
     plt.plot(freqs / 1e9, R * 1000, "-o", markersize=2)
     plt.xlabel("Frequency (GHz)")
@@ -186,34 +189,39 @@ def main():
     # RF power
     amp_dbm = -10.0
     # num of averaging
-    n_iter = 20
+    n_iter = 1 # used to be 20
     
         # Mode 
     # --------------------------------------------------------------------------------------------
     # LSR, AM, FM
     # --------------------------------------------------------------------------------------------
-    mode = ODMRMode.FM # ODMRMode.FM, ODMRMode.AM , .LSR
+
+    # mode = ODMRMode.FM, ODMRMode.AM , ODMRMode.LSR
+    # ^ choose one of the above, note: idk abt LSR, but it seems to be an option?
 
     #mode = ODMRMode.AM
     #AM modulation param
-    mod_freq   = 20e3 ##2e3  
-    mod_depth  = 500.0  # 100 %
+    mod_freq   = 20e3 ##2e3  # TODO: why is the comment saying 2e3 not 2e4?
+    mod_depth  = 500.0  # 100 % # TODO: how is 500.0 corresponding to 100%?
 
-    #mode = ODMRMode.FM
+    mode = ODMRMode.FM
     #FM modulation param
     mod_rate   = 2e3 #2e3  
     mod_dev  = 5.6e6
 
+    # mode = ODMRMode.LSR
+    #LSR modulation
+
     freqs, f_start, f_end = calc_freq_range(f_center, span, N)
     
-    print(f"Frequency sweep: {f_start/1e9:.3f} ~ {f_end/1e9:.3f} GHz (N={N})")
+    print(f"Frequency sweep: {f_start/1e9:.3f} -> {f_end/1e9:.3f} GHz (N={N})")
 
     # ---- Connect instruments ----
     _, demod = connect_mfli(mfli_host, mfli_dev, demod_index=0)
     sg = connect_sg386(sg_resource)
 
     # ---- Timing ----
-    dwell, tau = compute_dwell_from_demod(demod, multiplier=5.0)
+    dwell, tau = compute_dwell_from_demod(demod, multiplier=5.0) # why choose mult=5?
     print("Dwell time:", dwell*1e3, "ms")
 
     # ---- Measure ----
