@@ -5,6 +5,10 @@ from enum import Enum, auto
 import numpy as np
 import pyvisa
 
+"""
+Toggles RF on for 20 seconds (I think) 
+"""
+
 
 def connect_sg386(resource: str, timeout_ms: int = 5000):
     rm = pyvisa.ResourceManager()

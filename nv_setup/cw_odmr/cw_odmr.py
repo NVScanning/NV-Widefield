@@ -91,7 +91,9 @@ def odmr_qua_program(N_freq, n_windows_per_point, readout_len_ns):
 # Frequency sweep
 # -------------------------
 
-def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 6) -> np.ndarray:
+def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np.ndarray:
+    # TODO: implement n_iter use
+    # I think it would be to iterate through the freqs n_iter times, and average them all
     
     counts_handle = job.result_handles.get("counts")
     seen=0
@@ -119,7 +121,7 @@ def main():
 
     dwell =  0.01
 
-    n_iter = 1 # used to be 10
+    n_iter = 1 # stub
 
     # frequency parameters
     f_center = 2.88e9

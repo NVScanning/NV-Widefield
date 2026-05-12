@@ -5,11 +5,18 @@ from qualang_tools.plot import interrupt_on_close
 
 import matplotlib.pyplot as plt
 
+"""
+This is a debug file, which constantly counts using the SPCM (single photon counting module), and plots the last 30 seconds of counts at 100ms intervals
+
+Used for optical alignment of laser path as well as of the NV itself
+Note: 20 kcounts (or maybe just 2 kcounts) is he limit for the SPCM, if you see this then decrease brightness or exposure time
+"""
+
 # -------------------------
 # Parameters
 # -------------------------
 single_integration_time_ns = int(50 * u.us)   # 50 us time-tagging window
-n_windows_per_point = 2000                    # 100 ms per plotted point
+n_windows_per_point = 2000                    # 200 * 50 us = 100 ms per plotted point
 
 # -------------------------
 # QUA program
