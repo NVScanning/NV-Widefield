@@ -17,31 +17,22 @@ import json
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
+import connection_setup as cs
 
 # -------------------------
 # APT motor Parameters
 # -------------------------
 
-motor_id = 90335877
+# this is the s/n on the stepper control box
+# x_motor_id = 90335875
+# y_motor_id = 90335876
+z_motor_id = 90335877 # s/n of the z motor
+
 
 # -------------------------
 # Helper functions
 # -------------------------
 
-def connect_motor(sample_name: str, motor_id: int = 90335877):
-    motor = apt.Motor(motor_id)
-
-    motor.move_home(True)
-    time.sleep(2)
-    print("Connected to motor, Motor ID:", motor_id)
-
-    state = load_focus_state()
-    if state and state.get("sample") == sample_name:
-        motor.move_to(state["z_mm"])
-        time.sleep(2)
-        print("Previous optimized position loaded")
-
-    return motor
 
 def calc_sweep_range(z_center: float, span: float, num_points: int):
     z_start = z_center - span / 2
@@ -65,13 +56,33 @@ STATE_PATH = os.path.join("state", "z_focus.json")
 def _now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 
-def load_focus_state(path = STATE_PATH):
-    if not os.path.exists(path):
-        return None
-    if os.path.getsize(path) == 0:
-        return None
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+
+# def connect_motor(sample_name: str, motor_id: int = 90335877):
+#     print("Attempting to connect to motor, ID:", motor_id)
+#     # time.sleep(2)
+#     motor = apt.Motor(motor_id)
+#
+#     motor.move_home(True)
+#     time.sleep(2)
+#     print("Connected to motor, Motor ID:", motor_id)
+#
+#     state = load_focus_state()
+#     if state and state.get("sample") == sample_name:
+#         motor.move_to(state["z_mm"])
+#         time.sleep(2)
+#         print("Previous optimized position loaded")
+#
+#     return motor
+#
+# # STATE_PATH = os.path.join("state", "z_focus.json")
+# def load_focus_state(path = STATE_PATH):
+#     if not os.path.exists(path):
+#         return None
+#     if os.path.getsize(path) == 0:
+#         return None
+#     with open(path, "r", encoding="utf-8") as f:
+#         return json.load(f)
+
 
 def save_focus_state(sample, z_mm, kcps, path = STATE_PATH):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -120,12 +131,14 @@ def z_counts_program(num_z_points, n_windows_per_point, readout_len_ns):
 # z_direction sweep
 # -------------------------
 
-def optimize_z(motor, job, z_range, dwell, point_duration_s) -> np.ndarray:
+def find_best_z(motor, job, z_range, dwell, point_duration_s) -> np.ndarray:
     
     counts_handle = job.result_handles.get("counts")
     seen=0
     kcps=[]
     for z in z_range:
+        if (seen % 10 == 0):
+            print("at z= " + str(z) + "mm")
         motor.move_to(z)
         time.sleep(dwell)
         job.resume()
@@ -148,9 +161,9 @@ def main():
     readout_len_ns = int(5 * u.ms)   # 5 ms readout
     n_windows_per_point = 200         # 100ms per point  
 
-    dwell = 2
+    dwell = 2 # units?
     # position z parameters
-    z_center = 2.5
+    z_center = 6.25
     span = 0.5
     N = 51
 
@@ -160,7 +173,8 @@ def main():
     # -------------------------
     # Connect to motor
     # -------------------------
-    motor = connect_motor(sample_name, motor_id)
+    # TODO: check if motor has some connection going on, if it does, then close it
+    motor = cs.connect_motor(sample_name, z_motor_id) # use the connection_setup implementation instead
 
     # -------------------------
     # Execute program on QM
@@ -177,7 +191,7 @@ def main():
     # -------------------------
     # Measure and get optimum z
     # -------------------------
-    counts, optimized_z_pos, max_kcps = optimize_z(motor, job, z_range, dwell, point_duration_s)
+    counts, optimized_z_pos, max_kcps = find_best_z(motor, job, z_range, dwell, point_duration_s)
     print("Highest count at: ", optimized_z_pos)
     plot_graph(z_range, counts)
 
@@ -197,6 +211,7 @@ def main():
         print("Moved to optimized position and state saved.")
     else:
         print("Stayed at current position.")
+
     save_focus_state(sample_name, optimized_z_pos, max_kcps)
 
 

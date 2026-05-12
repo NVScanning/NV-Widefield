@@ -1,3 +1,4 @@
+import qm
 from qm import QuantumMachinesManager
 from qm.qua import *
 from config import *
@@ -14,6 +15,16 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
+import sys
+sys.path.append(os.path.abspath(".."))
+import connection_setup as cs
+
+"""
+This sweeps a range of RF frequencies, while kepeing 532nm light constant, and position constant
+
+Note: 20kcounts is the limit for the SPCM, if you see this then decrease brightness or exposure time
+"""
+
 # -------------------------
 # sg386 Parameters
 # -------------------------
@@ -23,26 +34,6 @@ sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
 # -------------------------
 # Helper functions
 # -------------------------
-
-def connect_sg386(resource: str, timeout_ms: int = 5000):
-    rm = pyvisa.ResourceManager()
-    sg = rm.open_resource(
-        resource,
-        write_termination="\n",
-        read_termination="\n",
-        timeout=timeout_ms,
-    )
-    print("Connected to sg386")
-    return sg
-
-def enable_sg386(sg, amp_dbm: float = -12.0, enable: bool = True):
-    sg.write(f"AMPR {amp_dbm}")
-    sg.write(f"ENBR {1 if enable else 0}")
-    if enable:
-        print("sg386 ON")
-    else:
-        print("sg386 OFF")
-
 def calc_freq_range(f_center: float, span: float, n: int):
     f_start = f_center - span / 2
     f_end = f_center + span / 2
@@ -92,45 +83,62 @@ def odmr_qua_program(N_freq, n_windows_per_point, readout_len_ns):
 # -------------------------
 
 def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np.ndarray:
-    # TODO: implement n_iter use
-    # I think it would be to iterate through the freqs n_iter times, and average them all
-    
+
     counts_handle = job.result_handles.get("counts")
     seen=0
-    kcps=[]
+
+
+    kcps = []
     for f in freqs:
         sg.write(f"FREQ {float(f)}")
         time.sleep(dwell)
         job.resume()
-        counts_handle.wait_for_values(seen+1)
-        #print('count seen')
+        counts_handle.wait_for_values(seen + 1)
+        # print('count seen')
         all_counts = counts_handle.fetch_all()["value"]
-        kcps.append(( all_counts[seen] / point_duration_s ) /1000 ) 
-        seen+=1
-
+        kcps.append((all_counts[seen] / point_duration_s) / 1000)
+        seen += 1
     return kcps
+
+    # # TODO: use below code to make use of n_iter
+    # kcps_overall = np.empty((n_iter, freqs.size))
+    # for i in range(n_iter):
+    #
+    #     kcps=[]
+    #     for f in freqs:
+    #         sg.write(f"FREQ {float(f)}")
+    #         time.sleep(dwell)
+    #         job.resume()
+    #         counts_handle.wait_for_values(seen+1)
+    #         #print('count seen')
+    #         all_counts = counts_handle.fetch_all()["value"]
+    #         kcps.append(( all_counts[seen] / point_duration_s ) /1000 )
+    #         seen+=1
+    #     kcps_overall[i]=kcps
+    #
+    # return np.sum(kcps_overall,axis=0)
 
 def main():
 
     # -------------------------
     # Parameters
     # -------------------------
-    readout_len_ns = int(5 * u.ms)   # 5 ms readout
-    n_windows_per_point = 20 # 100ms per point
-    amp_dbm = -12 #anything bigger than -10 does nothing 
+    readout_len_ns = int(20 * u.ms)
+    n_windows_per_point = 100 # n readouts to increase certainty without hitting the SPCM limit of ~2 mil points
+    amp_dbm = -12 #anything bigger than -10 does nothing TODO: figure out wtf this does
 
-    dwell =  0.01
+    dwell =  0.01 # seconds i guess
 
     n_iter = 1 # stub
 
     # frequency parameters
     f_center = 2.88e9
-    span = 0.5e9 # was 0.1e9 previouslys
-    N = 101 # was 101 previously
+    span = 0.1e9 # was 0.1e9 previouslys
+    N = 101 # point in the frequency space to sample
 
 
     # connect to RF src
-    sg = connect_sg386(sg_resource)
+    sg = cs.connect_sg386(sg_resource)
 
     # -------------------------
     # Execute program on QM
@@ -144,12 +152,12 @@ def main():
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
     point_duration_s = (readout_len_ns * n_windows_per_point) / 1e9
 
-    enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+    cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(1)
     try:
         counts = measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter)
     finally:
-        enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
+        cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
     plot_odmr(freqs, counts)
     now = datetime.datetime.now()
 

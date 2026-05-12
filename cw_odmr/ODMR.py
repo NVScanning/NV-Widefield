@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from zhinst.toolkit import Session
 
+import sys
+sys.path.append(os.path.abspath(".."))
+from nv_setup import connection_setup as cs
 # ----------------------------
 # Connection helpers
 # ----------------------------
@@ -22,17 +25,16 @@ def connect_mfli(host: str, device_id: str, demod_index: int = 0):
     return mfli, demod
 
 
-def connect_sg386(resource: str, timeout_ms: int = 5000):
-    # sg386 is the RF generator
-    rm = pyvisa.ResourceManager()
-    sg = rm.open_resource(
-        resource,
-        write_termination="\n",
-        read_termination="\n",
-        timeout=timeout_ms,
-    )
-    print("Connected to sg386")
-    return sg
+# def connect_sg386(resource: str, timeout_ms: int = 5000):
+#     rm = pyvisa.ResourceManager()
+#     sg = rm.open_resource(
+#         resource,
+#         write_termination="\n",
+#         read_termination="\n",
+#         timeout=timeout_ms,
+#     )
+#     print("Connected to sg386")
+#     return sg
 
 # ----------------------------
 # Sweep configuration
@@ -78,9 +80,9 @@ class ODMRMode(Enum):
 # Measurement
 # ----------------------------
 
-def enable_sg386(sg, amp_dbm: float = -12.0, enable: bool = True):
-    sg.write(f"AMPR {amp_dbm}")
-    sg.write(f"ENBR {1 if enable else 0}")
+# def enable_sg386(sg, amp_dbm: float = -12.0, enable: bool = True):
+#     sg.write(f"AMPR {amp_dbm}")
+#     sg.write(f"ENBR {1 if enable else 0}")
 
 def measure_odmr(
     sg,
@@ -218,14 +220,14 @@ def main():
 
     # ---- Connect instruments ----
     _, demod = connect_mfli(mfli_host, mfli_dev, demod_index=0)
-    sg = connect_sg386(sg_resource)
+    sg = cs.connect_sg386(sg_resource)
 
     # ---- Timing ----
     dwell, tau = compute_dwell_from_demod(demod, multiplier=5.0) # why choose mult=5?
     print("Dwell time:", dwell*1e3, "ms")
 
     # ---- Measure ----
-    enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+    cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     phase_matched = True
     try:
         if mode == ODMRMode.AM:
@@ -239,7 +241,7 @@ def main():
         lia_signal = measure_odmr(sg, demod, freqs, dwell=dwell, n_iter=n_iter, phase_matched=phase_matched)
     finally:
         sg.write("MODL 0") 
-        enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
+        cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
         
 
     # ---- Save data ----
