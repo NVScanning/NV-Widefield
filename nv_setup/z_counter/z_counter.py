@@ -145,6 +145,8 @@ def find_best_z(motor, job, z_range, dwell, point_duration_s) -> np.ndarray:
         counts_handle.wait_for_values(seen+1)
         #print('count seen')
         all_counts = counts_handle.fetch_all()["value"]
+        if (seen % 10 == 0):
+            print("counts= " + str(all_counts[seen]))
         kcps.append(( all_counts[seen] / point_duration_s ) /1000 ) 
         seen+=1
     max_idx = np.argmax(kcps)
@@ -158,13 +160,13 @@ def main():
     # Parameters
     # -------------------------
     # photo counts parameters
-    readout_len_ns = int(5 * u.ms)   # 5 ms readout
-    n_windows_per_point = 200         # 100ms per point  
+    readout_len_ms = int(0.2 * u.ms)   # readout in ms
+    n_windows_per_point = 1         # tbh idk what this does other than just increase the value of readout eln ^
 
-    dwell = 2 # units?
+    dwell = 0.2 # units? Used to be 2
     # position z parameters
-    z_center = 6.25
-    span = 0.5
+    z_center = 6.1
+    span = 0.1
     N = 51
 
     # sample name
@@ -181,12 +183,12 @@ def main():
     # -------------------------
     qmm = QuantumMachinesManager(host=qop_ip, port=qop_port, log_level="INFO")
     qm = qmm.open_qm(config)
-    prog = z_counts_program(N, n_windows_per_point, readout_len_ns)
+    prog = z_counts_program(N, n_windows_per_point, readout_len_ms)
     job = qm.execute(prog)
 
     z_start, z_end, z_range = calc_sweep_range(z_center, span, N)
     print("sweeping z range from ", z_start, " to end ", z_end)
-    point_duration_s = (readout_len_ns * n_windows_per_point) / 1e9
+    point_duration_s = (readout_len_ms * n_windows_per_point) / 1e9
 
     # -------------------------
     # Measure and get optimum z

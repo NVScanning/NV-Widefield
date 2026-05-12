@@ -16,6 +16,7 @@ Used for optical alignment of laser path as well as of the NV itself
 # -------------------------
 single_integration_time_ns = int(50 * u.us)   # 50 us time-tagging window
 n_windows_per_point = 2000                    # 2000 * 50 us = 100 ms per plotted point
+num_points = 500
 
 # -------------------------
 # QUA program
@@ -49,6 +50,7 @@ job = qm.execute(spcm_counter)
 # -------------------------
 # Live plotting
 # -------------------------
+# TODO: add an averaging step, get points with uncertainty, maybe a rolling average
 
 res_handles = job.result_handles
 counts_handle = res_handles.get("counts")
@@ -67,9 +69,10 @@ while res_handles.is_processing():
     t_list.append(new_counts["timestamp"] / u.s)  # Convert timestamps to seconds
 
     plt.cla()
-    plt.plot(t_list[-300:], kcps_list[-300:]) if len(t_list) > 300 else plt.plot(t_list, kcps_list)
+    plt.plot(t_list[-num_points:], kcps_list[-num_points:]) if len(t_list) > num_points else plt.plot(t_list, kcps_list)
     plt.xlabel("time [s]")
     plt.ylabel("counts [kcps]")
+    # plt.ylim(17500,17600) # for debugging, remove
     plt.title("SPCM Counter")
     plt.pause(0.1)
 

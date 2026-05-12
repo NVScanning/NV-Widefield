@@ -90,6 +90,8 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
 
     kcps = []
     for f in freqs:
+        if (seen % 10 == 0):
+            print("at freq " + str(f/10**9) + "GHz")
         sg.write(f"FREQ {float(f)}")
         time.sleep(dwell)
         job.resume()
@@ -123,17 +125,17 @@ def main():
     # -------------------------
     # Parameters
     # -------------------------
-    readout_len_ns = int(20 * u.ms)
-    n_windows_per_point = 100 # n readouts to increase certainty without hitting the SPCM limit of ~2 mil points
+    readout_len_ns = int(50 * u.us)
+    n_windows_per_point = 1000 # n readouts to increase certainty without hitting the SPCM limit of ~20K points
     amp_dbm = -12 #anything bigger than -10 does nothing TODO: figure out wtf this does
 
-    dwell =  0.01 # seconds i guess
+    dwell =  0.01 # seconds I guess
 
     n_iter = 1 # stub
 
     # frequency parameters
     f_center = 2.88e9
-    span = 0.1e9 # was 0.1e9 previouslys
+    span = 0.06e9 # was 0.1e9 previously
     N = 101 # point in the frequency space to sample
 
 
