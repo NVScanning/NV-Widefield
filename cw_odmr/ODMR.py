@@ -25,17 +25,6 @@ def connect_mfli(host: str, device_id: str, demod_index: int = 0):
     return mfli, demod
 
 
-# def connect_sg386(resource: str, timeout_ms: int = 5000):
-#     rm = pyvisa.ResourceManager()
-#     sg = rm.open_resource(
-#         resource,
-#         write_termination="\n",
-#         read_termination="\n",
-#         timeout=timeout_ms,
-#     )
-#     print("Connected to sg386")
-#     return sg
-
 # ----------------------------
 # Sweep configuration
 # ----------------------------
@@ -80,9 +69,6 @@ class ODMRMode(Enum):
 # Measurement
 # ----------------------------
 
-# def enable_sg386(sg, amp_dbm: float = -12.0, enable: bool = True):
-#     sg.write(f"AMPR {amp_dbm}")
-#     sg.write(f"ENBR {1 if enable else 0}")
 
 def measure_odmr(
     sg,

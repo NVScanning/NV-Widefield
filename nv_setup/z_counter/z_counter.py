@@ -165,8 +165,8 @@ def main():
 
     dwell = 0.2 # units? Used to be 2
     # position z parameters
-    z_center = 6.1
-    span = 0.1
+    z_center = 6.3
+    span = 0.2
     N = 51
 
     # sample name

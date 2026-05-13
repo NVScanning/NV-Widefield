@@ -38,6 +38,17 @@ def load_focus_state(path = STATE_PATH):
         return json.load(f)
 
 def connect_motor(sample_name: str, motor_id: int):
+    available_devices = apt.list_available_devices()
+
+    if not available_devices:
+        raise Exception("No Thorlabs devices detected. Check USB connection/Power/Opened programs.")
+
+    sns = [device[1] for device in available_devices]
+
+    if motor_id not in sns:
+        raise Exception(f"Motor {motor_id} not found. Currently visible: {sns}. ")
+
+
     motor = apt.Motor(motor_id)
 
     motor.move_home(True)

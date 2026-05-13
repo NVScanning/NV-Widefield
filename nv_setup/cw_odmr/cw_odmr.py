@@ -87,11 +87,15 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
     counts_handle = job.result_handles.get("counts")
     seen=0
 
+    # TODO: make the print "at freq" happen 10 times total, based on the length of the freqs array
+    num_printouts = 10
+    printout_factor = len(freqs) // num_printouts
+    # print("printing out every " + str(printout_factor) + " frequencies")
 
     kcps = []
     for f in freqs:
-        if (seen % 10 == 0):
-            print("at freq " + str(f/10**9) + "GHz")
+        if (seen % printout_factor == 0):
+            print("at freq " + str(f/10**9) + "GHz; "+ str(seen/printout_factor*num_printouts) + "% done")
         sg.write(f"FREQ {float(f)}")
         time.sleep(dwell)
         job.resume()
@@ -125,19 +129,19 @@ def main():
     # -------------------------
     # Parameters
     # -------------------------
-    readout_len_ns = int(50 * u.us)
-    n_windows_per_point = 1000 # n readouts to increase certainty without hitting the SPCM limit of ~20K points
-    amp_dbm = -12 #anything bigger than -10 does nothing TODO: figure out wtf this does
+    readout_len_ns = int(50 * u.us) # 50 us is near the max with a 0ND filtering on the 5mW laser (I think)
+    n_windows_per_point = 2000 # n readouts to increase certainty without hitting the SPCM limit of ~20K points
+    amp_dbm = -25 #anything bigger than -10 does nothing (Hayden)
+    # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
 
     dwell =  0.01 # seconds I guess
 
     n_iter = 1 # stub
 
     # frequency parameters
-    f_center = 2.88e9
-    span = 0.06e9 # was 0.1e9 previously
-    N = 101 # point in the frequency space to sample
-
+    f_center = 2.87e9 # Hz, generally near 2.87GHz
+    span = 0.5e9 # Hz, range of frequencies to sample
+    N = 201 # num points in the frequency space to sample
 
     # connect to RF src
     sg = cs.connect_sg386(sg_resource)
@@ -175,8 +179,18 @@ def main():
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    save_path = os.path.join(directory, f"cw_odmr_{timestamp}.npy")
-    np.save(save_path, counts)
+    save_path = os.path.join(directory, f"cw_odmr_{timestamp}.npz")
+    print(f"Saved as: cw_odmr_{timestamp}.npz")
+    np.savez(save_path, x=freqs, y=counts)
+
+    # TODO: calculate the following and print
+    #   1. the space betweeen dips in Hz (magnetic field)
+    #   2. the width of dips (FWHM) in Hz (Rabi smth)
+    #   3. the background counts in cps (idk what this tells us)
+    # TODO: Look at the ../cw_odmr/ODMR.py file, perhaps copy things
+    #  from there or just make use of it directly idk.
+
+    # Calculating space between dips
 
     
 if __name__ == "__main__":

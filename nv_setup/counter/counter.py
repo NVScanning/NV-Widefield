@@ -5,6 +5,10 @@ from qualang_tools.plot import interrupt_on_close
 
 import matplotlib.pyplot as plt
 
+import datetime
+from pathlib import Path
+
+
 """
 This is a debug file, which constantly counts using the SPCM (single photon counting module), and plots the last ~60 seconds of counts at ~200ms intervals
 
@@ -16,7 +20,9 @@ Used for optical alignment of laser path as well as of the NV itself
 # -------------------------
 single_integration_time_ns = int(50 * u.us)   # 50 us time-tagging window
 n_windows_per_point = 2000                    # 2000 * 50 us = 100 ms per plotted point
-num_points = 500
+num_mins = 60
+num_points = 300*num_mins # 300 points is ~ 1 minute with 0.1 pause
+save_fig = True
 
 # -------------------------
 # QUA program
@@ -63,6 +69,31 @@ fig = plt.figure()
 interrupt_on_close(fig, job)
 
 while res_handles.is_processing():
+
+
+    if save_fig:
+        now = datetime.datetime.now()
+        script_path = Path(__file__).resolve()
+        project_root = script_path.parent.parent.parent
+        datestamp = now.strftime("%Y-%m-%d")
+        timestamp = now.strftime("%H-%M-%S")
+        directory = os.path.join(project_root, "nv_setup/counter/figures", datestamp)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        save_path = os.path.join(directory, f"counts_{timestamp}")
+        # Below is for debugging, it saves the figure after numpoints elapses
+        if len(t_list) > num_points :
+            print("got " + str(len(t_list)) + " points, saving fig")
+            plt.cla()
+            plt.plot(t_list[-num_points:], kcps_list[-num_points:]) if len(t_list) > num_points else plt.plot(t_list, kcps_list)
+            plt.xlabel("time [s]")
+            plt.ylabel("counts [kcps]")
+            plt.title("SPCM Counter")
+            plt.savefig(save_path + ".png")
+            np.save(save_path + ".npy", kcps_list)
+            quit()
+
+
 
     new_counts = counts_handle.fetch_all() 
     kcps_list.append((new_counts["value"] / point_duration_s) /1000 )
