@@ -28,14 +28,14 @@ def enable_sg386(sg, amp_dbm: float = -12.0, enable: bool = True):
     else:
         print("sg386 OFF")
 
-STATE_PATH = os.path.join("state", "z_focus.json")
-def load_focus_state(path = STATE_PATH):
-    if not os.path.exists(path):
-        return None
-    if os.path.getsize(path) == 0:
-        return None
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+# STATE_PATH = os.path.join("state", "z_focus.json")
+# def load_focus_state(path = STATE_PATH):
+#     if not os.path.exists(path):
+#         return None
+#     if os.path.getsize(path) == 0:
+#         return None
+#     with open(path, "r", encoding="utf-8") as f:
+#         return json.load(f)
 
 def connect_motor(sample_name: str, motor_id: int):
     available_devices = apt.list_available_devices()
@@ -52,13 +52,13 @@ def connect_motor(sample_name: str, motor_id: int):
     motor = apt.Motor(motor_id)
 
     motor.move_home(True)
-    time.sleep(2)
+    # time.sleep(2)
     print("Connected to motor, Motor ID:", motor_id)
 
-    state = load_focus_state()
-    if state and state.get("sample") == sample_name:
-        motor.move_to(state["z_mm"])
-        time.sleep(2)
-        print("Previous optimized position loaded")
+    # state = load_focus_state()
+    # if state and state.get("sample") == sample_name:
+    #     motor.move_to(state["z_mm"])
+    #     time.sleep(2) # takes some time for motor to move to correct position
+    #     print("Previous optimized position loaded")
 
     return motor

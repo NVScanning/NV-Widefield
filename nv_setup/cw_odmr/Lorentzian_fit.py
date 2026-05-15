@@ -64,7 +64,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
 
 def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
     p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
-    print(f"guessued initial peaks to be at {freqs[peaks]}GHz")
+    # print(f"guessed initial peaks to be at {freqs[peaks]}GHz")
     n_peaks = (len(p0) - 2) // 3
 
     lower = []
@@ -79,17 +79,22 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
     lower += [R_vals.min() - 1, -10]  
     upper += [R_vals.max() + 1,  10]
 
-    popt, pcov = curve_fit(
-        multi_lorentzian,
-        freqs,
-        R_vals,
-        p0=p0,
-        bounds=(lower, upper),
-        maxfev=10000
-    )
-    return popt, pcov, peaks
+    try:
+        popt, pcov = curve_fit(
+            multi_lorentzian,
+            freqs,
+            R_vals,
+            p0=p0,
+            bounds=(lower, upper),
+            maxfev=10000
+        )
+        return popt, pcov, peaks
+    except:
+        print("Couldn't curve_fit, returning find_peaks vals with 0 uncertainty")
+        return p0, np.zeros_like(p0), peaks
 
-def print_dip_params(popt):
+
+def get_dip_params(popt):
     c0, c1 = popt[-2], popt[-1]
 
     contrasts = []
@@ -112,6 +117,11 @@ def print_dip_params(popt):
         contrasts.append(C_frac)
         FWHMs.append(FWHM)
         dip_Freqs.append(f0)
+    return contrasts, FWHMs, dip_Freqs
+
+
+def print_dip_params(popt):
+    contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
 
     # Print summary lines
     for (C, FWHM, freq) in zip(contrasts, FWHMs, dip_Freqs):
@@ -120,6 +130,7 @@ def print_dip_params(popt):
     for i in range(len(dip_Freqs)-1):
         # this tells us abt magnetic field
         print(f"Frequency delta is {(dip_Freqs[i+1]-dip_Freqs[i])*1000}MHz")
+    return contrasts, FWHMs, dip_Freqs
 
 def print_SNR(baseline: Any, counts, freqs, popt):
     noise_signal = counts - baseline
@@ -166,7 +177,7 @@ def analyze_data(freqs, counts, max_peaks):
     counts_norm = counts / baseline
     fitted_norm = fitted_counts / baseline
 
-    print_SNR(baseline, counts, freqs, popt)
+    # print_SNR(baseline, counts, freqs, popt)
     return popt, pcov, counts_norm, fitted_norm, baseline
 
 

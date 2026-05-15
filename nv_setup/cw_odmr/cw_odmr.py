@@ -146,7 +146,7 @@ def main():
     # Parameters
     # -------------------------
     readout_len_ns = int(50 * u.us) # 50 us is near the max with a 0ND filtering on the 5mW laser (I think)
-    n_windows_per_point = 200 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
+    n_windows_per_point = 5 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
     amp_dbm = -20 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
@@ -155,8 +155,8 @@ def main():
     n_iter = 1
     # frequency parameters
     f_center = 2.88e9 # Hz, generally near 2.87GHz
-    span = 0.6e9 # Hz, range of frequencies to sample
-    N = 201 # num points in the frequency space to sample
+    span = 0.3e9 # Hz, range of frequencies to sample
+    N = 21 # num points in the frequency space to sample
 
     # connect to RF src
     sg = cs.connect_sg386(sg_resource)
@@ -195,6 +195,12 @@ def main():
     max_peaks = 2
     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
     Lfit.print_dip_params(popt)
+    # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+    # for (C, FWHM, freq) in zip(contrasts, FWHMs, dip_Freqs):
+    #     print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1e3:.2f} MHz, Contrast = {C * 100:.3f}%")
+    # for i in range(len(dip_Freqs)-1):
+    #     print(f"Frequency delta is {(dip_Freqs[i+1]-dip_Freqs[i])*1000}MHz")
+
     # Since above fn is working, I can change the relevant passage to determine space between dips
 
 
