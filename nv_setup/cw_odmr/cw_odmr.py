@@ -1,4 +1,7 @@
+from typing import Any
+
 import qm
+from numpy import dtype, float64, ndarray
 from qm import QuantumMachinesManager
 from qm.qua import *
 from config import *
@@ -18,6 +21,8 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.append(os.path.abspath(".."))
 import connection_setup as cs
+
+import Lorentzian_fit as Lfit
 
 """
 This sweeps a range of RF frequencies, while kepeing 532nm light constant, and position constant
@@ -52,40 +57,34 @@ def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
     plt.grid(True)
     plt.show()
 
+
+
+def save_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
+                          freqs: ndarray[tuple[Any, ...], dtype[float64]]):
+    now = datetime.datetime.now()
+    datestamp = now.strftime("%Y-%m-%d")
+    timestamp = now.strftime("%H-%M-%S")
+    script_path = Path(__file__).resolve()
+    project_root = script_path.parent.parent.parent
+    directory = os.path.join(project_root, "NVCFM_Data", datestamp)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    save_path = os.path.join(directory, f"cw_odmr_{timestamp}.npz")
+    print(f"Saved as: cw_odmr_{timestamp}.npz")
+    np.savez(save_path, x=freqs, y=counts)
+
+
 # -------------------------
 # QUA program
 # -------------------------
 
-# def odmr_qua_program(N_freq, n_windows_per_point, readout_len_ns):
-#     with program() as odmr_counts:
-#         times = declare(int, size=10000)
-#         counts = declare(int)
-#         total_counts = declare(int)
-#
-#         i = declare(int)
-#         k = declare(int)
-#         counts_st = declare_stream()
-#
-#         with for_(i, 0, i < N_freq, i + 1):
-#             pause()
-#             assign(total_counts, 0)
-#             with for_(k, 0, k < n_windows_per_point, k + 1):
-#                 measure( "readout", "SPCM", time_tagging.analog(times, readout_len_ns, counts))
-#                 assign(total_counts, total_counts + counts)
-#
-#             save(total_counts, counts_st)
-#
-#         with stream_processing():
-#             counts_st.save_all("counts")
-#
-#     return odmr_counts
-
+# Below program is written by gemini when asked to extend the old version to work with n_iter
 def odmr_qua_program(N_freq, n_windows_per_point, readout_len_ns, n_iter):
     # Queue up the exact number of requested measurements in the quantum machine,
     # so the measure_odmr can resume exeactly as many times as it needs
 
     with program() as odmr_counts:
-        times = declare(int, size=10000)
+        times = declare(int, size=10000) # should size=N_freq*n_iter?
         counts = declare(int)
         total_counts = declare(int)
 
@@ -119,26 +118,9 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
     counts_handle = job.result_handles.get("counts")
     seen=0
 
-    # TODO: make the print "at freq" happen 10 times total, based on the length of the freqs array
     num_printouts = 5
     printout_factor = len(freqs) // num_printouts
-    # print("printing out every " + str(printout_factor) + " frequencies")
 
-    # kcps = []
-    # for f in freqs:
-    #     if (seen % printout_factor == 0):
-    #         print("at freq " + str(f/10**9) + "GHz; "+ str(seen/printout_factor*num_printouts) + "% done", end='\r')
-    #     sg.write(f"FREQ {float(f)}")
-    #     time.sleep(dwell)
-    #     job.resume()
-    #     counts_handle.wait_for_values(seen + 1)
-    #     # print('count seen')
-    #     all_counts = counts_handle.fetch_all()["value"]
-    #     kcps.append((all_counts[seen] / point_duration_s) / 1000)
-    #     seen += 1
-    # return kcps
-
-    # TODO: use below code to make use of n_iter
     kcps_overall = np.empty((n_iter, freqs.size))
     for i in range(n_iter):
         print("Iteration " + str(i))
@@ -165,18 +147,17 @@ def main():
     # Parameters
     # -------------------------
     readout_len_ns = int(50 * u.us) # 50 us is near the max with a 0ND filtering on the 5mW laser (I think)
-    n_windows_per_point = 50 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
-    amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
+    n_windows_per_point = 200 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
+    amp_dbm = -20 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
+    # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
-    dwell =  0.001 # seconds I guess (previously was 0.001)
-
-    n_iter = 10
-
+    dwell =  0.001 # seconds I guess (previously was 0.01)
+    n_iter = 1
     # frequency parameters
     f_center = 2.88e9 # Hz, generally near 2.87GHz
-    span = 0.4e9 # Hz, range of frequencies to sample
-    N = 101 # num points in the frequency space to sample
+    span = 0.6e9 # Hz, range of frequencies to sample
+    N = 201 # num points in the frequency space to sample
 
     # connect to RF src
     sg = cs.connect_sg386(sg_resource)
@@ -199,34 +180,28 @@ def main():
         counts = measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter)
     finally:
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
+
+
     plot_odmr(freqs, counts)
-    now = datetime.datetime.now()
 
-    script_path = Path(__file__).resolve()
-    project_root = script_path.parent.parent.parent
-
-    datestamp = now.strftime("%Y-%m-%d")
-    timestamp = now.strftime("%H-%M-%S")
-
-    # Combine script directory with your desired data path
-    directory = os.path.join(project_root, "NVCFM_Data", datestamp)
-
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    save_path = os.path.join(directory, f"cw_odmr_{timestamp}.npz")
-    print(f"Saved as: cw_odmr_{timestamp}.npz")
-    np.savez(save_path, x=freqs, y=counts)
+    # Save data in folder with its date
+    save_odmr_measurement(counts, freqs)
 
     # TODO: calculate the following and print
     #   1. the space betweeen dips in Hz (magnetic field)
     #   2. the width of dips (FWHM) in Hz (Rabi smth)
     #   3. the background counts in cps (idk what this tells us)
-    # TODO: Look at the ../cw_odmr/ODMR.py file, perhaps copy things
-    #  from there or just make use of it directly idk.
 
     # Calculating space between dips
+    max_peaks = 2
+    popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+    Lfit.print_dip_params(popt)
+    # Since above fn is working, I can change the relevant passage to determine space between dips
 
-    
+
+    Lfit.print_SNR(baseline, counts, freqs/10**9, popt)
+    Lfit.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+
+
 if __name__ == "__main__":
     main()

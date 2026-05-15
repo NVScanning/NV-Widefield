@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from pathlib import Path
+import Lorentzian_fit as Lfit
 
 """
 this file is to read npy/z files created by cw_odmr
@@ -11,15 +12,11 @@ Simply paste in the date and time of the file as it's stored in /NVCFM_Data/date
 
 note: measurements previous to 2026-05-13 at 15:02 only have cps data, not frequency stored
 ^ this means you don't have any x data, and filetype is different
-
-
-
 """
 
 
-
-date = "2026-05-13"
-time = "15-00-05"
+date = "2026-05-15"
+time = "11-25-17"
 
 
 
@@ -35,7 +32,6 @@ elif (date == "2026-05-13") & (time > "15-02-05"):
 script_path = Path(__file__).resolve()
 project_root = script_path.parent.parent.parent
 directory = os.path.join(project_root, "NVCFM_Data", date, "cw_odmr_" + time)
-# directory = "../NVCFM_Data" + "/" + date + "/cw_odmr" + time
 
 
 plt.figure(figsize=(8, 5))
@@ -53,3 +49,12 @@ plt.ylabel("kcps")
 plt.title("ODMR")
 plt.grid(True)
 plt.show()
+
+if (is_freq_saved):
+    freqs, counts = data["x"], data["y"]
+    max_peaks = 2
+
+    popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+    Lfit.print_dip_params(popt)
+    Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
+    Lfit.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)

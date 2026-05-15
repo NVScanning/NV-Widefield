@@ -9,19 +9,11 @@ from .. import connection_setup as cs
 
 """
 Toggles RF on for 20 seconds (I think) 
+
+tbh I don't really get the pont of this, maybe it was unfinished
 """
 
 
-# def connect_sg386(resource: str, timeout_ms: int = 5000):
-#     rm = pyvisa.ResourceManager()
-#     sg = rm.open_resource(
-#         resource,
-#         write_termination="\n",
-#         read_termination="\n",
-#         timeout=timeout_ms,
-#     )
-#     print("Connected to sg386")
-#     return sg
 
 def toggle_rf_at_resonance(sg, amp_dbm: float = -12.0, enable: bool = True):
     f = 2.87e9
