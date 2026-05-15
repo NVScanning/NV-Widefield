@@ -22,6 +22,8 @@ import connection_setup as cs
 """
 This sweeps a range of RF frequencies, while kepeing 532nm light constant, and position constant
 
+This is made to work with the SPCM (single photon counting module) which is read by the QM (quantum machine)
+
 Note: 20kcounts is the limit for the SPCM, if you see this then decrease brightness or exposure time
 """
 
@@ -54,24 +56,54 @@ def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
 # QUA program
 # -------------------------
 
-def odmr_qua_program(N_freq, n_windows_per_point, readout_len_ns):
+# def odmr_qua_program(N_freq, n_windows_per_point, readout_len_ns):
+#     with program() as odmr_counts:
+#         times = declare(int, size=10000)
+#         counts = declare(int)
+#         total_counts = declare(int)
+#
+#         i = declare(int)
+#         k = declare(int)
+#         counts_st = declare_stream()
+#
+#         with for_(i, 0, i < N_freq, i + 1):
+#             pause()
+#             assign(total_counts, 0)
+#             with for_(k, 0, k < n_windows_per_point, k + 1):
+#                 measure( "readout", "SPCM", time_tagging.analog(times, readout_len_ns, counts))
+#                 assign(total_counts, total_counts + counts)
+#
+#             save(total_counts, counts_st)
+#
+#         with stream_processing():
+#             counts_st.save_all("counts")
+#
+#     return odmr_counts
+
+def odmr_qua_program(N_freq, n_windows_per_point, readout_len_ns, n_iter):
+    # Queue up the exact number of requested measurements in the quantum machine,
+    # so the measure_odmr can resume exeactly as many times as it needs
+
     with program() as odmr_counts:
         times = declare(int, size=10000)
         counts = declare(int)
         total_counts = declare(int)
-        
+
+        iteration = declare(int)  # Outer loop index
         i = declare(int)
         k = declare(int)
         counts_st = declare_stream()
-        
-        with for_(i, 0, i < N_freq, i + 1):
-            pause()
-            assign(total_counts, 0)
-            with for_(k, 0, k < n_windows_per_point, k + 1):
-                measure( "readout", "SPCM", time_tagging.analog(times, readout_len_ns, counts))
-                assign(total_counts, total_counts + counts)
 
-            save(total_counts, counts_st)
+        # Outer loop ensures the job doesn't finish until all iterations are done
+        with for_(iteration, 0, iteration < n_iter, iteration + 1):
+            with for_(i, 0, i < N_freq, i + 1):
+                pause()
+                assign(total_counts, 0)
+                with for_(k, 0, k < n_windows_per_point, k + 1):
+                    measure("readout", "SPCM", time_tagging.analog(times, readout_len_ns, counts))
+                    assign(total_counts, total_counts + counts)
+
+                save(total_counts, counts_st)
 
         with stream_processing():
             counts_st.save_all("counts")
@@ -88,41 +120,44 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
     seen=0
 
     # TODO: make the print "at freq" happen 10 times total, based on the length of the freqs array
-    num_printouts = 10
+    num_printouts = 5
     printout_factor = len(freqs) // num_printouts
     # print("printing out every " + str(printout_factor) + " frequencies")
 
-    kcps = []
-    for f in freqs:
-        if (seen % printout_factor == 0):
-            print("at freq " + str(f/10**9) + "GHz; "+ str(seen/printout_factor*num_printouts) + "% done")
-        sg.write(f"FREQ {float(f)}")
-        time.sleep(dwell)
-        job.resume()
-        counts_handle.wait_for_values(seen + 1)
-        # print('count seen')
-        all_counts = counts_handle.fetch_all()["value"]
-        kcps.append((all_counts[seen] / point_duration_s) / 1000)
-        seen += 1
-    return kcps
+    # kcps = []
+    # for f in freqs:
+    #     if (seen % printout_factor == 0):
+    #         print("at freq " + str(f/10**9) + "GHz; "+ str(seen/printout_factor*num_printouts) + "% done", end='\r')
+    #     sg.write(f"FREQ {float(f)}")
+    #     time.sleep(dwell)
+    #     job.resume()
+    #     counts_handle.wait_for_values(seen + 1)
+    #     # print('count seen')
+    #     all_counts = counts_handle.fetch_all()["value"]
+    #     kcps.append((all_counts[seen] / point_duration_s) / 1000)
+    #     seen += 1
+    # return kcps
 
-    # # TODO: use below code to make use of n_iter
-    # kcps_overall = np.empty((n_iter, freqs.size))
-    # for i in range(n_iter):
-    #
-    #     kcps=[]
-    #     for f in freqs:
-    #         sg.write(f"FREQ {float(f)}")
-    #         time.sleep(dwell)
-    #         job.resume()
-    #         counts_handle.wait_for_values(seen+1)
-    #         #print('count seen')
-    #         all_counts = counts_handle.fetch_all()["value"]
-    #         kcps.append(( all_counts[seen] / point_duration_s ) /1000 )
-    #         seen+=1
-    #     kcps_overall[i]=kcps
-    #
-    # return np.sum(kcps_overall,axis=0)
+    # TODO: use below code to make use of n_iter
+    kcps_overall = np.empty((n_iter, freqs.size))
+    for i in range(n_iter):
+        print("Iteration " + str(i))
+
+        kcps=[]
+        for f in freqs:
+            if (seen % printout_factor == 0):
+                # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
+                print("at freq " + str(f/10**9) + "GHz; "+ str(seen/(printout_factor*num_printouts*n_iter)*100) + "% done")
+            sg.write(f"FREQ {float(f)}")
+            time.sleep(dwell)
+            job.resume()
+            counts_handle.wait_for_values(seen+1)
+            all_counts = counts_handle.fetch_all()["value"]
+            kcps.append(( all_counts[seen] / point_duration_s ) /1000 )
+            seen+=1
+        kcps_overall[i]=kcps
+
+    return np.sum(kcps_overall,axis=0)/n_iter
 
 def main():
 
@@ -130,18 +165,18 @@ def main():
     # Parameters
     # -------------------------
     readout_len_ns = int(50 * u.us) # 50 us is near the max with a 0ND filtering on the 5mW laser (I think)
-    n_windows_per_point = 2000 # n readouts to increase certainty without hitting the SPCM limit of ~20K points
-    amp_dbm = -25 #anything bigger than -10 does nothing (Hayden)
+    n_windows_per_point = 50 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
+    amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
 
-    dwell =  0.01 # seconds I guess
+    dwell =  0.001 # seconds I guess (previously was 0.001)
 
-    n_iter = 1 # stub
+    n_iter = 10
 
     # frequency parameters
-    f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.5e9 # Hz, range of frequencies to sample
-    N = 201 # num points in the frequency space to sample
+    f_center = 2.88e9 # Hz, generally near 2.87GHz
+    span = 0.4e9 # Hz, range of frequencies to sample
+    N = 101 # num points in the frequency space to sample
 
     # connect to RF src
     sg = cs.connect_sg386(sg_resource)
@@ -151,7 +186,7 @@ def main():
     # -------------------------
     qmm = QuantumMachinesManager(host=qop_ip, port=qop_port, log_level="INFO")
     qm = qmm.open_qm(config)
-    prog = odmr_qua_program(N, n_windows_per_point, readout_len_ns)
+    prog = odmr_qua_program(N, n_windows_per_point, readout_len_ns, n_iter)
     job = qm.execute(prog)
 
     freqs, f_start, f_end = calc_freq_range(f_center, span, N)
@@ -159,7 +194,7 @@ def main():
     point_duration_s = (readout_len_ns * n_windows_per_point) / 1e9
 
     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
-    time.sleep(1)
+    time.sleep(0.1) # why sleep for a whole second? (previous was 1)
     try:
         counts = measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter)
     finally:

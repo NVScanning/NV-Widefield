@@ -11,6 +11,16 @@ from zhinst.toolkit import Session
 import sys
 sys.path.append(os.path.abspath(".."))
 from nv_setup import connection_setup as cs
+
+"""
+ODMR (optically detected magnetic resonance) measurement file
+
+can use AM, FM modulation or LSR(idk what this is)
+
+this is made to work with the lock-in amp (mfli)
+"""
+
+
 # ----------------------------
 # Connection helpers
 # ----------------------------
