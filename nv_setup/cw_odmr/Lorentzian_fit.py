@@ -34,30 +34,38 @@ def multi_lorentzian(f, *params):
     return y
 
 def guess_initial_params(freqs, vals, max_peaks=None):
-    peaks, props = find_peaks(-vals,threshold=5,prominence=15, distance=5)
+    # peaks, props = find_peaks(-vals,threshold=5,prominence=15, distance=5)
+    # print(f"Initially found {len(peaks)} peaks")
+    #
+    # if max_peaks is not None and len(peaks) > max_peaks:
+    #     prominences = -vals[peaks]
+    #     top_idx = np.argsort(prominences)[-max_peaks:]
+    #     peaks = peaks[top_idx]
+    #     peaks = peaks[np.argsort(peaks)]
 
-    if max_peaks is not None and len(peaks) > max_peaks:
-        prominences = -vals[peaks]
-        top_idx = np.argsort(prominences)[-max_peaks:]
-        peaks = peaks[top_idx]
-        peaks = peaks[np.argsort(peaks)]
+    c0 = vals[0]            # offset - used to be np.mean
+    c1 = 0.0                # slope value 0
 
-    c0 = np.median(vals)   # offset
-    c1 = 0.0                 # slope value 0
-
-    init_params = []
-    results_half = peak_widths(-vals, peaks, rel_height=0.5)
-    widths = results_half[0]
-
-    df = np.mean(np.diff(freqs))
-
-    for i, p in enumerate(peaks):
-        f0 = freqs[p]
-        amp = vals[p] - c0
-        w_idx = widths[i]
-        fwhm = w_idx * df
-        gamma = fwhm / 2.0 if fwhm > 0 else df*3
-        init_params.extend([amp, f0, gamma])
+    # init_params = []
+    # results_half = peak_widths(-vals, peaks, rel_height=0.5)
+    # widths = results_half[0]
+    #
+    # df = np.mean(np.diff(freqs))
+    #
+    # for i, p in enumerate(peaks):
+    #     f0 = freqs[p]
+    #     amp = vals[p] - c0
+    #     print("chose amp" + str(amp))
+    #     w_idx = widths[i]
+    #     fwhm = w_idx * df
+    #     gamma = fwhm / 2.0 if fwhm > 0 else df*3
+    #     init_params.extend([amp, f0, gamma])
+    middle_index = np.argmin(abs(freqs - 2.87))
+    # print(f"middle index: {middle_index} has frequency {freqs[middle_index]}")
+    peaks = [np.argmin(vals[0:middle_index-1]), middle_index+1+ np.argmin(vals[middle_index+1:])]
+    # print(f"peaks: {peaks}, with frequencies {freqs[peaks]}")
+    init_params = [-100,freqs[peaks[0]],0.01,-100,freqs[peaks[1]],0.01]
+    # print(f"init_params: {init_params}")
 
     init_params.extend([c0, c1])
     return np.array(init_params), peaks
@@ -65,14 +73,15 @@ def guess_initial_params(freqs, vals, max_peaks=None):
 def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
     p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
     # print(f"guessed initial peaks to be at {freqs[peaks]}GHz")
+    # print(f"guessed initial params: {p0}")
     n_peaks = (len(p0) - 2) // 3
 
     lower = []
     upper = []
     for i in range(n_peaks):
         A0, f0, g0 = p0[3*i:3*i+3]
-        lower += [A0*3, f0 - 0.02, 0]
-        upper += [0,     f0 + 0.02, (freqs.max()-freqs.min())]
+        lower += [-abs(A0*3), f0 - 0.02, 0] # changed lower bound of amp to be explicitly negative
+        upper += [0,          f0 + 0.02, (freqs.max()-freqs.min())]
 
     # c0, c1 bounds
     c0, c1 = p0[-2], p0[-1]

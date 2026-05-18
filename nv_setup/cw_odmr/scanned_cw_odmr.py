@@ -48,6 +48,7 @@ sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
 # -------------------------
 def measure_all_points(sg, job, x_motor, y_motor, x_points, y_points, freqs, dwell, point_duration_s, n_iter=1):
     # TODO: implement n_iter expansion
+    # TODO: make it plot the image as it progresses
 
     counts_handle = job.result_handles.get("counts")
     seen=0
@@ -74,6 +75,9 @@ def measure_all_points(sg, job, x_motor, y_motor, x_points, y_points, freqs, dwe
                 kcps.append(( all_counts[seen] / point_duration_s ) /1000 )
                 seen+=1
             kcps_overall[x_ind,y_ind,:]=kcps
+
+            # freq_deltas_temp, problem_points_temp = counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
+            # plot_image(x_points, y_points, freq_deltas_temp)
 
     return kcps_overall
 
@@ -134,7 +138,6 @@ def save_odmr_measurement(x_points, y_points, freqs, freq_deltas, counts_2D):
     print(f"Saved as: scanned_cw_odmr_{timestamp}.npz")
     np.savez(save_path, x=x_points, y=y_points, f=freqs, deltas=freq_deltas, odmrs=counts_2D)
 
-#
 
 def main():
     # -------------------------
@@ -148,12 +151,12 @@ def main():
     dwell = 0.001  # s
     n_iter = 1 # n_iter not implemented yet, default value is 1
 
-    f_center = 2.88e9 # Hz, generally near 2.87GHz
+    f_center = 2.87e9 # Hz, generally near 2.87GHz
     f_span = 0.1e9 # Hz, range of frequencies to sample
     f_N = 51 # num points in the frequency space to sample
 
     # position parameters
-    x_center,y_center = 4,0.1 # center of measurement
+    x_center,y_center = 3.9,0.1 # center of measurement
     # (idk if negative "absolute" values are a problem or not) Total travel range is 8mm though
     # It seems like the 0 point is set by the homing sequence, where it reaches the limit of the reading sensor
     x_span, y_span = 0.2,0.2 # range in each axis to sample

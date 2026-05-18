@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import os
 from pathlib import Path
 import Lorentzian_fit as Lfit
+import scanned_cw_odmr as scwodmr
 
 """
 this file is to read npy/z files created by cw_odmr
@@ -17,8 +18,8 @@ note: scanned odmrs from may 15, 2026 don't have the odmrs saved only the freque
 """
 
 # Params to change
-date = "2026-05-15"
-time = "11-25-17"
+date = "2026-05-18"
+time = "14-24-06"
 scanned_measurement = True
 
 
@@ -91,7 +92,7 @@ else:
     counts_2D = data["odmrs"]
 
     # Enable interactive mode so plt.show() doesn't freeze the script
-    plt.ion()
+    # plt.ion()
 
     # --- Your existing plotting code ---
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -117,6 +118,7 @@ else:
     print(f"Available X indices: 0 to {len(x_points) - 1}")
     print(f"Available Y indices: 0 to {len(y_points) - 1}")
     print("Type 'exit' to quit.")
+    print("Type 'reanalyze' to re-analyze image from saved odmrs")
     print("=" * 40)
 
     while True:
@@ -127,6 +129,14 @@ else:
         if user_input.lower() == "exit":
             print("Exiting interaction loop.")
             break
+        if user_input.lower() == "reanalyze":
+            print("Reanalyzing, will write new file")
+
+            freq_deltas, problem_points = scwodmr.counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
+            print("following indices couldn't fit properly:")
+            print(problem_points)
+            scwodmr.plot_image(x_points, y_points, freq_deltas)
+            scwodmr.save_odmr_measurement(x_points, y_points, freqs, freq_deltas, counts_2D)
 
         try:
             # Parse the input string into integers
@@ -148,20 +158,30 @@ else:
             odmr_spectrum = counts_2D[x_ind, y_ind, :]
 
             # Open a new window for the 1D spectrum so the map stays visible
-            plt.figure()
-            plt.plot(freqs / 1e9, odmr_spectrum, "o-", color="crimson")
-            plt.xlabel("Frequency (GHz)")
-            plt.ylabel("Counts (kcps)")
-            plt.title(
-                f"1D ODMR Spectrum at Pixel ({x_ind}, {y_ind}) | X={x_points[x_ind]:.3f}, Y={y_points[y_ind]:.3f}"
-            )
-            plt.grid(True)
-            plt.draw()
-            plt.pause(0.001)
+            # plt.figure()
+            # plt.plot(freqs / 1e9, odmr_spectrum, "o-", color="crimson")
+            # plt.xlabel("Frequency (GHz)")
+            # plt.ylabel("Counts (kcps)")
+            # plt.title(
+            #     f"1D ODMR Spectrum at Pixel ({x_ind}, {y_ind}) | X={x_points[x_ind]:.3f}, Y={y_points[y_ind]:.3f}"
+            # )
+            # plt.grid(True)
+            # plt.draw()
+            # plt.pause(0.001)
+
+
+            counts = counts_2D[x_ind,y_ind]
+            max_peaks = 2
+            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+            print("analyzed data")
+            Lfit.print_dip_params(popt)
+            # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+            # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
+            Lfit.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
 
         except ValueError:
             print(
-                "Invalid format. Please enter two integers separated by a comma (e.g., 2, 4)."
+                "Invalid format. Please enter two integers separated by a comma (e.g., '2, 4')."
             )
 
     # Turn off interactive mode and keep windows open at the very end
