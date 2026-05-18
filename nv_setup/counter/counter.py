@@ -20,9 +20,9 @@ Used for optical alignment of laser path as well as of the NV itself
 # -------------------------
 single_integration_time_ns = int(50 * u.us)   # 50 us time-tagging window
 n_windows_per_point = 2000                    # 2000 * 50 us = 100 ms per plotted point
-num_mins = 60
+num_mins = 2
 num_points = 300*num_mins # 300 points is ~ 1 minute with 0.1 pause
-save_fig = True
+save_fig = False
 
 # -------------------------
 # QUA program
@@ -68,6 +68,7 @@ t_list, kcps_list = [], []
 fig = plt.figure()
 interrupt_on_close(fig, job)
 
+
 while res_handles.is_processing():
 
 
@@ -100,11 +101,11 @@ while res_handles.is_processing():
     t_list.append(new_counts["timestamp"] / u.s)  # Convert timestamps to seconds
 
     plt.cla()
-    plt.plot(t_list[-num_points:], kcps_list[-num_points:]) if len(t_list) > num_points else plt.plot(t_list, kcps_list)
     plt.xlabel("time [s]")
     plt.ylabel("counts [kcps]")
     # plt.ylim(17500,17600) # for debugging, remove
     plt.title("SPCM Counter")
+    plt.plot(t_list[-num_points:], kcps_list[-num_points:]) if len(t_list) > num_points else plt.plot(t_list, kcps_list)
     plt.pause(0.1)
 
 print(f"Average: {np.average(kcps_list)}")

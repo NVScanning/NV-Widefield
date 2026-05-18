@@ -139,7 +139,7 @@ def print_SNR(baseline: Any, counts, freqs, popt):
     dip_params = popt[:3 * n_dips].reshape(n_dips, 3)
     off_mask = np.ones_like(freqs, dtype=bool)
 
-    k_exclude = 3.0
+    k_exclude = 2.0  # was previously 3.0
     for A, f0, gamma in dip_params:
         FWHM = 2.0 * gamma
         off_mask &= (np.abs(freqs - f0) > (k_exclude * FWHM))
@@ -148,7 +148,7 @@ def print_SNR(baseline: Any, counts, freqs, popt):
         raise ValueError("Off-resonance region too small. Decrease k_exclude or widen sweep range.")
 
     sigma = np.std(noise_signal[off_mask], ddof=1)
-    print("sigma of background : ", sigma)
+    print("sigma of background : ", sigma, " kcps")
 
     snrs = []
     for i, (A, f0, gamma) in enumerate(dip_params, start=1):

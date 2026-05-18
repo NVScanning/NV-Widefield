@@ -30,6 +30,7 @@ import connection_setup as cs
 import Lorentzian_fit as Lfit
 import QUA_interface as QUAi
 
+#TODO: modify code to be able to sweep z as well, and I simply choose the axes I want to sweep through
 
 # -------------------------
 # Constants
@@ -80,9 +81,10 @@ def measure_all_points(sg, job, x_motor, y_motor, x_points, y_points, freqs, dwe
 # ODMR analysis
 # -------------------------
 def counts_to_delta_freq(x_points, y_points, counts_2D, freqs):
-    # TODO: use methods from Lorentzian_fit.py to implement this
 
     delta_freqs = np.zeros((len(x_points), len(y_points)), dtype=float)
+    # TODO: would be nice to tag the pixels that had problems with the autofit
+    problem_points = []
 
     # something similar to:
     for x_ind in range(len(x_points)):
@@ -98,7 +100,8 @@ def counts_to_delta_freq(x_points, y_points, counts_2D, freqs):
                 delta_freqs[x_ind,y_ind] = dip_Freqs[1] - dip_Freqs[0]
             else:
                 delta_freqs[x_ind, y_ind] = 0 # if you didn't get 2 dips there's no delta ig
-    return delta_freqs
+                problem_points.append((x_ind, y_ind))
+    return delta_freqs, problem_points
 
 # -------------------------
 # Image plotting
@@ -118,7 +121,7 @@ def plot_image(x_points, y_points, freq_deltas_2D):
 # -------------------------
 # Saving
 # -------------------------
-def save_odmr_measurement(x_points, y_points, freqs, freq_deltas):
+def save_odmr_measurement(x_points, y_points, freqs, freq_deltas, counts_2D):
     now = datetime.datetime.now()
     datestamp = now.strftime("%Y-%m-%d")
     timestamp = now.strftime("%H-%M-%S")
@@ -129,7 +132,7 @@ def save_odmr_measurement(x_points, y_points, freqs, freq_deltas):
         os.makedirs(directory)
     save_path = os.path.join(directory, f"scanned_cw_odmr_{timestamp}.npz")
     print(f"Saved as: scanned_cw_odmr_{timestamp}.npz")
-    np.savez(save_path, x=x_points, y=y_points, f=freqs, deltas=freq_deltas)
+    np.savez(save_path, x=x_points, y=y_points, f=freqs, deltas=freq_deltas, odmrs=counts_2D)
 
 #
 
@@ -139,18 +142,20 @@ def main():
     # -------------------------
     # photo counts parameters
     readout_len_ns = int(50 * u.us)  # readout in ns
-    n_windows_per_point = 5  # tbh idk what this does other than just increase the value of readout eln ^
+    n_windows_per_point = 50 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
     amp_dbm = -20
 
     dwell = 0.001  # s
-    n_iter = 1
+    n_iter = 1 # n_iter not implemented yet, default value is 1
 
     f_center = 2.88e9 # Hz, generally near 2.87GHz
     f_span = 0.1e9 # Hz, range of frequencies to sample
-    f_N = 21 # num points in the frequency space to sample
+    f_N = 51 # num points in the frequency space to sample
 
     # position parameters
-    x_center,y_center = 4,4 # center of measurement
+    x_center,y_center = 4,0.1 # center of measurement
+    # (idk if negative "absolute" values are a problem or not) Total travel range is 8mm though
+    # It seems like the 0 point is set by the homing sequence, where it reaches the limit of the reading sensor
     x_span, y_span = 0.2,0.2 # range in each axis to sample
     x_N, y_N = 20,20 # num points in each axis to sample
 
@@ -184,11 +189,13 @@ def main():
     finally:
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
 
-    freq_deltas = counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
+    freq_deltas, problem_points = counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
+    print("following indices couldn't fit properly:")
+    print(problem_points)
     plot_image(x_points, y_points, freq_deltas)
-    save_odmr_measurement(x_points, y_points, freqs, freq_deltas)
+    save_odmr_measurement(x_points, y_points, freqs, freq_deltas, counts_2D)
 
-    # TODO: save freq_deltas + axes
+    # TODO: save the whole count array as well
 
 if __name__ == "__main__":
     main()

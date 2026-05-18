@@ -125,16 +125,22 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
         print("Iteration " + str(i))
 
         kcps=[]
-        for f in freqs:
+        # TODO: potentially make it go backwards in frequencies as well, to eliminate any linear temporal effects
+        for j,f in enumerate(freqs):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print("at freq " + str(f/10**9) + "GHz; "+ str(seen/(printout_factor*num_printouts*n_iter)*100) + "% done")
+                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts*n_iter)*100:.1f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             job.resume()
             counts_handle.wait_for_values(seen+1)
             all_counts = counts_handle.fetch_all()["value"]
-            kcps.append(( all_counts[seen] / point_duration_s ) /1000 )
+            # print("at freq " + str(f/10**9) + "GHz")
+            # print(all_counts[j*50:(j+1)*50-1])
+            # print("len is " + str(len(all_counts)))
+            # print(all_counts)
+            # print(f"counts: {all_counts[seen]}, point duration: {point_duration_s}s, cps: {( all_counts[seen] / point_duration_s )}")
+            kcps.append(( all_counts[seen] / point_duration_s ) /1000 ) # maybe need to index at seen+1?
             seen+=1
         kcps_overall[i]=kcps
 
@@ -146,17 +152,17 @@ def main():
     # Parameters
     # -------------------------
     readout_len_ns = int(50 * u.us) # 50 us is near the max with a 0ND filtering on the 5mW laser (I think)
-    n_windows_per_point = 5 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
+    n_windows_per_point = 50 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
     amp_dbm = -20 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
-    dwell =  0.001 # seconds I guess (previously was 0.01)
+    dwell =  0.001 # seconds - time between setting a frequency on fn generator and reading value
     n_iter = 1
     # frequency parameters
-    f_center = 2.88e9 # Hz, generally near 2.87GHz
-    span = 0.3e9 # Hz, range of frequencies to sample
-    N = 21 # num points in the frequency space to sample
+    f_center = 2.87e9 # Hz, generally near 2.87GHz
+    span = 0.15e9 # Hz, range of frequencies to sample
+    N = 51 # num points in the frequency space to sample
 
     # connect to RF src
     sg = cs.connect_sg386(sg_resource)

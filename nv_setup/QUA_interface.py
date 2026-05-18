@@ -10,7 +10,7 @@ def odmr_qua_program(num_points, n_windows_per_point, readout_len_ns):
     # so the measure_odmr can resume exeactly as many times as it needs
 
     with program() as odmr_counts:
-        times = declare(int, size=10000) # should size=N_freq*n_iter?
+        times = declare(int, size=10000) # should size=num_points*n_windows_per_point?
         counts = declare(int)
         total_counts = declare(int)
 
@@ -27,7 +27,7 @@ def odmr_qua_program(num_points, n_windows_per_point, readout_len_ns):
                 measure("readout", "SPCM", time_tagging.analog(times, readout_len_ns, counts))
                 assign(total_counts, total_counts + counts)
 
-                save(total_counts, counts_st)
+            save(total_counts, counts_st)
 
         with stream_processing():
             counts_st.save_all("counts")
