@@ -74,40 +74,6 @@ def save_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
     print(f"Saved as: cw_odmr_{timestamp}.npz")
     np.savez(save_path, x=freqs, y=counts)
 
-#
-# # -------------------------
-# # QUA program
-# # -------------------------
-#
-# def odmr_qua_program(num_points, n_windows_per_point, readout_len_ns):
-#     # Queue up the exact number of requested measurements in the quantum machine,
-#     # so the measure_odmr can resume exeactly as many times as it needs
-#
-#     with program() as odmr_counts:
-#         times = declare(int, size=10000) # should size=N_freq*n_iter?
-#         counts = declare(int)
-#         total_counts = declare(int)
-#
-#         iteration = declare(int)  # Outer loop index
-#         i = declare(int)
-#         k = declare(int)
-#         counts_st = declare_stream()
-#
-#         # Outer loop ensures the job doesn't finish until all iterations are done
-#         with for_(i, 0, i < num_points, i + 1):
-#             pause()
-#             assign(total_counts, 0)
-#             with for_(k, 0, k < n_windows_per_point, k + 1):
-#                 measure("readout", "SPCM", time_tagging.analog(times, readout_len_ns, counts))
-#                 assign(total_counts, total_counts + counts)
-#
-#                 save(total_counts, counts_st)
-#
-#         with stream_processing():
-#             counts_st.save_all("counts")
-#
-#     return odmr_counts
-
 # -------------------------
 # Frequency sweep
 # -------------------------
@@ -120,7 +86,7 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
     num_printouts = 5
     printout_factor = len(freqs) // num_printouts
 
-    kcps_overall = np.empty((n_iter, freqs.size))
+    kcps_overall = np.zeros((n_iter*2, freqs.size))
     for i in range(n_iter):
         print("Iteration " + str(i))
 
@@ -143,6 +109,24 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
             kcps.append(( all_counts[seen] / point_duration_s ) /1000 ) # maybe need to index at seen+1?
             seen+=1
         kcps_overall[i]=kcps
+        kcps=[]
+        for j,f in enumerate(freqs[::-1]):
+            if (seen % printout_factor == 0):
+                # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
+                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts*n_iter)*100:.1f}% done")
+            sg.write(f"FREQ {float(f)}")
+            time.sleep(dwell)
+            job.resume()
+            counts_handle.wait_for_values(seen+1)
+            all_counts = counts_handle.fetch_all()["value"]
+            # print("at freq " + str(f/10**9) + "GHz")
+            # print(all_counts[j*50:(j+1)*50-1])
+            # print("len is " + str(len(all_counts)))
+            # print(all_counts)
+            # print(f"counts: {all_counts[seen]}, point duration: {point_duration_s}s, cps: {( all_counts[seen] / point_duration_s )}")
+            kcps.append(( all_counts[seen] / point_duration_s ) /1000 ) # maybe need to index at seen+1?
+            seen+=1
+        kcps_overall[i]=kcps[::-1]
 
     return np.sum(kcps_overall,axis=0)/n_iter
 

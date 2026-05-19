@@ -19,6 +19,11 @@
 # plot the (now-filled) 2D array of values as an image
 # when imaging bulk diamond this should be pretty much constant
 
+# TODO: problem of converting odmr to B field:
+# when I first measure, I take each individual ODMR and get the B measured, and average over the n_iter
+# when I read a scan, all the odmrs have been averaged, so when I get the B measured it's only from this one
+# problem is: idk if there's a difference/which one is better if there is
+
 from qm import QuantumMachinesManager
 from config import *
 import matplotlib.pyplot as plt
@@ -49,51 +54,54 @@ gamma_e = 28.02 #GHz/T linear term in zeeman splitting for NV centres
 # X&Y sweep
 # -------------------------
 def measure_all_points(sg, job, x_motor, y_motor, x_points, y_points, freqs, dwell, point_duration_s, n_iter=1):
-    # TODO: implement n_iter expansion
-    # TODO: make it plot the image as it progresses
 
     counts_handle = job.result_handles.get("counts")
     seen=0
-    kcps_overall = np.zeros((len(x_points), len(y_points), len(freqs)), dtype=float) # create empty array
-    B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)  # create empty array
+    kcps_overall = np.zeros((n_iter, len(x_points), len(y_points), len(freqs)), dtype=float) # create empty array
+    B_Z_overall = np.zeros((n_iter, len(x_points), len(y_points)), dtype=float)  # create empty array
     problem_points = []
 
 
     num_printouts = 10
     printout_factor = len(freqs) * len(x_points) * len(y_points) // num_printouts
-    x_motor.move_to(x_points[0])
-    y_motor.move_to(y_points[0])
-    time.sleep(1) # give 1s to move to starting position
-    for (x_ind,x) in enumerate(x_points):
-        for (y_ind,y) in enumerate(y_points):
-            # move to (x,y) position and measure an ODMR
-            # print(f"trying to move to (x,y)=({x},{y}) using indices:{x_ind},{y_ind}")
-            x_motor.move_to(x)
-            y_motor.move_to(y)
-            time.sleep(dwell)
-            kcps=[]
-            for f in freqs:
-                if (seen % printout_factor == 0):
-                    # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                    print(f"at position (x,y)=({x},{y}); {seen/(printout_factor*num_printouts*n_iter)*100}% done")
-                sg.write(f"FREQ {float(f)}")
+
+
+    for i in range(n_iter):
+        x_motor.move_to(x_points[0])
+        y_motor.move_to(y_points[0])
+        time.sleep(1) # give 1s to move to starting position
+        for (x_ind,x) in enumerate(x_points):
+            for (y_ind,y) in enumerate(y_points):
+                # move to (x,y) position and measure an ODMR
+                # print(f"trying to move to (x,y)=({x},{y}) using indices:{x_ind},{y_ind}")
+                x_motor.move_to(x)
+                y_motor.move_to(y)
                 time.sleep(dwell)
-                job.resume()
-                counts_handle.wait_for_values(seen+1)
-                all_counts = counts_handle.fetch_all()["value"]
-                kcps.append(( all_counts[seen] / point_duration_s ) /1000 )
-                seen+=1
-            kcps_overall[x_ind,y_ind,:]=kcps
-            delta_freq = odmr_to_delta_freq(kcps, freqs) # in GHz
-            B_Z = delta_freq / (2*gamma_e) # in T
-            B_Z_overall[x_ind,y_ind]=B_Z
-            if delta_freq == 0:
-                # had problem fitting
-                problem_points.append((x_ind, y_ind))
+                kcps=[]
+                for f in freqs:
+                    if (seen % printout_factor == 0):
+                        # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
+                        print(f"at position (x,y)=({x},{y}); {seen/(printout_factor*num_printouts*n_iter)*100}% done")
+                    sg.write(f"FREQ {float(f)}")
+                    time.sleep(0.01)
+                    job.resume()
+                    counts_handle.wait_for_values(seen+1)
+                    all_counts = counts_handle.fetch_all()["value"]
+                    kcps.append(( all_counts[seen] / point_duration_s ) /1000 )
+                    seen+=1
+                kcps_overall[i,x_ind,y_ind,:]=np.array(kcps)
+                delta_freq = odmr_to_delta_freq(np.array(kcps)  , freqs) # in GHz
+                B_Z = delta_freq / (2*gamma_e) # in T
+                B_Z_overall[i,x_ind,y_ind]=B_Z
+                if delta_freq == 0:
+                    # had problem fitting
+                    problem_points.append((x_ind, y_ind))
+                plot_image(x_points, y_points, np.sum(B_Z_overall, axis=0)/i)
 
-            # freq_deltas_temp, problem_points_temp = counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
-            # plot_image(x_points, y_points, freq_deltas_temp)
+                # freq_deltas_temp, problem_points_temp = counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
+                # plot_image(x_points, y_points, freq_deltas_temp)
 
+    return np.sum(kcps_overall,axis=0)/n_iter, np.sum(B_Z_overall, axis=0)/n_iter, problem_points
     return kcps_overall, B_Z_overall, problem_points
 
 # -------------------------
@@ -126,19 +134,7 @@ def counts_to_delta_freq(x_points, y_points, counts_2D, freqs):
             if delta_freq == 0:
                 # had problem fitting
                 problem_points.append((x_ind, y_ind))
-            # counts = counts_2D[x_ind,y_ind]
-            # max_peaks = 2
-            # popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
-            # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
-            # # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
-            # # Lfit.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
-            # if (len(dip_Freqs) == 2):
-            #     # need exactly 2 dips to get the difference between the two
-            #     delta_freqs[x_ind,y_ind] = dip_Freqs[1] - dip_Freqs[0]
-            # else:
-            #     delta_freqs[x_ind, y_ind] = 0 # if you didn't get 2 dips there's no delta ig
-            #     problem_points.append((x_ind, y_ind))
-    return B_Z_overall, problem_points
+    return B_Z_overall, problem_points\
 
 # -------------------------
 # Image plotting
@@ -181,19 +177,19 @@ def main():
     n_windows_per_point = 50 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
     amp_dbm = -5
 
-    dwell = 0.001  # s
-    n_iter = 1 # n_iter not implemented yet, default value is 1
+    dwell = 0.2  # s/mm
+    n_iter = 2 # n_iter not implemented yet, default value is 1
 
     f_center = 2.87e9 # Hz, generally near 2.87GHz
     f_span = 0.15e9 # Hz, range of frequencies to sample
     f_N = 51 # num points in the frequency space to sample
 
     # position parameters
-    x_center,y_center = 4.0,3.0 # center of measurement
+    x_center,y_center = 4.8,3.8 #mm, center of measurement
     # centering on an edge, ~x,y=3.8,2.8 is a corner, more positive x and y are the top surface
     # the motor positions are in absolute value set by the homing sequence. Total travel range is 8mm
     # so the x,y points must all be between 0,8
-    x_span, y_span = 1,1 # range in each axis to sample
+    x_span, y_span = 2,2 #mm,  range in each axis to sample
     x_N, y_N = 20,20 # num points in each axis to sample
 
     # sample name
@@ -222,7 +218,7 @@ def main():
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
     try:
         # Note: it is currently set up to measure all the cw_ODMRs, then convert each of them after the fact
-        counts_2D, B_Z_overall, problem_points = measure_all_points(sg, job, x_motor, y_motor, x_points, y_points, freqs, dwell, point_duration_s, n_iter=n_iter)
+        counts_2D, B_Z_overall, problem_points = measure_all_points(sg, job, x_motor, y_motor, x_points, y_points, freqs, dwell*y_span, point_duration_s, n_iter=n_iter)
     finally:
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
 
@@ -231,8 +227,6 @@ def main():
     print(problem_points)
     plot_image(x_points, y_points, B_Z_overall)
     save_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
-
-    # TODO: save the whole count array as well
 
 if __name__ == "__main__":
     main()

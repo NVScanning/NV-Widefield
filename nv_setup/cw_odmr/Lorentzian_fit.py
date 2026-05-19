@@ -99,7 +99,7 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
         )
         return popt, pcov, peaks
     except:
-        print("Couldn't curve_fit, returning find_peaks vals with 0 uncertainty")
+        print("Couldn't curve_fit, returning guessed vals with 0 uncertainty")
         return p0, np.zeros_like(p0), peaks
 
 
@@ -138,7 +138,7 @@ def print_dip_params(popt):
         print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1e3:.2f} MHz, Contrast = {C * 100:.3f}%")
     for i in range(len(dip_Freqs)-1):
         # this tells us abt magnetic field
-        print(f"Frequency delta is {(dip_Freqs[i+1]-dip_Freqs[i])*1000}MHz")
+        print(f"Frequency delta is {(dip_Freqs[i+1]-dip_Freqs[i])*1000}MHz, equivalent to {(dip_Freqs[i+1]-dip_Freqs[i])/56.04}T")
     return contrasts, FWHMs, dip_Freqs
 
 def print_SNR(baseline: Any, counts, freqs, popt):

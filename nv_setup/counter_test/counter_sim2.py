@@ -10,8 +10,8 @@ from qm import LoopbackInterface
 ###################
 
 total_integration_time = int(100 * u.ms)  # 100ms
-# TODO: why is it called _ns if it's in us?
-single_integration_time_ns = int(50 * u.us)  # 500us #TODO: is this actually 50 us?
+# u.__ is in nanoseconds, so it does conversion from ms or us
+single_integration_time_ns = int(50 * u.us)
 single_integration_time_cycles = single_integration_time_ns // 4
 n_count = int(total_integration_time / single_integration_time_ns)
 

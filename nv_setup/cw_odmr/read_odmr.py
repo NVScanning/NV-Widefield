@@ -17,12 +17,12 @@ note: measurements previous to 2026-05-13 at 15:02 only have cps data, not frequ
 ^ this means you don't have any x data, and filetype is different
 
 note: scanned odmrs from may 15, 2026 don't have the odmrs saved only the frequency deltas 
-note: scanned odmrs previous to 2026-05-19 at 11:00 have freq delta data not B data
+note: scanned odmrs previous to 2026-05-19 at 10:47 have freq delta data not B data
 """
 
 # Params to change
 date = "2026-05-19"
-time = "05-36-49"
+time = "13-41-00"
 
 
 
