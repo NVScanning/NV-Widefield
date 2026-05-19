@@ -153,11 +153,11 @@ def main():
     # -------------------------
     readout_len_ns = int(50 * u.us) # 50 us is near the max with a 0ND filtering on the 5mW laser (I think)
     n_windows_per_point = 50 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
-    amp_dbm = -20 #anything bigger than -10 does nothing (Hayden)
+    amp_dbm = -5 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
-    dwell =  0.001 # seconds - time between setting a frequency on fn generator and reading value
+    dwell =  0.01 # seconds - time between setting a frequency on fn generator and reading value
     n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
@@ -209,8 +209,11 @@ def main():
 
     # Since above fn is working, I can change the relevant passage to determine space between dips
 
-
-    Lfit.print_SNR(baseline, counts, freqs/10**9, popt)
+    try:
+        Lfit.print_SNR(baseline, counts, freqs/10**9, popt)
+    except ValueError as e:
+        # do nothing cuz printing snr didnt work
+        print("getting SNR failed" + str(e))
     Lfit.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
 
 

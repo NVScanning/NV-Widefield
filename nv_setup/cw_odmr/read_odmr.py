@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from os import listdir
+from os.path import isfile, join
 from pathlib import Path
 import Lorentzian_fit as Lfit
 import scanned_cw_odmr as scwodmr
@@ -15,19 +17,26 @@ note: measurements previous to 2026-05-13 at 15:02 only have cps data, not frequ
 ^ this means you don't have any x data, and filetype is different
 
 note: scanned odmrs from may 15, 2026 don't have the odmrs saved only the frequency deltas 
+note: scanned odmrs previous to 2026-05-19 at 11:00 have freq delta data not B data
 """
 
 # Params to change
-date = "2026-05-18"
-time = "14-24-06"
-scanned_measurement = True
+date = "2026-05-19"
+time = "05-36-49"
 
-
-# TODO: add reading for scanned odmrs, maybe the option to select a pixel or smth idk
 
 
 script_path = Path(__file__).resolve()
 project_root = script_path.parent.parent.parent
+directory = os.path.join(project_root, "NVCFM_Data", date)
+onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))] # list of strings of filenames
+
+
+match = [item for item in onlyfiles if "cw_odmr_" + time in item]
+# assume only one file has the exact same time to the second
+scanned_measurement = False
+if match[0].startswith("scanned"):
+    scanned_measurement = True
 
 if (not scanned_measurement):
 
@@ -39,17 +48,17 @@ if (not scanned_measurement):
     elif (date == "2026-05-13") & (time > "15-02-05"):
         is_freq_saved = True
 
-    directory = os.path.join(project_root, "NVCFM_Data", date, "cw_odmr_" + time)
+    filepath = os.path.join(project_root, "NVCFM_Data", date, "cw_odmr_" + time)
 
 
     plt.figure(figsize=(8, 5))
 
     if (is_freq_saved):
-        data = np.load(directory + ".npz") # npy for old, npz for new measurements
+        data = np.load(filepath + ".npz") # npy for old, npz for new measurements
         plt.plot(data["x"]/10**9,data["y"], "-o", markersize=2) # uncomment for measurements after 2026-05-13 at 15 hours
         plt.xlabel("Frequency (GHz)") # uncomment for measurements after 2026-05-13 at 15 hours
     else:
-        data = np.load(directory + ".npy") # npy for old, npz for new measurements
+        data = np.load(filepath + ".npy") # npy for old, npz for new measurements
         plt.plot(data, "-o", markersize=2) # uncomment for measurements previous to 2026-05-13 at 15 hours
         plt.xlabel("index (frequency isn't saved)") # uncomment for measurements previous to 2026-05-13 at 15 hours
 
@@ -67,46 +76,44 @@ if (not scanned_measurement):
         Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
         Lfit.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
 else:
+    is_B_saved = False
+    if (date > "2026-05-19"):
+        is_B_saved = True
+    elif (date == "2026-05-19") & (time > "11-00-00"):
+        is_B_saved = True
+
     # scanned measurement
-    directory = os.path.join(project_root, "NVCFM_Data", date, "scanned_cw_odmr_" + time)
+    filepath = os.path.join(project_root, "NVCFM_Data", date, "scanned_cw_odmr_" + time)
     plt.figure(figsize=(8, 5))
 
-    data = np.load(directory + ".npz") # npy for old, npz for new measurements
-    #
-    # # shading='auto' handles the coordinate mapping automatically
-    # mesh = plt.pcolormesh(data["x"], data["y"], data["deltas"], shading='auto', cmap='viridis')
-    #
-    # plt.colorbar(mesh, label='frequency delta (GHz)')
-    # plt.xlabel('x space (mm)')
-    # plt.ylabel('y space (mm)')
-    # plt.title('frequency delta Heatmap')
-    # plt.show()
-    #
-    # # TODO: look at an odmr scan for a specific point
+    data = np.load(filepath + ".npz") # npy for old, npz for new measurements
+
 
     x_points = data["x"]
     y_points = data["y"]
     freqs = data["f"]
-
-    freq_deltas = data["deltas"]
     counts_2D = data["odmrs"]
 
-    # Enable interactive mode so plt.show() doesn't freeze the script
-    # plt.ion()
-
-    # --- Your existing plotting code ---
     fig, ax = plt.subplots(figsize=(8, 6))
     ext = [x_points.min(), x_points.max(), y_points.min(), y_points.max()]
-    # Assuming data shape is (X_len, Y_len, Freq_len), project down to a 2D map
-    # e.g., taking the mean count across all frequencies for the spatial map
+    ax.set_xlabel("x space (mm)")
+    ax.set_ylabel("x space (mm)")
 
-    mesh = ax.imshow(
-        freq_deltas, extent=ext, aspect="auto", origin="lower", cmap="viridis"
-    )
-    plt.colorbar(mesh, label="Mean Counts (kcps)")
-    ax.set_xlabel("X Position (mm)")
-    ax.set_ylabel("Y Position (mm)")
-    ax.set_title("frequency delta Heatmap")
+
+    if is_B_saved:
+        B_Z_overall = data["magnet"]
+        mesh = ax.imshow(
+            B_Z_overall, extent=ext, aspect="auto", origin="lower", cmap="viridis"
+        )
+        plt.colorbar(mesh, label='B_Z (T)')
+        ax.set_title("Magnetic Field Heatmap")
+    else:
+        freq_deltas = data["deltas"]
+        mesh = ax.imshow(
+            freq_deltas, extent=ext, aspect="auto", origin="lower", cmap="viridis"
+        )
+        plt.colorbar(mesh, label='frequency delta (GHz)')
+        ax.set_title("Frequency Delta Heatmap")
 
     # Force draw the plot window without pausing execution
     plt.draw()
@@ -132,11 +139,11 @@ else:
         if user_input.lower() == "reanalyze":
             print("Reanalyzing, will write new file")
 
-            freq_deltas, problem_points = scwodmr.counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
+            B_Z_overall, problem_points = scwodmr.counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
             print("following indices couldn't fit properly:")
             print(problem_points)
-            scwodmr.plot_image(x_points, y_points, freq_deltas)
-            scwodmr.save_odmr_measurement(x_points, y_points, freqs, freq_deltas, counts_2D)
+            scwodmr.plot_image(x_points, y_points, B_Z_overall)
+            scwodmr.save_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
 
         try:
             # Parse the input string into integers
