@@ -14,7 +14,7 @@ def odmr_qua_program(num_points, n_windows_per_point, readout_len_ns):
         counts = declare(int)
         total_counts = declare(int)
 
-        iteration = declare(int)  # Outer loop index
+        # iteration = declare(int)  # Outer loop index
         i = declare(int)
         k = declare(int)
         counts_st = declare_stream()

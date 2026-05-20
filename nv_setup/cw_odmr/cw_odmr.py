@@ -95,7 +95,7 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
         for j,f in enumerate(freqs):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts*n_iter)*100:.1f}% done")
+                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts*n_iter*2)*100:.1f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             job.resume()
@@ -113,7 +113,7 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
         for j,f in enumerate(freqs[::-1]):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts*n_iter)*100:.1f}% done")
+                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts*n_iter*2)*100:.1f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             job.resume()
@@ -156,7 +156,7 @@ def main():
     # -------------------------
     qmm = QuantumMachinesManager(host=qop_ip, port=qop_port, log_level="INFO")
     qm = qmm.open_qm(config)
-    prog = QUAi.odmr_qua_program(N * n_iter, n_windows_per_point, readout_len_ns)
+    prog = QUAi.odmr_qua_program(N * n_iter*2, n_windows_per_point, readout_len_ns)
     job = qm.execute(prog)
 
     f_start, f_end, freqs = QUAi.calc_sweep_range(f_center, span, N)

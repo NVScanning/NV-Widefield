@@ -9,7 +9,7 @@
       <excludeFolder url="file://$MODULE_DIR$/nv_setup/nv_env" />
       <excludeFolder url="file://$MODULE_DIR$/nv_widefield/wf_env" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.11 (nv_setup)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.13 (nv_widefield)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
