@@ -5,7 +5,8 @@ from os import listdir
 from os.path import isfile, join
 from pathlib import Path
 import Lorentzian_fit as Lfit
-import scanned_cw_odmr as scwodmr
+# import scanned_cw_odmr as scwodmr
+import connection_setup as cs
 
 """
 this file is to read npy/z files created by cw_odmr
@@ -15,16 +16,15 @@ Simply paste in the date and time of the file as it's stored in /NVCFM_Data/date
 
 note: measurements previous to 2026-05-13 at 15:02 only have cps data, not frequency stored
 ^ this means you don't have any x data, and filetype is different
-
 note: scanned odmrs from may 15, 2026 don't have the odmrs saved only the frequency deltas 
 note: scanned odmrs previous to 2026-05-19 at 10:47 have freq delta data not B data
 """
 
 # Params to change
-date = "2026-05-19"
-time = "13-41-00"
+date = "2026-05-21"
+time = "18-29-50"
 
-
+max_peaks = 2
 
 script_path = Path(__file__).resolve()
 project_root = script_path.parent.parent.parent
@@ -69,7 +69,6 @@ if (not scanned_measurement):
 
     if (is_freq_saved):
         freqs, counts = data["x"], data["y"]
-        max_peaks = 2
 
         popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
         Lfit.print_dip_params(popt)
@@ -139,11 +138,22 @@ else:
         if user_input.lower() == "reanalyze":
             print("Reanalyzing, will write new file")
 
-            B_Z_overall, problem_points = scwodmr.counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
+            B_Z_overall, problem_points = cs.counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
             print("following indices couldn't fit properly:")
             print(problem_points)
-            scwodmr.plot_image(x_points, y_points, B_Z_overall)
-            scwodmr.save_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+            # scwodmr.plot_image(x_points, y_points, B_Z_overall)
+
+            plt.figure(figsize=(10, 6))
+            # shading='auto' handles the coordinate mapping automatically
+            mesh = plt.pcolormesh(x_points, y_points, B_Z_overall, shading='nearest', cmap='viridis')
+
+            plt.colorbar(mesh, label='B_Z (T)')
+            plt.xlabel('x space (mm)')
+            plt.ylabel('y space (mm)')
+            plt.title('Magnetic Field Heatmap')
+            plt.show()
+
+            cs.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
 
         try:
             # Parse the input string into integers
@@ -162,7 +172,7 @@ else:
 
             # --- Extract and plot the 1D ODMR line scan for that pixel ---
             # Slice the 3D data array at the selected spatial pixel
-            odmr_spectrum = counts_2D[x_ind, y_ind, :]
+            # odmr_spectrum = counts_2D[x_ind, y_ind, :]
 
             # Open a new window for the 1D spectrum so the map stays visible
             # plt.figure()
@@ -178,7 +188,7 @@ else:
 
 
             counts = counts_2D[x_ind,y_ind]
-            max_peaks = 2
+            # max_peaks = 2
             popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
             print("analyzed data")
             Lfit.print_dip_params(popt)

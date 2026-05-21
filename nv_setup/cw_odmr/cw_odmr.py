@@ -42,37 +42,33 @@ sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
 # -------------------------
 # Helper functions
 # -------------------------
-# def calc_freq_range(f_center: float, span: float, n: int):
-#     f_start = f_center - span / 2
-#     f_end = f_center + span / 2
-#     freqs = np.linspace(f_start, f_end, n)
-#     return freqs, f_start, f_end
-
-def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
-
-    plt.figure(figsize=(8, 5))
-    plt.plot(freqs / 1e9, kcps, "-o", markersize=2)
-    plt.xlabel("Frequency (GHz)")
-    plt.ylabel("kcps")
-    plt.title("ODMR")
-    plt.grid(True)
-    plt.show()
 
 
-
-def save_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
-                          freqs: ndarray[tuple[Any, ...], dtype[float64]]):
-    now = datetime.datetime.now()
-    datestamp = now.strftime("%Y-%m-%d")
-    timestamp = now.strftime("%H-%M-%S")
-    script_path = Path(__file__).resolve()
-    project_root = script_path.parent.parent.parent
-    directory = os.path.join(project_root, "NVCFM_Data", datestamp)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    save_path = os.path.join(directory, f"cw_odmr_{timestamp}.npz")
-    print(f"Saved as: cw_odmr_{timestamp}.npz")
-    np.savez(save_path, x=freqs, y=counts)
+# def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
+#
+#     plt.figure(figsize=(8, 5))
+#     plt.plot(freqs / 1e9, kcps, "-o", markersize=2)
+#     plt.xlabel("Frequency (GHz)")
+#     plt.ylabel("kcps")
+#     plt.title("ODMR")
+#     plt.grid(True)
+#     plt.show()
+#
+#
+#
+# def save_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
+#                           freqs: ndarray[tuple[Any, ...], dtype[float64]]):
+#     now = datetime.datetime.now()
+#     datestamp = now.strftime("%Y-%m-%d")
+#     timestamp = now.strftime("%H-%M-%S")
+#     script_path = Path(__file__).resolve()
+#     project_root = script_path.parent.parent.parent
+#     directory = os.path.join(project_root, "NVCFM_Data", datestamp)
+#     if not os.path.exists(directory):
+#         os.makedirs(directory)
+#     save_path = os.path.join(directory, f"cw_odmr_{timestamp}.npz")
+#     print(f"Saved as: cw_odmr_{timestamp}.npz")
+#     np.savez(save_path, x=freqs, y=counts)
 
 # -------------------------
 # Frequency sweep
@@ -83,29 +79,23 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
     counts_handle = job.result_handles.get("counts")
     seen=0
 
-    num_printouts = 5
-    printout_factor = len(freqs) // num_printouts
+    num_printouts = 10
+    printout_factor = len(freqs)*n_iter*2 // num_printouts
 
     kcps_overall = np.zeros((n_iter*2, freqs.size))
     for i in range(n_iter):
         print("Iteration " + str(i))
 
         kcps=[]
-        # TODO: potentially make it go backwards in frequencies as well, to eliminate any linear temporal effects
         for j,f in enumerate(freqs):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts*n_iter*2)*100:.1f}% done")
+                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.1f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             job.resume()
             counts_handle.wait_for_values(seen+1)
             all_counts = counts_handle.fetch_all()["value"]
-            # print("at freq " + str(f/10**9) + "GHz")
-            # print(all_counts[j*50:(j+1)*50-1])
-            # print("len is " + str(len(all_counts)))
-            # print(all_counts)
-            # print(f"counts: {all_counts[seen]}, point duration: {point_duration_s}s, cps: {( all_counts[seen] / point_duration_s )}")
             kcps.append(( all_counts[seen] / point_duration_s ) /1000 ) # maybe need to index at seen+1?
             seen+=1
         kcps_overall[i]=kcps
@@ -113,22 +103,17 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
         for j,f in enumerate(freqs[::-1]):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts*n_iter*2)*100:.1f}% done")
+                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.1f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             job.resume()
             counts_handle.wait_for_values(seen+1)
             all_counts = counts_handle.fetch_all()["value"]
-            # print("at freq " + str(f/10**9) + "GHz")
-            # print(all_counts[j*50:(j+1)*50-1])
-            # print("len is " + str(len(all_counts)))
-            # print(all_counts)
-            # print(f"counts: {all_counts[seen]}, point duration: {point_duration_s}s, cps: {( all_counts[seen] / point_duration_s )}")
             kcps.append(( all_counts[seen] / point_duration_s ) /1000 ) # maybe need to index at seen+1?
             seen+=1
-        kcps_overall[i]=kcps[::-1]
+        kcps_overall[n_iter+i]=kcps[::-1]
 
-    return np.sum(kcps_overall,axis=0)/n_iter
+    return np.sum(kcps_overall,axis=0)/(n_iter*2)
 
 def main():
 
@@ -171,10 +156,10 @@ def main():
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
 
 
-    plot_odmr(freqs, counts)
+    cs.plot_odmr(freqs, counts)
 
     # Save data in folder with its date
-    save_odmr_measurement(counts, freqs)
+    cs.save_point_odmr_measurement(counts, freqs)
 
     # TODO: calculate the following and print
     #   1. the space betweeen dips in Hz (magnetic field)

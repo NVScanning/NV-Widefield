@@ -12,19 +12,26 @@ sys.path.append(os.path.abspath(".."))
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
 """
-A step in the direction of widefield imaging, by using the camera sensor, but binning
-all the relevant pixels together into one "brightness" signal, to use in place of the
-SPCM used in cw_odmr.py
+Two parts: 
+first use a single pixel of the camera sensor as a point ODMR sensor
+then use the whole camera sensor, and do all the ODMRS for all the pixels
 """
+
+# TODO:
+#   figure out whats wrong with the exposure/lorentzian fitting, perhaps initial guess params aren't good enough
+#   Potential measurements:
+#   vary the binning size from 1,2,4,8...2048 and compare contrasts/SNRs
+#   vary the exposure time and compare contrasts/SNRs
+#   vary both in a 2D array, and plot the contrasts/SNRs in a heatmap
 
 # Constants
 camera_resolution = 2048 # pixels, range from 1 tpo 2048 inclusive
 sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
 
 # params
-focus_point_size = 512  # in pixels, diameter of circle of laser point, must be a multiple of either 4 or 16
+focus_point_size = 500  # in pixels, diameter of circle of laser point
 focus_point_centre_x, focus_point_centre_y = 1000, 1100  # in pixels, center point of the laser point
-
+# TODO: maybe make use of 2D-gaussian to determine centre of focus point
 
 def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=10):
     max_val = 65535 # 2^16-1
@@ -92,19 +99,21 @@ def plot_image(image, x_points=None, y_points=None):
 
 def bin_image(image):
     return np.sum(image)
+def select_one_pixel(image,x,y):
+    return image[x,y]
 
-def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int = 1) -> np.ndarray:
+def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, x_points, y_points, n_iter: int = 1) -> np.ndarray:
 
     seen=0
 
     num_printouts = 10
     printout_factor = len(freqs)*n_iter*2 // num_printouts
 
-    brightnesses = np.zeros((n_iter*2, freqs.size)) # should be n_iter*2 when reversing as well
+    brightnesses = np.zeros((n_iter*2, len(x_points), len(y_points), freqs.size)) # should be n_iter*2 when reversing as well
     for i in range(n_iter):
         print("Iteration " + str(i))
 
-        brightness=[]
+        # brightness=[]
         for j,f in enumerate(freqs):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
@@ -112,12 +121,9 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             image = read_image(cam,n_windows)
-            all_counts = bin_image(image)
+            brightnesses[i,:,:,j]=image / point_duration_s/1000
             # plot_image(image)
-            brightness.append(all_counts / point_duration_s/1000)
             seen+=1
-        brightnesses[i]=brightness
-        brightness=[]
         for j,f in enumerate(freqs[::-1]):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
@@ -125,16 +131,15 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             image = read_image(cam,n_windows)
-            all_counts = bin_image(image)
             # plot_image(image)
-            brightness.append(all_counts / point_duration_s/1000)
+            brightnesses[n_iter+i,:,:,j]=image / point_duration_s/1000
             seen+=1
-        brightnesses[n_iter+i]=brightness[::-1]
 
     return np.sum(brightnesses,axis=0)/(n_iter*2)
 
 
 def main():
+
 
     # x_points = np.arange(focus_point_centre_x-focus_point_size//2,focus_point_centre_x+focus_point_size//2,1)
     # y_points = np.arange(focus_point_centre_y-focus_point_size//2,focus_point_centre_y+focus_point_size//2,1)
@@ -142,16 +147,17 @@ def main():
     fps = focus_point_size//8*8 # forces fps to be a multiple of 8
     fpcx = focus_point_centre_x//8*8
     fpcy = focus_point_centre_y//8*8
+    # x_measure, y_measure = fps//2+1, fps//2+1
+    x_points = np.arange(fpcx-fps//2+1,fpcx+fps//2+1)
+    y_points = np.arange(fpcy-fps//2+1,fpcy+fps//2+1)
     roi = (fpcx-fps//2+1, fpcy-fps//2+1,
            fpcx+fps//2, fpcy+fps//2)
-    # horizontal axis needs to be adjusted in steps of 4 pixels, may as well make the vertical
-    # axis have the same sizing
     # roi=(1,1,2048,2048)
-
     print(f"Using the following roi: {roi}")
 
-    n_windows_per_point = 1 # n readouts to increase certainty without overexposing
-    amp_dbm = -15 #anything bigger than -10 does nothing (Hayden)
+    n_windows_per_point = 10 # n readouts to increase certainty without overexposing
+    # 40 windows with the 5mw laser is just about sufficient
+    amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
@@ -159,8 +165,8 @@ def main():
     n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.3e9 # Hz, range of frequencies to sample
-    N = 201 # num points in the frequency space to sample
+    span = 0.2e9 # Hz, range of frequencies to sample
+    N = 101 # num points in the frequency space to sample
 
 
     # connect to RF src
@@ -169,7 +175,7 @@ def main():
     cam = setup_cam()
     set_cam_settings(cam, 10e-3, roi=roi)
     exposure_time = auto_expose(cam, target_intensity=0.8) # returns exposure time in s
-    exposure_time = 0.0025 # roughly match SPCM exposure time
+    # exposure_time = 0.0025 # roughly match SPCM exposure time
     print("Exposure time: ", exposure_time)
     set_cam_settings(cam, exposure_time, roi=roi)
     # cam.record(mode="sequence",number_of_images=n_windows_per_point)
@@ -181,31 +187,35 @@ def main():
     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
     try:
-        counts = measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
+        counts_2D = measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, x_points, y_points, n_iter)
     finally:
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
         cam.stop()
 
-    cs.plot_odmr(freqs, counts)
-
+    print("Sweep done, now converting odmrs to B deltas")
+    B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_points, y_points, counts_2D, freqs)
+    # cs.plot_odmr(freqs, counts)
     # Save data in folder with its date
-    cs.save_point_odmr_measurement(counts, freqs)
+    # cs.save_point_odmr_measurement(counts, freqs)
+    print("Conversion done, saving and plotting")
+    cs.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+    cs.plot_image(x_points, y_points, B_Z_overall)
 
 
 
-    max_peaks = 2
-    popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+    # max_peaks = 2
+    # popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
     # c0, c1 = popt[-2], popt[-1]
     # print(f"baseline: {c0} + {c1}f[GHz]")
-    Lfit.print_dip_params(popt)
+    # Lfit.print_dip_params(popt)
 
 
-    try:
-        Lfit.print_SNR(baseline, counts, freqs/10**9, popt)
-    except ValueError as e:
-        # do nothing cuz printing snr didnt work
-        print("getting SNR failed: " + str(e))
-    Lfit.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+    # try:
+    #     Lfit.print_SNR(baseline, counts, freqs/10**9, popt)
+    # except ValueError as e:
+    #     # do nothing cuz printing snr didn't work
+    #     print("getting SNR failed: " + str(e))
+    # Lfit.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
 
 
 

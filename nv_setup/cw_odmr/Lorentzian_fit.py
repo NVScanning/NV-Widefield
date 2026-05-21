@@ -3,6 +3,7 @@ from typing import Any
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+import connection_setup as cs
 from scipy.signal import find_peaks, peak_widths
 
 # ============================
@@ -34,45 +35,49 @@ def multi_lorentzian(f, *params):
     return y
 
 def guess_initial_params(freqs, vals, max_peaks=None):
-    # peaks, props = find_peaks(-vals,threshold=5,prominence=15, distance=5)
+    max_val = max(vals)
+    peaks, props = find_peaks(-vals,threshold=0.001*max_val,prominence=0.01*max_val, distance=3)
     # print(f"Initially found {len(peaks)} peaks")
-    #
-    # if max_peaks is not None and len(peaks) > max_peaks:
-    #     prominences = -vals[peaks]
-    #     top_idx = np.argsort(prominences)[-max_peaks:]
-    #     peaks = peaks[top_idx]
-    #     peaks = peaks[np.argsort(peaks)]
+
+    if max_peaks is not None and len(peaks) > max_peaks:
+        prominences = -vals[peaks]
+        top_idx = np.argsort(prominences)[-max_peaks:]
+        peaks = peaks[top_idx]
+        peaks = peaks[np.argsort(peaks)]
 
     c0 = vals[0]            # offset - used to be np.mean
     c1 = 0.0                # slope value 0
 
-    # init_params = []
-    # results_half = peak_widths(-vals, peaks, rel_height=0.5)
-    # widths = results_half[0]
-    #
-    # df = np.mean(np.diff(freqs))
-    #
-    # for i, p in enumerate(peaks):
-    #     f0 = freqs[p]
-    #     amp = vals[p] - c0
-    #     print("chose amp" + str(amp))
-    #     w_idx = widths[i]
-    #     fwhm = w_idx * df
-    #     gamma = fwhm / 2.0 if fwhm > 0 else df*3
-    #     init_params.extend([amp, f0, gamma])
-    middle_index = np.argmin(abs(freqs - 2.87))
-    # print(f"middle index: {middle_index} has frequency {freqs[middle_index]}")
-    peaks = [np.argmin(vals[0:middle_index-1]), middle_index+1+ np.argmin(vals[middle_index+1:])]
-    # print(f"peaks: {peaks}, with frequencies {freqs[peaks]}")
-    init_params = [-100,freqs[peaks[0]],0.01,-100,freqs[peaks[1]],0.01]
-    # print(f"init_params: {init_params}")
+    init_params = []
+    results_half = peak_widths(-vals, peaks, rel_height=0.5)
+    widths = results_half[0]
+
+    df = np.mean(np.diff(freqs))
+
+    for i, p in enumerate(peaks):
+        f0 = freqs[p]
+        amp = vals[p] - c0
+        # print("chose amp" + str(amp))
+        w_idx = widths[i]
+        fwhm = w_idx * df
+        gamma = fwhm / 2.0 if fwhm > 0 else df*3
+        init_params.extend([amp, f0, gamma])\
+
+
+    # middle_index = np.argmin(abs(freqs - 2.87))
+    # # print(f"middle index: {middle_index} has frequency {freqs[middle_index]}")
+    # peaks = [np.argmin(vals[0:middle_index-1]), middle_index+1+ np.argmin(vals[middle_index+1:])]
+    # # print(f"peaks: {peaks}, with frequencies {freqs[peaks]}")
+    # amplitude = vals[peaks] - c0 #
+    # init_params = [amplitude[0],freqs[peaks[0]],0.01,amplitude[1],freqs[peaks[1]],0.01]
+    # # print(f"init_params: {init_params}")
 
     init_params.extend([c0, c1])
     return np.array(init_params), peaks
 
 def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
     p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
-    # print(f"guessed initial peaks to be at {freqs[peaks]}GHz")
+    print(f"guessed initial peaks to be at {freqs[peaks]}GHz")
     # print(f"guessed initial params: {p0}")
     n_peaks = (len(p0) - 2) // 3
 
@@ -135,14 +140,15 @@ def print_dip_params(popt):
     # Print summary lines
     for (C, FWHM, freq) in zip(contrasts, FWHMs, dip_Freqs):
         # this tells us about T2 time (dephasing rate)
-        print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1e3:.2f} MHz, Contrast = {C * 100:.3f}%")
+        print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1e3:.3} MHz, Contrast = {C * 100:.3f}%")
     for i in range(len(dip_Freqs)-1):
         # this tells us abt magnetic field
-        print(f"Frequency delta is {(dip_Freqs[i+1]-dip_Freqs[i])*1000}MHz, equivalent to {(dip_Freqs[i+1]-dip_Freqs[i])/56.04}T")
+        print(f"Frequency delta is {((dip_Freqs[i+1]-dip_Freqs[i])*1000):.3}MHz, equivalent to {(dip_Freqs[i+1]-dip_Freqs[i])/(2*cs.gamma_e):.3}T")
     return contrasts, FWHMs, dip_Freqs
 
 def print_SNR(baseline: Any, counts, freqs, popt):
     noise_signal = counts - baseline
+    c0, c1 = popt[-2], popt[-1]
 
     n_dips = (len(popt) - 2) // 3
     dip_params = popt[:3 * n_dips].reshape(n_dips, 3)
@@ -157,7 +163,7 @@ def print_SNR(baseline: Any, counts, freqs, popt):
         raise ValueError("Off-resonance region too small. Decrease k_exclude or widen sweep range.")
 
     sigma = np.std(noise_signal[off_mask], ddof=1)
-    print("sigma of background : ", sigma, " kcps")
+    print(f"sigma of background : {sigma:.3} kcps, which is ~{sigma/c0*100:.3}%")
 
     snrs = []
     for i, (A, f0, gamma) in enumerate(dip_params, start=1):
@@ -166,8 +172,11 @@ def print_SNR(baseline: Any, counts, freqs, popt):
         snrs.append(signal / sigma)
 
     snr = np.mean(snrs)
+    for (freq, snr_val) in zip(freqs, snrs):
+        # this tells us about T2 time (dephasing rate)
+        print(f"At frequency {freq:.3f} GHz: snr = {snr_val:.3}")
 
-    print("SNR : ", snr)
+    print(f"SNR avg : {snr:.3}")
 
 # ============================
 # Lorentzian fitting (with baseline normalization)
@@ -225,3 +234,34 @@ def plot_fitted_data(freqs, I_norm, fit_norm):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+    
+    
+
+def odmr_to_delta_freq(counts, freqs):
+    delta_freq = 0
+    max_peaks = 2
+    popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks)
+    contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
+    # print_SNR(baseline, counts, freqs / 10 ** 9, popt)
+    # plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+    if (len(dip_Freqs) == 2):
+        # need exactly 2 dips to get the difference between the two
+        delta_freq = dip_Freqs[1] - dip_Freqs[0]
+    # else:
+        # if you didn't get 2 dips there's no delta ig
+    return delta_freq
+def counts_to_B_Z(x_points, y_points, counts_2D, freqs):
+
+    B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
+    problem_points = []
+
+    # something similar to:
+    for x_ind in range(len(x_points)):
+        for y_ind in range(len(y_points)):
+            delta_freq = odmr_to_delta_freq(counts_2D[x_ind,y_ind], freqs)
+            B_Z = delta_freq / (2*cs.gamma_e) # in T
+            B_Z_overall[x_ind,y_ind]=B_Z
+            if delta_freq == 0:
+                # had problem fitting
+                problem_points.append((x_ind, y_ind))
+    return B_Z_overall, problem_points
