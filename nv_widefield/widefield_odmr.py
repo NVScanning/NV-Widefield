@@ -29,8 +29,9 @@ camera_resolution = 2048 # pixels, range from 1 tpo 2048 inclusive
 sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
 
 # params
-focus_point_size = 500  # in pixels, diameter of circle of laser point
-focus_point_centre_x, focus_point_centre_y = 1000, 1100  # in pixels, center point of the laser point
+binning_amount = 4 # built-int pco camera binning, can only be 1,2,4
+focus_point_size = 128  # in physical (unbinned) pixels, diameter of circle of laser point
+focus_point_centre_x, focus_point_centre_y = 1000, 1110  # in pixels, center point of the laser point
 # TODO: maybe make use of 2D-gaussian to determine centre of focus point
 
 def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=10):
@@ -42,23 +43,25 @@ def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=10):
         cam.record(mode="sequence")
         image, meta = cam.image()
         peak = np.max(image)
+        og_exposure = cam.exposure_time
 
         # Calculate ratio and adjust exposure
         if peak == 0:  # Prevent division by zero
-            new_exposure = cam.exposure_time * 10 # aggressive, increases by exposure by factor of 10 if too dark
+            new_exposure = og_exposure * 3 # aggressive, increases by exposure by factor of 10 if too dark
         else:
             ratio = target / peak
             if abs(1 - ratio) < tolerance:
                 break
             # new_exposure = cam.configuration['exposure time'] * ratio
-            new_exposure = cam.exposure_time * ratio
+            new_exposure = og_exposure * ratio
 
         # config = cam.configuration
         # config['exposure time'] = new_exposure
         # cam.configuration = config
-        cam.exposure_time = new_exposure.item()
+        # print(f"want new exposure time: {new_exposure:.5f}")
+        cam.exposure_time = float(min(new_exposure,0.499))
 
-        print(f"Adjusting exposure to {new_exposure:.5f}s (Peak was: {peak}, now will be ~{peak * ratio})")
+        print(f"Adjusting exposure from {og_exposure} to {cam.exposure_time:.5f}s (Peak was: {peak}, now will be ~{peak * cam.exposure_time / og_exposure})")
 
 
     return cam.exposure_time
@@ -66,17 +69,17 @@ def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=10):
 def set_cam_settings(cam, exposure_time, roi=(1, 1, camera_resolution, camera_resolution), binning=(1, 1)):
     cam.configuration = {
         'exposure time': exposure_time,  # in seconds
-        'roi': roi, # Region of Interest (x0, y0, x1, y1)
         # 'pixel rate': 100_000_000, # lowk no idea what this means
         'trigger': 'auto sequence',
-        'binning': binning
+        'binning': binning,
+        'roi': roi # Region of Interest (x0, y0, x1, y1)
     }
 
 def read_image(cam,n_windows):
-    cam.stop()
     # Re-arm specifically for this new capture
     cam.record(mode="sequence", number_of_images=n_windows)
     image = cam.image_average()
+    cam.stop()
     return image
 
 def setup_cam():
@@ -102,14 +105,15 @@ def bin_image(image):
 def select_one_pixel(image,x,y):
     return image[x,y]
 
-def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, x_points, y_points, n_iter: int = 1) -> np.ndarray:
+def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int = 1) -> np.ndarray:
 
     seen=0
+    image = read_image(cam,1)
 
     num_printouts = 10
     printout_factor = len(freqs)*n_iter*2 // num_printouts
 
-    brightnesses = np.zeros((n_iter*2, len(x_points), len(y_points), freqs.size)) # should be n_iter*2 when reversing as well
+    brightnesses = np.zeros((n_iter*2, image.shape[0], image.shape[1], freqs.size)) # should be n_iter*2 when reversing as well
     for i in range(n_iter):
         print("Iteration " + str(i))
 
@@ -139,21 +143,22 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, x_points, y
 
 
 def main():
-
-
-    # x_points = np.arange(focus_point_centre_x-focus_point_size//2,focus_point_centre_x+focus_point_size//2,1)
-    # y_points = np.arange(focus_point_centre_y-focus_point_size//2,focus_point_centre_y+focus_point_size//2,1)
-    # region of interest, crop into this portion of the camera's view
-    fps = focus_point_size//8*8 # forces fps to be a multiple of 8
-    fpcx = focus_point_centre_x//8*8
-    fpcy = focus_point_centre_y//8*8
+    # fps = focus_point_size//8*8 # forces fps to be a multiple of 8, before dividing by the binning
+    # fpcx = focus_point_centre_x//8*8
+    # fpcy = focus_point_centre_y//8*8
+    fps = focus_point_size//8*8//binning_amount # forces fps to be a multiple of 8, before dividing by the binning
+    fpcx = focus_point_centre_x//8*8//binning_amount
+    fpcy = focus_point_centre_y//8*8//binning_amount
     # x_measure, y_measure = fps//2+1, fps//2+1
     x_points = np.arange(fpcx-fps//2+1,fpcx+fps//2+1)
     y_points = np.arange(fpcy-fps//2+1,fpcy+fps//2+1)
+    x_space = x_points * 50/10**6
+    y_space = y_points * 50/10**6
+    # region of interest, crop into this portion of the camera's view
     roi = (fpcx-fps//2+1, fpcy-fps//2+1,
            fpcx+fps//2, fpcy+fps//2)
     # roi=(1,1,2048,2048)
-    print(f"Using the following roi: {roi}")
+    print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
 
     n_windows_per_point = 10 # n readouts to increase certainty without overexposing
     # 40 windows with the 5mw laser is just about sufficient
@@ -173,12 +178,14 @@ def main():
     sg = cs.connect_sg386(sg_resource)
     # connect to cam
     cam = setup_cam()
-    set_cam_settings(cam, 10e-3, roi=roi)
+    set_cam_settings(cam, 10e-3, roi=roi, binning=(binning_amount,binning_amount))
     exposure_time = auto_expose(cam, target_intensity=0.8) # returns exposure time in s
     # exposure_time = 0.0025 # roughly match SPCM exposure time
     print("Exposure time: ", exposure_time)
-    set_cam_settings(cam, exposure_time, roi=roi)
-    # cam.record(mode="sequence",number_of_images=n_windows_per_point)
+    set_cam_settings(cam, exposure_time, roi=roi, binning=(binning_amount,binning_amount))
+
+    # image = read_image(cam, 1)
+    # plot_image(image, x_points, y_points)
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
@@ -187,19 +194,18 @@ def main():
     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
     try:
-        counts_2D = measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, x_points, y_points, n_iter)
+        counts_2D = measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
     finally:
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-        cam.stop()
 
     print("Sweep done, now converting odmrs to B deltas")
-    B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_points, y_points, counts_2D, freqs)
+    B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs)
     # cs.plot_odmr(freqs, counts)
     # Save data in folder with its date
     # cs.save_point_odmr_measurement(counts, freqs)
     print("Conversion done, saving and plotting")
-    cs.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
-    cs.plot_image(x_points, y_points, B_Z_overall)
+    cs.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
+    cs.plot_image(x_space, y_space, B_Z_overall)
 
 
 

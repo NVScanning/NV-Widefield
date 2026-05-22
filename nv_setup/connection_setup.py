@@ -127,11 +127,12 @@ def save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D):
     datestamp = now.strftime("%Y-%m-%d")
     timestamp = now.strftime("%H-%M-%S")
     script_path = Path(__file__).resolve()
-    project_root = script_path.parent.parent
+    # project_root = script_path.parent.parent.parent
+    project_root = "C:\\Users\\NVCFM\\Desktop"
     directory = os.path.join(project_root, "NVCFM_Data", datestamp)
     if not os.path.exists(directory):
         os.makedirs(directory)
     save_path = os.path.join(directory, f"scanned_cw_odmr_{timestamp}.npz")
-    print(f"Saved as: scanned_cw_odmr_{timestamp}.npz")
+    print(f"Saved as: scanned_cw_odmr_{timestamp}.npz in directory: {directory}")
     np.savez(save_path, x=x_points, y=y_points, f=freqs, magnet=B_Z_overall, odmrs=counts_2D)
 

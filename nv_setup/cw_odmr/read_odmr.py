@@ -24,7 +24,7 @@ note: scanned odmrs previous to 2026-05-19 at 10:47 have freq delta data not B d
 date = "2026-05-21"
 time = "18-29-50"
 
-max_peaks = 2
+max_peaks = 4
 
 script_path = Path(__file__).resolve()
 project_root = script_path.parent.parent.parent
@@ -33,6 +33,16 @@ onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))] # list
 
 
 match = [item for item in onlyfiles if "cw_odmr_" + time in item]
+if (len(match)==0):
+    # if file doesn't exist in local directory, it could be in ownCloud
+    project_root = "C:\\Users\\NVCFM\\Desktop"
+    directory = os.path.join(project_root, "NVCFM_Data", date)
+    onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))] # list of strings of filenames
+    match = [item for item in onlyfiles if "cw_odmr_" + time in item]
+
+if (len(match)==0):
+    print("No matching files found, exiting")
+    exit()
 # assume only one file has the exact same time to the second
 scanned_measurement = False
 if match[0].startswith("scanned"):
@@ -138,7 +148,7 @@ else:
         if user_input.lower() == "reanalyze":
             print("Reanalyzing, will write new file")
 
-            B_Z_overall, problem_points = cs.counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
+            B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_points, y_points, counts_2D, freqs)
             print("following indices couldn't fit properly:")
             print(problem_points)
             # scwodmr.plot_image(x_points, y_points, B_Z_overall)
@@ -190,7 +200,7 @@ else:
             counts = counts_2D[x_ind,y_ind]
             # max_peaks = 2
             popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
-            print("analyzed data")
+            # print("analyzed data")
             Lfit.print_dip_params(popt)
             # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
             # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)

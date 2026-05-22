@@ -36,7 +36,7 @@ def multi_lorentzian(f, *params):
 
 def guess_initial_params(freqs, vals, max_peaks=None):
     max_val = max(vals)
-    peaks, props = find_peaks(-vals,threshold=0.001*max_val,prominence=0.01*max_val, distance=3)
+    peaks, props = find_peaks(-vals,prominence=0.01*max_val, distance=3)
     # print(f"Initially found {len(peaks)} peaks")
 
     if max_peaks is not None and len(peaks) > max_peaks:
@@ -77,7 +77,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
 
 def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
     p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
-    print(f"guessed initial peaks to be at {freqs[peaks]}GHz")
+    # print(f"guessed initial peaks to be at {freqs[peaks]}GHz")
     # print(f"guessed initial params: {p0}")
     n_peaks = (len(p0) - 2) // 3
 
@@ -239,25 +239,33 @@ def plot_fitted_data(freqs, I_norm, fit_norm):
 
 def odmr_to_delta_freq(counts, freqs):
     delta_freq = 0
-    max_peaks = 2
+    max_peaks = 4
     popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks)
     contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
     # print_SNR(baseline, counts, freqs / 10 ** 9, popt)
     # plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
-    if (len(dip_Freqs) == 2):
-        # need exactly 2 dips to get the difference between the two
-        delta_freq = dip_Freqs[1] - dip_Freqs[0]
+    if (len(dip_Freqs) >= 2):
+        # need exactly at least 2 dips to get the difference between the two
+        # if >2 dips, assume the additional ones are the middle dips (irrelevant i think)
+        delta_freq = dip_Freqs[-1] - dip_Freqs[0]
     # else:
-        # if you didn't get 2 dips there's no delta ig
+        # if you didn't get >=2 dips there's no delta ig
     return delta_freq
 def counts_to_B_Z(x_points, y_points, counts_2D, freqs):
 
     B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
     problem_points = []
 
+
+    num_printouts = 10
+    printout_factor = len(x_points) * len(y_points) // num_printouts
+
     # something similar to:
     for x_ind in range(len(x_points)):
         for y_ind in range(len(y_points)):
+            if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
+                # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
+                print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
             delta_freq = odmr_to_delta_freq(counts_2D[x_ind,y_ind], freqs)
             B_Z = delta_freq / (2*cs.gamma_e) # in T
             B_Z_overall[x_ind,y_ind]=B_Z

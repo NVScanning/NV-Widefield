@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks, peak_widths
 
-filename = 'odmr_LSR_20260128_202709_B4_iter5_P-12.0dBm.npz'
-data = np.load(filename)
-
-freqs = data["freqs"] / 1e9         # GHz     
-lockin_vals = data["signal_raw"] * 1000   # mV
+# filename = 'odmr_LSR_20260128_202709_B4_iter5_P-12.0dBm.npz'
+# data = np.load(filename)
+#
+# freqs = data["freqs"] / 1e9         # GHz
+# lockin_vals = data["signal_raw"] * 1000   # mV
 
 # ============================
 # Fitting helper functions
