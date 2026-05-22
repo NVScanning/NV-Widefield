@@ -36,6 +36,8 @@ from pathlib import Path
 import connection_setup as cs
 import Lorentzian_fit as Lfit
 import QUA_interface as QUAi
+sys.path.append(os.path.abspath("..."))
+import nv_widefield.odmr_plotting as oPlot
 
 """
 This uses a single point sensor (SPCM), and scans over x-y, measuring an ODMR at each point
@@ -105,77 +107,13 @@ def measure_all_points(sg, job, x_motor, y_motor, x_points, y_points, freqs, dwe
                 if delta_freq == 0:
                     # had problem fitting
                     problem_points.append((x_ind, y_ind))
-                cs.plot_image(x_points, y_points, np.sum(B_Z_overall, axis=0)/i)
+                cs.plot_dFreq_image(x_points, y_points, np.sum(B_Z_overall, axis=0) / i)
 
                 # freq_deltas_temp, problem_points_temp = cs.counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
                 # plot_image(x_points, y_points, freq_deltas_temp)
 
     return np.sum(kcps_overall,axis=0)/n_iter, np.sum(B_Z_overall, axis=0)/n_iter, problem_points
     return kcps_overall, B_Z_overall, problem_points
-
-# -------------------------
-# ODMR analysis
-# -------------------------
-# def odmr_to_delta_freq(counts, freqs):
-#     delta_freq = 0
-#     max_peaks = 2
-#     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
-#     contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
-#     # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
-#     # Lfit.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
-#     if (len(dip_Freqs) == 2):
-#         # need exactly 2 dips to get the difference between the two
-#         delta_freq = dip_Freqs[1] - dip_Freqs[0]
-#     # else:
-#         # if you didn't get 2 dips there's no delta ig
-#     return delta_freq
-# def counts_to_delta_freq(x_points, y_points, counts_2D, freqs):
-#
-#     B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
-#     problem_points = []
-#
-#     # something similar to:
-#     for x_ind in range(len(x_points)):
-#         for y_ind in range(len(y_points)):
-#             delta_freq = odmr_to_delta_freq(counts_2D[x_ind,y_ind], freqs)
-#             B_Z = delta_freq / (2*cs.gamma_e) # in T
-#             B_Z_overall[x_ind,y_ind]=B_Z
-#             if delta_freq == 0:
-#                 # had problem fitting
-#                 problem_points.append((x_ind, y_ind))
-#     return B_Z_overall, problem_points
-
-# -------------------------
-# Image plotting
-# # -------------------------
-# def plot_image(x_points, y_points, B_Z_overall):
-#     # below stub written by Gemini
-#     plt.figure(figsize=(10, 6))
-#     # shading='auto' handles the coordinate mapping automatically
-#     mesh = plt.pcolormesh(x_points, y_points, B_Z_overall, shading='nearest', cmap='viridis')
-#
-#     plt.colorbar(mesh, label='B_Z (T)')
-#     plt.xlabel('x space (mm)')
-#     plt.ylabel('y space (mm)')
-#     plt.title('Magnetic Field Heatmap')
-#     plt.show()
-
-# -------------------------
-# Saving
-# -------------------------
-# def save_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D):
-#     now = datetime.datetime.now()
-#     datestamp = now.strftime("%Y-%m-%d")
-#     timestamp = now.strftime("%H-%M-%S")
-#     script_path = Path(__file__).resolve()
-#     project_root = script_path.parent.parent.parent
-#     directory = os.path.join(project_root, "NVCFM_Data", datestamp)
-#     if not os.path.exists(directory):
-#         os.makedirs(directory)
-#     save_path = os.path.join(directory, f"scanned_cw_odmr_{timestamp}.npz")
-#     print(f"Saved as: scanned_cw_odmr_{timestamp}.npz")
-#     np.savez(save_path, x=x_points, y=y_points, f=freqs, magnet=B_Z_overall, odmrs=counts_2D)
-
 
 def main():
     # -------------------------
@@ -201,13 +139,11 @@ def main():
     x_span, y_span = 2,2 #mm,  range in each axis to sample
     x_N, y_N = 20,20 # num points in each axis to sample
 
-    # sample name
-    sample_name = 'scanned NV bulk'
 
     sg = cs.connect_sg386(sg_resource) # connect to RF src
     # connect to motors
-    x_motor = cs.connect_motor(sample_name, x_motor_id)
-    y_motor = cs.connect_motor(sample_name, y_motor_id)
+    x_motor = cs.connect_motor(x_motor_id)
+    y_motor = cs.connect_motor(y_motor_id)
 
     # Create + Execute program on QM
     qmm = QuantumMachinesManager(host=qop_ip, port=qop_port, log_level="INFO")
@@ -234,8 +170,8 @@ def main():
     # freq_deltas, problem_points = cs.counts_to_delta_freq(x_points, y_points, counts_2D, freqs)
     print("following indices couldn't fit properly:")
     print(problem_points)
-    cs.plot_image(x_points, y_points, B_Z_overall)
-    cs.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+    oPlot.plot_dFreq_image(x_points, y_points, B_Z_overall)
+    oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
 
 if __name__ == "__main__":
     main()

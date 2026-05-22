@@ -147,7 +147,7 @@ def main():
     # Connect to motor
     # -------------------------
     # TODO: check if motor has some connection going on, if it does, then close it
-    motor = cs.connect_motor(sample_name, z_motor_id) # use the connection_setup implementation instead
+    motor = cs.connect_motor(z_motor_id) # use the connection_setup implementation instead
 
     # -------------------------
     # Execute program on QM

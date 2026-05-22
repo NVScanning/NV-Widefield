@@ -15,6 +15,7 @@ import sys
 sys.path.append(os.path.abspath(".."))
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 import pco_cam_interface as pci
+import odmr_plotting as oPlot
 
 """
 Two parts: 
@@ -109,8 +110,8 @@ def main():
     # Save data in folder with its date
     # cs.save_point_odmr_measurement(counts, freqs)
     print("Conversion done, saving and plotting")
-    cs.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
-    cs.plot_image(x_space, y_space, B_Z_overall)
+    oPlot.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
+    oPlot.plot_dFreq_image(x_space, y_space, B_Z_overall)
 
 
 

@@ -11,6 +11,7 @@ import sys
 sys.path.append(os.path.abspath(".."))
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 import pco_cam_interface as pci
+import nv_widefield.odmr_plotting as oPlot
 
 """
 A step in the direction of widefield imaging, by using the camera sensor, but binning
@@ -127,10 +128,10 @@ def main():
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
         cam.stop()
 
-    cs.plot_odmr(freqs, counts)
+    oPlot.plot_odmr(freqs, counts)
 
     # Save data in folder with its date
-    cs.save_point_odmr_measurement(counts, freqs)
+    oPlot.save_point_odmr_measurement(counts, freqs)
 
 
 

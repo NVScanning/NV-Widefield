@@ -89,18 +89,14 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
         upper += [0,          f0 + 0.02, (freqs.max()-freqs.min())]
 
     # c0, c1 bounds
-    c0, c1 = p0[-2], p0[-1]
+    # c0, c1 = p0[-2], p0[-1]
     lower += [R_vals.min() - 1, -10]  
     upper += [R_vals.max() + 1,  10]
 
     try:
         popt, pcov = curve_fit(
-            multi_lorentzian,
-            freqs,
-            R_vals,
-            p0=p0,
-            bounds=(lower, upper),
-            maxfev=10000
+            multi_lorentzian, freqs, R_vals,
+            p0=p0, bounds=(lower, upper)#, maxfev=10000
         )
         return popt, pcov, peaks
     except:
@@ -123,7 +119,7 @@ def get_dip_params(popt):
 
         # Contrast (fraction & percent)
         C_frac = abs(A) / baseline_at_f0  # normalized dip depth
-        C_percent = C_frac * 100.0
+        # C_percent = C_frac * 100.0
 
         # FWHM (GHz → MHz later)
         FWHM = 2.0 * gamma  # same unit as freqs (GHz)
@@ -251,6 +247,7 @@ def odmr_to_delta_freq(counts, freqs):
     # else:
         # if you didn't get >=2 dips there's no delta ig
     return delta_freq
+
 def counts_to_B_Z(x_points, y_points, counts_2D, freqs):
 
     B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)

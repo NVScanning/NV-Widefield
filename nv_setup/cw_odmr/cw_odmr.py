@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.append(os.path.abspath(".."))
 import connection_setup as cs
+sys.path.append(os.path.abspath("..."))
+import nv_widefield.odmr_plotting as oPlot
 
 import Lorentzian_fit as Lfit
 import QUA_interface as QUAi
@@ -43,32 +45,6 @@ sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
 # Helper functions
 # -------------------------
 
-
-# def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
-#
-#     plt.figure(figsize=(8, 5))
-#     plt.plot(freqs / 1e9, kcps, "-o", markersize=2)
-#     plt.xlabel("Frequency (GHz)")
-#     plt.ylabel("kcps")
-#     plt.title("ODMR")
-#     plt.grid(True)
-#     plt.show()
-#
-#
-#
-# def save_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
-#                           freqs: ndarray[tuple[Any, ...], dtype[float64]]):
-#     now = datetime.datetime.now()
-#     datestamp = now.strftime("%Y-%m-%d")
-#     timestamp = now.strftime("%H-%M-%S")
-#     script_path = Path(__file__).resolve()
-#     project_root = script_path.parent.parent.parent
-#     directory = os.path.join(project_root, "NVCFM_Data", datestamp)
-#     if not os.path.exists(directory):
-#         os.makedirs(directory)
-#     save_path = os.path.join(directory, f"cw_odmr_{timestamp}.npz")
-#     print(f"Saved as: cw_odmr_{timestamp}.npz")
-#     np.savez(save_path, x=freqs, y=counts)
 
 # -------------------------
 # Frequency sweep
@@ -156,10 +132,10 @@ def main():
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
 
 
-    cs.plot_odmr(freqs, counts)
+    oPlot.plot_odmr(freqs, counts)
 
     # Save data in folder with its date
-    cs.save_point_odmr_measurement(counts, freqs)
+    oPlot.save_point_odmr_measurement(counts, freqs)
 
     # TODO: calculate the following and print
     #   1. the space betweeen dips in Hz (magnetic field)
