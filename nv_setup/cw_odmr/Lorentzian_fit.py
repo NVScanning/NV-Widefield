@@ -1,7 +1,6 @@
 from typing import Any
 
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import connection_setup as cs
 from scipy.signal import find_peaks, peak_widths
@@ -37,7 +36,6 @@ def multi_lorentzian(f, *params):
 def guess_initial_params(freqs, vals, max_peaks=None):
     max_val = max(vals)
     peaks, props = find_peaks(-vals,prominence=0.01*max_val, distance=3)
-    # print(f"Initially found {len(peaks)} peaks")
 
     if max_peaks is not None and len(peaks) > max_peaks:
         prominences = -vals[peaks]
@@ -57,28 +55,16 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     for i, p in enumerate(peaks):
         f0 = freqs[p]
         amp = vals[p] - c0
-        # print("chose amp" + str(amp))
         w_idx = widths[i]
         fwhm = w_idx * df
         gamma = fwhm / 2.0 if fwhm > 0 else df*3
         init_params.extend([amp, f0, gamma])\
-
-
-    # middle_index = np.argmin(abs(freqs - 2.87))
-    # # print(f"middle index: {middle_index} has frequency {freqs[middle_index]}")
-    # peaks = [np.argmin(vals[0:middle_index-1]), middle_index+1+ np.argmin(vals[middle_index+1:])]
-    # # print(f"peaks: {peaks}, with frequencies {freqs[peaks]}")
-    # amplitude = vals[peaks] - c0 #
-    # init_params = [amplitude[0],freqs[peaks[0]],0.01,amplitude[1],freqs[peaks[1]],0.01]
-    # # print(f"init_params: {init_params}")
 
     init_params.extend([c0, c1])
     return np.array(init_params), peaks
 
 def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
     p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
-    # print(f"guessed initial peaks to be at {freqs[peaks]}GHz")
-    # print(f"guessed initial params: {p0}")
     n_peaks = (len(p0) - 2) // 3
 
     lower = []
@@ -88,8 +74,6 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
         lower += [-abs(A0*3), f0 - 0.02, 0] # changed lower bound of amp to be explicitly negative
         upper += [0,          f0 + 0.02, (freqs.max()-freqs.min())]
 
-    # c0, c1 bounds
-    # c0, c1 = p0[-2], p0[-1]
     lower += [R_vals.min() - 1, -10]  
     upper += [R_vals.max() + 1,  10]
 
@@ -121,7 +105,6 @@ def get_dip_params(popt):
         C_frac = abs(A) / baseline_at_f0  # normalized dip depth
         # C_percent = C_frac * 100.0
 
-        # FWHM (GHz → MHz later)
         FWHM = 2.0 * gamma  # same unit as freqs (GHz)
 
         contrasts.append(C_frac)
@@ -169,7 +152,6 @@ def print_SNR(baseline: Any, counts, freqs, popt):
 
     snr = np.mean(snrs)
     for (freq, snr_val) in zip(freqs, snrs):
-        # this tells us about T2 time (dephasing rate)
         print(f"At frequency {freq:.3f} GHz: snr = {snr_val:.3}")
 
     print(f"SNR avg : {snr:.3}")
@@ -188,6 +170,7 @@ def analyze_data(freqs, counts, max_peaks):
     baseline = c0 + c1 * freqs / 10 ** 9
 
     # ---- Normalized intensity (baseline = 1) ----
+    # if there's a linear term in the counts, then this also removes that
     counts_norm = counts / baseline
     fitted_norm = fitted_counts / baseline
 
@@ -197,55 +180,18 @@ def analyze_data(freqs, counts, max_peaks):
 
 
 
-# ============================
-# Plot graph
-# ============================
-
-def plot_fitted_data(freqs, I_norm, fit_norm):
-    # Expects frequencies in GHz
-    fig = plt.figure(figsize=(8,5))
-    gs = fig.add_gridspec(1, 2, width_ratios=[4, 1])
-
-    ax = fig.add_subplot(gs[0, 0])
-    ax_info = fig.add_subplot(gs[0, 1])
-    ax_info.axis('off')
-
-    ax.plot(freqs, I_norm, '-o', ms=2, color='k')
-    ax.plot(freqs, fit_norm, '-', lw=2, color='C0', alpha = 0.6, label='Lorentzian fit')
-
-    ax.axvline(
-        x=2.87,
-        color='red',
-        linestyle='--',
-        linewidth=1.2,
-        alpha=0.7,
-        label='2.87 GHz'
-    )
-
-    ax.set_title("ODMR")
-    ax.set_xlabel("Frequency (GHz)")
-    ax.set_ylabel("Normalized Intensity")
-    ax.legend(loc='upper left')
-
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
-    
-    
-
 def odmr_to_delta_freq(counts, freqs):
     delta_freq = 0
     max_peaks = 4
     popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks)
     contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
     # print_SNR(baseline, counts, freqs / 10 ** 9, popt)
-    # plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+    # oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
     if (len(dip_Freqs) >= 2):
         # need exactly at least 2 dips to get the difference between the two
         # if >2 dips, assume the additional ones are the middle dips (irrelevant i think)
         delta_freq = dip_Freqs[-1] - dip_Freqs[0]
-    # else:
-        # if you didn't get >=2 dips there's no delta ig
+    # if you didn't get >=2 dips there's no delta, so return 0
     return delta_freq
 
 def counts_to_B_Z(x_points, y_points, counts_2D, freqs):
@@ -257,7 +203,6 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs):
     num_printouts = 10
     printout_factor = len(x_points) * len(y_points) // num_printouts
 
-    # something similar to:
     for x_ind in range(len(x_points)):
         for y_ind in range(len(y_points)):
             if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):

@@ -14,13 +14,16 @@ import nv_widefield.odmr_plotting as oPlot
 this file is to read npy/z files created by cw_odmr
 
 Simply paste in the date and time of the file as it's stored in /NVCFM_Data/date and it will display it
-change max_peaks for the lorentzian fitting for any ODMRs
+change max_peaks for the lorentzian fitting for any ODMRs to be fitted
 
 
 note: measurements previous to 2026-05-13 at 15:02 only have cps data, not frequency stored
-^ this means you don't have any x data, and filetype is different
+^ this means you don't have any x data, and filetype is different (npy)
 note: scanned odmrs from may 15, 2026 don't have the odmrs saved only the frequency deltas 
 note: scanned odmrs previous to 2026-05-19 at 10:47 have freq delta data not B data
+
+Point of all the above notes is that despite hiding a lot of these issues by checking for location manually,
+it's possible there were mistakes in the code, so be aware of where things are stored
 """
 
 # Params to change
@@ -30,45 +33,23 @@ max_peaks = 4
 
 
 
-script_path = Path(__file__).resolve()
-project_root = script_path.parent.parent.parent
-directory = os.path.join(project_root, "NVCFM_Data", date)
+# script_path = Path(__file__).resolve()
+# desktop_dir = script_path.parent.parent.parent
+# directory = os.path.join(desktop_dir, "NVCFM_Data", date)
 
 
-def find_matching_file():
-    global directory
-    project_root = "C:\\Users\\NVCFM\\Desktop"
-    directory = os.path.join(project_root, "NVCFM_Data", date)
-    onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))]  # list of strings of filenames
-    match = [item for item in onlyfiles if "cw_odmr_" + time in item]
-    return match
-
-
-if (os.path.isdir(directory)): # if local NVCFM data folder exits
-    onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))] # list of strings of filenames
-    match = [item for item in onlyfiles if "cw_odmr_" + time in item]
-    if (len(match)==0):
-        # if file doesn't exist in local directory, it could be in ownCloud
-        match = find_matching_file()
-        # project_root = "C:\\Users\\NVCFM\\Desktop"
-        # directory = os.path.join(project_root, "NVCFM_Data", date)
-        # onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))]  # list of strings of filenames
-        # match = [item for item in onlyfiles if "cw_odmr_" + time in item]
-else:
-    # if local folder doesn't exist, it could be in ownCloud
-    match = find_matching_file()
+desktop_dir = "C:\\Users\\NVCFM\\Desktop"
+directory = os.path.join(desktop_dir, "NVCFM_Data", date)
+onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))]  # list of strings of filenames
+match = [item for item in onlyfiles if "cw_odmr_" + time in item] # filter to only have files with '"cw_odmr" + date'
 
 if (len(match)==0):
     print("No matching files found, exiting")
     exit()
+
 # assume only one file has the exact same time to the second
-widefield_measurement = False
-if match[0].startswith("scanned"):
-    widefield_measurement = True
-
-if (not widefield_measurement):
-
-
+if not match[0].startswith("scanned"):
+    # single point measurement
     # Because its in YY-MM-DD we can do:
     is_freq_saved = False
     if (date > "2026-05-13"):
@@ -76,8 +57,8 @@ if (not widefield_measurement):
     elif (date == "2026-05-13") & (time > "15-02-05"):
         is_freq_saved = True
 
-    filepath = os.path.join(project_root, "NVCFM_Data", date, "cw_odmr_" + time)
 
+    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "cw_odmr_" + time)
     if (is_freq_saved):
         data = np.load(filepath + ".npz")
         freqs, counts = data["x"], data["y"]
@@ -86,7 +67,7 @@ if (not widefield_measurement):
         popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
         Lfit.print_dip_params(popt)
         Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
-        Lfit.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+        oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
     else :
         data = np.load(filepath + ".npy")
         counts = data
@@ -104,10 +85,10 @@ else:
     elif (date == "2026-05-19") & (time > "11-00-00"):
         is_B_saved = True
 
-    filepath = os.path.join(project_root, "NVCFM_Data", date, "scanned_cw_odmr_" + time)
+    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "scanned_cw_odmr_" + time)
     plt.figure(figsize=(8, 5))
 
-    data = np.load(filepath + ".npz") # npy for old, npz for new measurements
+    data = np.load(filepath + ".npz")
 
 
     x_points = data["x"]
@@ -138,9 +119,7 @@ else:
     print("=" * 40)
 
     while True:
-        user_input = input(
-            "\nEnter pixel indices as 'X, Y' (e.g.: '5, 12'): "
-        ).strip()
+        user_input = input("\nEnter pixel indices as 'X, Y' (e.g.: '5, 12'): ").strip()
 
         if user_input.lower() == "exit":
             print("Exiting interaction loop.")
@@ -170,17 +149,12 @@ else:
                 continue
 
             counts = counts_2D[x_ind,y_ind]
-            # max_peaks = 2
             popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
-            # print("analyzed data")
             Lfit.print_dip_params(popt)
             # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
             # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
-            Lfit.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
-
+            oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
         except ValueError:
-            print(
-                "Invalid format. Please enter two integers separated by a comma (e.g., '2, 4')."
-            )
+            print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4').")
 
 

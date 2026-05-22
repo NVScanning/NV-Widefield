@@ -159,7 +159,7 @@ def main():
     except ValueError as e:
         # do nothing cuz printing snr didnt work
         print("getting SNR failed" + str(e))
-    Lfit.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+    oPlot.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
 
 
 if __name__ == "__main__":

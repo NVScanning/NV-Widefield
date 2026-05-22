@@ -1,15 +1,6 @@
-import pco
-import matplotlib.pyplot as plt
 import numpy as np
-import datetime
 import time
-
-from pco import Camera
-from pyvisa import Resource
-
 import connection_setup as cs
-
-
 import os
 import sys
 sys.path.append(os.path.abspath(".."))
@@ -18,9 +9,8 @@ import pco_cam_interface as pci
 import odmr_plotting as oPlot
 
 """
-Two parts: 
-first use a single pixel of the camera sensor as a point ODMR sensor
-then use the whole camera sensor, and do all the ODMRS for all the pixels
+Use every pixel read from the camera as it's own sensor in its own independent ODMR
+structure + analysis(lorentzian fitting + conversion to B) is quite similar to scanned_cw_odmr
 """
 
 # TODO:
@@ -127,7 +117,7 @@ def main():
     # except ValueError as e:
     #     # do nothing cuz printing snr didn't work
     #     print("getting SNR failed: " + str(e))
-    # Lfit.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+    # oPlot.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
 
 
 

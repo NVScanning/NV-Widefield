@@ -1,11 +1,6 @@
-import pco
-import matplotlib.pyplot as plt
 import numpy as np
-import datetime
 import time
 import connection_setup as cs
-
-
 import os
 import sys
 sys.path.append(os.path.abspath(".."))
@@ -18,11 +13,6 @@ A step in the direction of widefield imaging, by using the camera sensor, but bi
 all the relevant pixels together into one "brightness" signal, to use in place of the
 SPCM used in cw_odmr.py
 """
-
-# Constants
-camera_resolution = 2048 # pixels, range from 1 tpo 2048 inclusive
-sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
-
 
 
 def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int = 1) -> np.ndarray:
@@ -67,21 +57,6 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
 
 
 def main():
-
-    # # x_points = np.arange(focus_point_centre_x-focus_point_size//2,focus_point_centre_x+focus_point_size//2,1)
-    # # y_points = np.arange(focus_point_centre_y-focus_point_size//2,focus_point_centre_y+focus_point_size//2,1)
-    # # region of interest, crop into this portion of the camera's view
-    # fps = focus_point_size//8*8 # forces fps to be a multiple of 8
-    # fpcx = focus_point_centre_x//8*8
-    # fpcy = focus_point_centre_y//8*8
-    # roi = (fpcx-fps//2+1, fpcy-fps//2+1,
-    #        fpcx+fps//2, fpcy+fps//2)
-    # # horizontal axis needs to be adjusted in steps of 4 pixels, may as well make the vertical
-    # # axis have the same sizing
-    # # roi=(1,1,2048,2048)
-    #
-    # print(f"Using the following roi: {roi}")
-
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 512  # in pixels, diameter of circle of laser point, must be a multiple of either 4 or 16
@@ -105,16 +80,6 @@ def main():
 
     cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
 
-    # # connect to RF src
-    # sg = cs.connect_sg386(sg_resource)
-    # # connect to cam
-    # cam = pci.setup_cam()
-    # pci.set_cam_settings(cam, 10e-3, roi=roi)
-    # exposure_time = pci.auto_expose(cam, target_intensity=0.8) # returns exposure time in s
-    # exposure_time = 0.0025 # roughly match SPCM exposure time
-    # print("Exposure time: ", exposure_time)
-    # pci.set_cam_settings(cam, exposure_time, roi=roi)
-    # # cam.record(mode="sequence",number_of_images=n_windows_per_point)
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
@@ -130,15 +95,10 @@ def main():
 
     oPlot.plot_odmr(freqs, counts)
 
-    # Save data in folder with its date
     oPlot.save_point_odmr_measurement(counts, freqs)
-
-
 
     max_peaks = 6
     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
-    # c0, c1 = popt[-2], popt[-1]
-    # print(f"baseline: {c0} + {c1}f[GHz]")
     Lfit.print_dip_params(popt)
 
 
@@ -147,7 +107,7 @@ def main():
     except ValueError as e:
         # do nothing cuz printing snr didnt work
         print("getting SNR failed: " + str(e))
-    Lfit.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+    oPlot.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
 
 
 

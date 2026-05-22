@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy import dtype, float64, ndarray
 from typing import Any
-from pathlib import Path
 import datetime
 import os
 
@@ -39,32 +38,56 @@ def plot_dFreq_image(x_points, y_points, freq_deltas):
     plt.show()
 
 
+def plot_fitted_data(freqs, I_norm, fit_norm):
+    # Expects frequencies in GHz
+    fig = plt.figure(figsize=(8, 5))
+    gs = fig.add_gridspec(1, 2, width_ratios=[4, 1])
+
+    ax = fig.add_subplot(gs[0, 0])
+    ax_info = fig.add_subplot(gs[0, 1])
+    ax_info.axis('off')
+
+    ax.plot(freqs, I_norm, '-o', ms=2, color='k')
+    ax.plot(freqs, fit_norm, '-', lw=2, color='C0', alpha=0.6, label='Lorentzian fit')
+
+    ax.axvline(
+        x=2.87,
+        color='red',
+        linestyle='--',
+        linewidth=1.2,
+        alpha=0.7,
+        label='2.87 GHz'
+    )
+
+    ax.set_title("ODMR")
+    ax.set_xlabel("Frequency (GHz)")
+    ax.set_ylabel("Normalized Intensity")
+    ax.legend(loc='upper left')
+
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
 def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
                                 freqs: ndarray[tuple[Any, ...], dtype[float64]]):
-    now = datetime.datetime.now()
-    datestamp = now.strftime("%Y-%m-%d")
-    timestamp = now.strftime("%H-%M-%S")
-    script_path = Path(__file__).resolve()
-    # project_root = script_path.parent.parent
-    project_root = "C:\\Users\\NVCFM\\Desktop"
-    directory = os.path.join(project_root, "NVCFM_Data", datestamp)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    save_path = os.path.join(directory, f"cw_odmr_{timestamp}.npz")
-    print(f"Saved as: cw_odmr_{timestamp}.npz in directory: {directory}")
+    save_path = get_newfile_dir()
     np.savez(save_path, x=freqs, y=counts)
 
 
 def save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D):
+    save_path = get_newfile_dir()
+    np.savez(save_path, x=x_points, y=y_points, f=freqs, magnet=B_Z_overall, odmrs=counts_2D)
+
+
+def get_newfile_dir():
     now = datetime.datetime.now()
     datestamp = now.strftime("%Y-%m-%d")
     timestamp = now.strftime("%H-%M-%S")
-    script_path = Path(__file__).resolve()
-    # project_root = script_path.parent.parent.parent
     project_root = "C:\\Users\\NVCFM\\Desktop"
     directory = os.path.join(project_root, "NVCFM_Data", datestamp)
     if not os.path.exists(directory):
         os.makedirs(directory)
     save_path = os.path.join(directory, f"scanned_cw_odmr_{timestamp}.npz")
     print(f"Saved as: scanned_cw_odmr_{timestamp}.npz in directory: {directory}")
-    np.savez(save_path, x=x_points, y=y_points, f=freqs, magnet=B_Z_overall, odmrs=counts_2D)
+    return save_path
