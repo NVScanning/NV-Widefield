@@ -21,24 +21,30 @@ note: scanned odmrs previous to 2026-05-19 at 10:47 have freq delta data not B d
 """
 
 # Params to change
-date = "2026-05-21"
-time = "18-29-50"
+date = "2026-05-22"
+time = "10-25-27"
 
 max_peaks = 4
 
 script_path = Path(__file__).resolve()
 project_root = script_path.parent.parent.parent
 directory = os.path.join(project_root, "NVCFM_Data", date)
-onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))] # list of strings of filenames
-
-
-match = [item for item in onlyfiles if "cw_odmr_" + time in item]
-if (len(match)==0):
-    # if file doesn't exist in local directory, it could be in ownCloud
+if (os.path.isdir(directory)): # if local NVCFM data folder exits
+    onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))] # list of strings of filenames
+    match = [item for item in onlyfiles if "cw_odmr_" + time in item]
+    if (len(match)==0):
+        # if file doesn't exist in local directory, it could be in ownCloud
+        project_root = "C:\\Users\\NVCFM\\Desktop"
+        directory = os.path.join(project_root, "NVCFM_Data", date)
+        onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))]  # list of strings of filenames
+        match = [item for item in onlyfiles if "cw_odmr_" + time in item]
+else:
+    # if local folder doesn't exist, it could be in ownCloud
     project_root = "C:\\Users\\NVCFM\\Desktop"
     directory = os.path.join(project_root, "NVCFM_Data", date)
     onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))] # list of strings of filenames
     match = [item for item in onlyfiles if "cw_odmr_" + time in item]
+
 
 if (len(match)==0):
     print("No matching files found, exiting")

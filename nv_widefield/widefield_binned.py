@@ -10,6 +10,7 @@ import os
 import sys
 sys.path.append(os.path.abspath(".."))
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
+import pco_cam_interface as pci
 
 """
 A step in the direction of widefield imaging, by using the camera sensor, but binning
@@ -21,77 +22,7 @@ SPCM used in cw_odmr.py
 camera_resolution = 2048 # pixels, range from 1 tpo 2048 inclusive
 sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
 
-# params
-focus_point_size = 512  # in pixels, diameter of circle of laser point, must be a multiple of either 4 or 16
-focus_point_centre_x, focus_point_centre_y = 1000, 1100  # in pixels, center point of the laser point
 
-
-def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=10):
-    max_val = 65535 # 2^16-1
-    target = max_val * target_intensity # highest individual pixel brightness we want to allow
-
-    for i in range(max_iter):
-        cam.stop()
-        cam.record(mode="sequence")
-        image, meta = cam.image()
-        peak = np.max(image)
-
-        # Calculate ratio and adjust exposure
-        if peak == 0:  # Prevent division by zero
-            new_exposure = cam.exposure_time * 10 # aggressive, increases by exposure by factor of 10 if too dark
-        else:
-            ratio = target / peak
-            if abs(1 - ratio) < tolerance:
-                break
-            # new_exposure = cam.configuration['exposure time'] * ratio
-            new_exposure = cam.exposure_time * ratio
-
-        # config = cam.configuration
-        # config['exposure time'] = new_exposure
-        # cam.configuration = config
-        cam.exposure_time = new_exposure.item()
-
-        print(f"Adjusting exposure to {new_exposure:.5f}s (Peak was: {peak}, now will be ~{peak * ratio})")
-
-
-    return cam.exposure_time
-
-def set_cam_settings(cam, exposure_time, roi=(1, 1, camera_resolution, camera_resolution), binning=(1, 1)):
-    cam.configuration = {
-        'exposure time': exposure_time,  # in seconds
-        'roi': roi, # Region of Interest (x0, y0, x1, y1)
-        # 'pixel rate': 100_000_000, # lowk no idea what this means
-        'trigger': 'auto sequence',
-        'binning': binning
-    }
-
-def read_image(cam,n_windows):
-    cam.stop()
-    # Re-arm specifically for this new capture
-    cam.record(mode="sequence", number_of_images=n_windows)
-    image = cam.image_average()
-    return image
-
-def setup_cam():
-    cam = pco.Camera()
-    set_cam_settings(cam, 10e-3)
-    return cam
-
-def plot_image(image, x_points=None, y_points=None):
-    if x_points is None:
-        x_points = np.arange(image.shape[1])
-    if y_points is None:
-        y_points = np.arange(image.shape[0])
-    mesh = plt.pcolormesh(x_points, y_points, image, shading='nearest', cmap='gray') # use bone, gray, inferno, nihfire, viridis
-    plt.colorbar(mesh, label='637nm brightness (arb units)')
-    plt.gca().invert_yaxis()
-    plt.xlabel('x space (pixels)')
-    plt.ylabel('y space (pixels)')
-    plt.title('camera image')
-    plt.show()
-
-def bin_image(image):
-    return np.sum(image)
 
 def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int = 1) -> np.ndarray:
 
@@ -111,8 +42,8 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
                 print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.1f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
-            image = read_image(cam,n_windows)
-            all_counts = bin_image(image)
+            image = pci.read_image(cam,n_windows)
+            all_counts = pci.bin_image(image)
             # plot_image(image)
             brightness.append(all_counts / point_duration_s/1000)
             seen+=1
@@ -124,8 +55,8 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
                 print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.1f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
-            image = read_image(cam,n_windows)
-            all_counts = bin_image(image)
+            image = pci.read_image(cam,n_windows)
+            all_counts = pci.bin_image(image)
             # plot_image(image)
             brightness.append(all_counts / point_duration_s/1000)
             seen+=1
@@ -136,19 +67,24 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
 
 def main():
 
-    # x_points = np.arange(focus_point_centre_x-focus_point_size//2,focus_point_centre_x+focus_point_size//2,1)
-    # y_points = np.arange(focus_point_centre_y-focus_point_size//2,focus_point_centre_y+focus_point_size//2,1)
-    # region of interest, crop into this portion of the camera's view
-    fps = focus_point_size//8*8 # forces fps to be a multiple of 8
-    fpcx = focus_point_centre_x//8*8
-    fpcy = focus_point_centre_y//8*8
-    roi = (fpcx-fps//2+1, fpcy-fps//2+1,
-           fpcx+fps//2, fpcy+fps//2)
-    # horizontal axis needs to be adjusted in steps of 4 pixels, may as well make the vertical
-    # axis have the same sizing
-    # roi=(1,1,2048,2048)
+    # # x_points = np.arange(focus_point_centre_x-focus_point_size//2,focus_point_centre_x+focus_point_size//2,1)
+    # # y_points = np.arange(focus_point_centre_y-focus_point_size//2,focus_point_centre_y+focus_point_size//2,1)
+    # # region of interest, crop into this portion of the camera's view
+    # fps = focus_point_size//8*8 # forces fps to be a multiple of 8
+    # fpcx = focus_point_centre_x//8*8
+    # fpcy = focus_point_centre_y//8*8
+    # roi = (fpcx-fps//2+1, fpcy-fps//2+1,
+    #        fpcx+fps//2, fpcy+fps//2)
+    # # horizontal axis needs to be adjusted in steps of 4 pixels, may as well make the vertical
+    # # axis have the same sizing
+    # # roi=(1,1,2048,2048)
+    #
+    # print(f"Using the following roi: {roi}")
 
-    print(f"Using the following roi: {roi}")
+    # params
+    binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
+    focus_point_size = 512  # in pixels, diameter of circle of laser point, must be a multiple of either 4 or 16
+    focus_point_centre_x, focus_point_centre_y = 1000, 1100  # in pixels, center point of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -15 #anything bigger than -10 does nothing (Hayden)
@@ -159,20 +95,25 @@ def main():
     n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.3e9 # Hz, range of frequencies to sample
+    span = 0.4e9 # Hz, range of frequencies to sample
     N = 201 # num points in the frequency space to sample
 
+    roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
+    # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
+    print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
 
-    # connect to RF src
-    sg = cs.connect_sg386(sg_resource)
-    # connect to cam
-    cam = setup_cam()
-    set_cam_settings(cam, 10e-3, roi=roi)
-    exposure_time = auto_expose(cam, target_intensity=0.8) # returns exposure time in s
-    exposure_time = 0.0025 # roughly match SPCM exposure time
-    print("Exposure time: ", exposure_time)
-    set_cam_settings(cam, exposure_time, roi=roi)
-    # cam.record(mode="sequence",number_of_images=n_windows_per_point)
+    cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
+
+    # # connect to RF src
+    # sg = cs.connect_sg386(sg_resource)
+    # # connect to cam
+    # cam = pci.setup_cam()
+    # pci.set_cam_settings(cam, 10e-3, roi=roi)
+    # exposure_time = pci.auto_expose(cam, target_intensity=0.8) # returns exposure time in s
+    # exposure_time = 0.0025 # roughly match SPCM exposure time
+    # print("Exposure time: ", exposure_time)
+    # pci.set_cam_settings(cam, exposure_time, roi=roi)
+    # # cam.record(mode="sequence",number_of_images=n_windows_per_point)
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
@@ -193,7 +134,7 @@ def main():
 
 
 
-    max_peaks = 2
+    max_peaks = 6
     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
     # c0, c1 = popt[-2], popt[-1]
     # print(f"baseline: {c0} + {c1}f[GHz]")
