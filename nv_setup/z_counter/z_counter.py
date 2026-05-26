@@ -42,7 +42,7 @@ def plot_graph(z_range: np.ndarray, kcps: np.ndarray):
 
     plt.figure(figsize=(8, 5))
     plt.plot(z_range, kcps, "-o", markersize=2)
-    plt.xlabel("Position (mm)")
+    plt.xlabel("Z Position (mm)")
     plt.ylabel("kcps")
     plt.title("Counts as a fn of Z")
     plt.grid(True)

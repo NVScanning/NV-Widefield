@@ -66,7 +66,8 @@ if not match[0].startswith("scanned"):
 
         popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
         Lfit.print_dip_params(popt)
-        Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
+        snrs = Lfit.get_SNRs(baseline, counts, freqs/10**9, popt)
+        Lfit.print_SNR(snrs, freqs)
         oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
     else :
         data = np.load(filepath + ".npy")

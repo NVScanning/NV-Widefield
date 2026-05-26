@@ -36,7 +36,7 @@ def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=10):
         # print(f"want new exposure time: {new_exposure:.5f}")
         cam.exposure_time = float(min(new_exposure,0.499))
 
-        print(f"Adjusting exposure from {og_exposure} to {cam.exposure_time:.5f}s (Peak was: {peak}, now will be ~{peak * cam.exposure_time / og_exposure})")
+        print(f"Adjusting exposure from {og_exposure:.3f} to {cam.exposure_time:.3f}s (Peak was: {peak:.3g}, now will be ~{peak * cam.exposure_time / og_exposure:.3g})")
 
 
     return cam.exposure_time
@@ -91,6 +91,9 @@ def connect_cam_RF(roi: tuple[int, int, int, int],binning_amount) -> tuple[Camer
     # exposure_time = 0.0025 # roughly match SPCM exposure time
     print("Exposure time: ", exposure_time)
     set_cam_settings(cam, exposure_time, roi=roi, binning=(binning_amount, binning_amount))
+    img = read_image(cam,1)
+    plot_image(img)
+    print("Example image plotted")
     return cam, exposure_time, sg
 
 

@@ -144,7 +144,8 @@ def main():
     # Since above fn is working, I can change the relevant passage to determine space between dips
 
     try:
-        Lfit.print_SNR(baseline, counts, freqs/10**9, popt)
+        snrs = Lfit.get_SNRs(baseline, counts, freqs/10**9, popt)
+        Lfit.print_SNR(snrs, freqs)
     except ValueError as e:
         # do nothing cuz printing snr didnt work
         print("getting SNR failed" + str(e))

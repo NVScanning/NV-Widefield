@@ -59,11 +59,11 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
 def main():
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 512  # in pixels, diameter of circle of laser point, must be a multiple of either 4 or 16
-    focus_point_centre_x, focus_point_centre_y = 1000, 1100  # in pixels, center point of the laser point
+    focus_point_size = 128  # in pixels, diameter of circle of laser point, must be a multiple of either 4 or 16
+    focus_point_centre_x, focus_point_centre_y = 1000, 1100  # in pixels, center of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
-    amp_dbm = -15 #anything bigger than -10 does nothing (Hayden)
+    amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
@@ -71,8 +71,8 @@ def main():
     n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.4e9 # Hz, range of frequencies to sample
-    N = 201 # num points in the frequency space to sample
+    span = 0.2e9 # Hz, range of frequencies to sample
+    N = 101 # num points in the frequency space to sample
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
@@ -97,13 +97,14 @@ def main():
 
     oPlot.save_point_odmr_measurement(counts, freqs)
 
-    max_peaks = 6
+    max_peaks = 4
     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
     Lfit.print_dip_params(popt)
 
 
     try:
-        Lfit.print_SNR(baseline, counts, freqs/10**9, popt)
+        snrs = Lfit.get_SNRs(baseline, counts, freqs/10**9, popt)
+        Lfit.print_SNR(snrs, freqs)
     except ValueError as e:
         # do nothing cuz printing snr didnt work
         print("getting SNR failed: " + str(e))

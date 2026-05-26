@@ -96,9 +96,6 @@ def main():
 
     print("Sweep done, now converting odmrs to B deltas")
     B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs)
-    # cs.plot_odmr(freqs, counts)
-    # Save data in folder with its date
-    # cs.save_point_odmr_measurement(counts, freqs)
     print("Conversion done, saving and plotting")
     oPlot.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
     oPlot.plot_dFreq_image(x_space, y_space, B_Z_overall)

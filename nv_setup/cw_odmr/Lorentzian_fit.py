@@ -125,7 +125,7 @@ def print_dip_params(popt):
         print(f"Frequency delta is {((dip_Freqs[i+1]-dip_Freqs[i])*1000):.3}MHz, equivalent to {(dip_Freqs[i+1]-dip_Freqs[i])/(2*cs.gamma_e):.3}T")
     return contrasts, FWHMs, dip_Freqs
 
-def print_SNR(baseline: Any, counts, freqs, popt):
+def get_SNRs(baseline, counts, freqs, popt):
     noise_signal = counts - baseline
     c0, c1 = popt[-2], popt[-1]
 
@@ -142,13 +142,17 @@ def print_SNR(baseline: Any, counts, freqs, popt):
         raise ValueError("Off-resonance region too small. Decrease k_exclude or widen sweep range.")
 
     sigma = np.std(noise_signal[off_mask], ddof=1)
-    print(f"sigma of background : {sigma:.3} kcps, which is ~{sigma/c0*100:.3}%")
+    # print(f"sigma of background : {sigma:.3} kcps, which is ~{sigma / c0 * 100:.3}%")
 
     snrs = []
     for i, (A, f0, gamma) in enumerate(dip_params, start=1):
         signal = abs(A)
 
         snrs.append(signal / sigma)
+    return snrs
+
+def print_SNR(snrs, freqs):
+    # snrs = get_SNRs(baseline, counts, freqs, popt)
 
     snr = np.mean(snrs)
     for (freq, snr_val) in zip(freqs, snrs):
@@ -214,4 +218,21 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs):
             if delta_freq == 0:
                 # had problem fitting
                 problem_points.append((x_ind, y_ind))
+    return B_Z_overall, problem_points
+
+def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
+
+    B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
+
+    num_printouts = 10
+    printout_factor = len(x_points) * len(y_points) // num_printouts
+
+    for x_ind in range(len(x_points)):
+        for y_ind in range(len(y_points)):
+            if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
+                # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
+                print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
+            popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts_2D[x_ind,y_ind], max_peaks)
+            contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
+
     return B_Z_overall, problem_points
