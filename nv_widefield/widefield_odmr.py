@@ -66,7 +66,7 @@ def main():
     binning_amount = 4 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 128  # in physical (unbinned) pixels, diameter of circle of laser point
     focus_point_centre_x, focus_point_centre_y = 1000, 1110  # in pixels, center point of the laser point
-    # TODO: maybe make use of 2D-gaussian to determine centre of focus point
+    # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
     n_windows_per_point = 10 # n readouts to increase certainty without overexposing
     amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips

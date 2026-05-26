@@ -8,7 +8,6 @@ import connection_setup as cs
 
 # Constants
 camera_resolution = 2048 # pixels, range from 1 tpo 2048 inclusive
-sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
 
 def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=10):
     max_val = 65535 # 2^16-1
@@ -84,7 +83,7 @@ def select_one_pixel(image,x,y):
 
 def connect_cam_RF(roi: tuple[int, int, int, int],binning_amount) -> tuple[Camera, float, float]:
     # connect to RF src
-    sg = cs.connect_sg386(sg_resource)
+    sg = cs.connect_sg386(cs.sg_resource)
     # connect to cam
     cam = setup_cam()
     set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))

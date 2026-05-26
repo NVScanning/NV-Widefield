@@ -7,7 +7,13 @@ import numpy as np
 import time
 
 # Constants
-gamma_e = 28.02
+gamma_e = 28.02 #GHz/T linear term in zeeman splitting for NV centres
+sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
+# below are the s/n on the stepper control box
+x_mID = 90335875
+y_mID = 90335876
+z_mID = 90335877 # s/n of the z motor
+
 
 
 def connect_sg386(resource: str, timeout_ms: int = 5000):

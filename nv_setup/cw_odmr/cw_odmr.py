@@ -36,17 +36,6 @@ Note: 20kcounts is the limit for the SPCM, if you see this then decrease brightn
 """
 
 # -------------------------
-# sg386 Parameters
-# -------------------------
-
-sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
-
-# -------------------------
-# Helper functions
-# -------------------------
-
-
-# -------------------------
 # Frequency sweep
 # -------------------------
 
@@ -110,7 +99,7 @@ def main():
     N = 51 # num points in the frequency space to sample
 
     # connect to RF src
-    sg = cs.connect_sg386(sg_resource)
+    sg = cs.connect_sg386(cs.sg_resource)
 
     # -------------------------
     # Execute program on QM

@@ -48,18 +48,6 @@ the x-y and frequency arrays, as well as every odmr scan and the final magnetic 
 
 #TODO: modify code to be able to sweep z as well, and I simply choose the axes I want to sweep through
 
-# -------------------------
-# Constants
-# -------------------------
-
-# this is the s/n on the stepper control box
-x_motor_id = 90335875
-y_motor_id = 90335876
-z_motor_id = 90335877 # s/n of the z motor
-
-sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
-
-# gamma_e = 28.02 #GHz/T linear term in zeeman splitting for NV centres
 
 # -------------------------
 # X&Y sweep
@@ -140,10 +128,10 @@ def main():
     x_N, y_N = 20,20 # num points in each axis to sample
 
 
-    sg = cs.connect_sg386(sg_resource) # connect to RF src
+    sg = cs.connect_sg386(cs.sg_resource) # connect to RF src
     # connect to motors
-    x_motor = cs.connect_motor(x_motor_id)
-    y_motor = cs.connect_motor(y_motor_id)
+    x_motor = cs.connect_motor(cs.x_mID)
+    y_motor = cs.connect_motor(cs.y_mID)
 
     # Create + Execute program on QM
     qmm = QuantumMachinesManager(host=qop_ip, port=qop_port, log_level="INFO")

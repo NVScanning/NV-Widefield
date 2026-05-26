@@ -42,7 +42,7 @@ def plot_graph(z_range: np.ndarray, kcps: np.ndarray):
 
     plt.figure(figsize=(8, 5))
     plt.plot(z_range, kcps, "-o", markersize=2)
-    plt.xlabel("Position ())")
+    plt.xlabel("Position (mm)")
     plt.ylabel("kcps")
     plt.title("Counts as a fn of Z")
     plt.grid(True)
@@ -68,35 +68,6 @@ def save_focus_state(sample, z_mm, kcps, path = STATE_PATH):
         json.dump(data, f, indent=2, ensure_ascii=False)
     os.replace(tmp, path)
     return data
-
-
-# -------------------------
-# QUA program
-# -------------------------
-
-# def z_counts_program(num_z_points, n_windows_per_point, readout_len_ns):
-#     with program() as z_counts:
-#         times = declare(int, size=10000)
-#         counts = declare(int)
-#         total_counts = declare(int)
-#
-#         i = declare(int)
-#         k = declare(int)
-#         counts_st = declare_stream()
-#
-#         with for_(i, 0, i < num_z_points, i + 1):
-#             pause()
-#             assign(total_counts, 0)
-#             with for_(k, 0, k < n_windows_per_point, k + 1):
-#                 measure( "readout", "SPCM", time_tagging.analog(times, readout_len_ns, counts))
-#                 assign(total_counts, total_counts + counts)
-#
-#             save(total_counts, counts_st)
-#
-#         with stream_processing():
-#             counts_st.save_all("counts")
-#
-#     return z_counts
 
 # -------------------------
 # z_direction sweep
@@ -131,10 +102,10 @@ def main():
     # Parameters
     # -------------------------
     # photo counts parameters
-    readout_len_ns = int(0.2 * u.ms)   # readout in ms
-    n_windows_per_point = 1         # tbh idk what this does other than just increase the value of readout eln ^
+    readout_len_ns = int(0.2 * u.ms)   # readout in ns
+    n_windows_per_point = 1
 
-    dwell = 0.2 # units? Used to be 2
+    dwell = 0.2 # s Used to be 2
     # position z parameters
     z_center = 6.3
     span = 0.2
