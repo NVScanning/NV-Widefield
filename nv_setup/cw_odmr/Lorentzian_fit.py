@@ -5,6 +5,9 @@ from scipy.optimize import curve_fit
 import connection_setup as cs
 from scipy.signal import find_peaks, peak_widths
 
+from nv_widefield.odmr_plotting import plot_fitted_data
+
+
 # ============================
 # Fitting helper functions
 # ============================
@@ -35,13 +38,28 @@ def multi_lorentzian(f, *params):
 
 def guess_initial_params(freqs, vals, max_peaks=None):
     max_val = max(vals)
-    peaks, props = find_peaks(-vals,prominence=0.01*max_val, distance=3)
+    peaks, props = find_peaks(-vals,prominence=0.002*max_val, distance=3)
 
     if max_peaks is not None and len(peaks) > max_peaks:
-        prominences = -vals[peaks]
+        prominences = props["prominences"]
+        # prominences = -vals[peaks]
         top_idx = np.argsort(prominences)[-max_peaks:]
         peaks = peaks[top_idx]
         peaks = peaks[np.argsort(peaks)]
+
+    # If we want a doublet but the code only saw 1 wide trough, artificially split it
+    if max_peaks in [2, 4] and len(peaks) == 1:
+        print("Warning: Unresolved overlapping doublet detected. Manually splitting peak seeds.")
+        sole_peak_idx = peaks[0]
+
+        # Calculate index offset corresponding to roughly 8 MHz splitting
+        df = np.mean(np.diff(freqs))
+        split_offset_idx = max(1, int(0.008 / df))
+
+        # Seed two distinct peaks symmetrically around the center trough
+        peak1 = max(0, sole_peak_idx - split_offset_idx)
+        peak2 = min(len(freqs) - 1, sole_peak_idx + split_offset_idx)
+        peaks = np.array([peak1, peak2])
 
     c0 = vals[0]            # offset - used to be np.mean
     c1 = 0.0                # slope value 0
@@ -58,7 +76,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
         w_idx = widths[i]
         fwhm = w_idx * df
         gamma = fwhm / 2.0 if fwhm > 0 else df*3
-        init_params.extend([amp, f0, gamma])\
+        init_params.extend([amp, f0, gamma])
 
     init_params.extend([c0, c1])
     return np.array(init_params), peaks
@@ -66,13 +84,15 @@ def guess_initial_params(freqs, vals, max_peaks=None):
 def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
     p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
     n_peaks = (len(p0) - 2) // 3
+    if max_peaks is not None and (n_peaks < max_peaks):
+        print(f"Guessed only {n_peaks} peaks out of {max_peaks} peaks at frequencies {freqs[peaks]}")
 
     lower = []
     upper = []
     for i in range(n_peaks):
         A0, f0, g0 = p0[3*i:3*i+3]
         lower += [-abs(A0*3), f0 - 0.02, 0] # changed lower bound of amp to be explicitly negative
-        upper += [0,          f0 + 0.02, (freqs.max()-freqs.min())]
+        upper += [0,          f0 + 0.02, 0.02]
 
     lower += [R_vals.min() - 1, -10]  
     upper += [R_vals.max() + 1,  10]
@@ -81,6 +101,7 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
         popt, pcov = curve_fit(
             multi_lorentzian, freqs, R_vals,
             p0=p0, bounds=(lower, upper)#, maxfev=10000
+            # ,ftol=0.001, xtol=0.001) # Note: these make convergence quicker, but lose accuracy
         )
         return popt, pcov, peaks
     except:
@@ -133,12 +154,13 @@ def get_SNRs(baseline, counts, freqs, popt):
     dip_params = popt[:3 * n_dips].reshape(n_dips, 3)
     off_mask = np.ones_like(freqs, dtype=bool)
 
-    k_exclude = 2.0  # was previously 3.0
+    k_exclude = 1.5  # was previously 3.0
     for A, f0, gamma in dip_params:
         FWHM = 2.0 * gamma
         off_mask &= (np.abs(freqs - f0) > (k_exclude * FWHM))
 
     if np.count_nonzero(off_mask) < max(10, 0.1 * len(freqs)):
+
         raise ValueError("Off-resonance region too small. Decrease k_exclude or widen sweep range.")
 
     sigma = np.std(noise_signal[off_mask], ddof=1)
@@ -222,17 +244,33 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs):
 
 def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
 
-    B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
+    # B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
+    #
+    # num_printouts = 10
+    # printout_factor = len(x_points) * len(y_points) // num_printouts
+    #
+    # for x_ind in range(len(x_points)):
+    #     for y_ind in range(len(y_points)):
+    #         if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
+    #             # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
+    #             print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
+    #         popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts_2D[x_ind,y_ind], max_peaks)
+    #         contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
 
-    num_printouts = 10
-    printout_factor = len(x_points) * len(y_points) // num_printouts
-
-    for x_ind in range(len(x_points)):
-        for y_ind in range(len(y_points)):
-            if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
-                # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
-            popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts_2D[x_ind,y_ind], max_peaks)
+    all_snrs = np.zeros((x_points.shape[0], y_points.shape[0], max_peaks))
+    all_contrasts = np.zeros((x_points.shape[0], y_points.shape[0], max_peaks))
+    for x in range(x_points.shape[0]):
+        for y in range(y_points.shape[0]):
+            popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts_2D[x, y, :], max_peaks)
             contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
+            try:
+                snrs = get_SNRs(baseline, counts_2D[x, y, :], freqs / 10 ** 9, popt)
+            except Exception as e:
+                print("getting SNRs returned an error", e)
+                print(f"Fitted dip frequencies at {dip_Freqs}GHz")
+                plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+            # Lfit.print_SNR(snrs, freqs)
+            all_snrs[x, y, :] = snrs
+            all_contrasts[x, y, :] = contrasts
 
-    return B_Z_overall, problem_points
+    return all_snrs, all_contrasts

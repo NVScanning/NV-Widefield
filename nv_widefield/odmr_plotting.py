@@ -71,16 +71,21 @@ def plot_fitted_data(freqs, I_norm, fit_norm):
 
 def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
                                 freqs: ndarray[tuple[Any, ...], dtype[float64]]):
-    save_path = get_newfile_dir()
+    save_path = get_newfile_dir("")
     np.savez(save_path, x=freqs, y=counts)
 
 
 def save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D):
-    save_path = get_newfile_dir()
+    save_path = get_newfile_dir("scanned_")
     np.savez(save_path, x=x_points, y=y_points, f=freqs, magnet=B_Z_overall, odmrs=counts_2D)
 
+def save_2D_odmr_snr_contrast(x_points, y_points, freqs, SNR_overall, contrasts_overall, counts_2D):
+    save_path = get_newfile_dir("snr_contr_")
+    np.savez(save_path, x=x_points, y=y_points, f=freqs, snr=SNR_overall, contr=contrasts_overall, odmrs=counts_2D)
 
-def get_newfile_dir():
+
+
+def get_newfile_dir(prefix):
     now = datetime.datetime.now()
     datestamp = now.strftime("%Y-%m-%d")
     timestamp = now.strftime("%H-%M-%S")
@@ -88,6 +93,6 @@ def get_newfile_dir():
     directory = os.path.join(project_root, "NVCFM_Data", datestamp)
     if not os.path.exists(directory):
         os.makedirs(directory)
-    save_path = os.path.join(directory, f"scanned_cw_odmr_{timestamp}.npz")
-    print(f"Saved as: scanned_cw_odmr_{timestamp}.npz in directory: {directory}")
+    save_path = os.path.join(directory, f"{prefix}cw_odmr_{timestamp}.npz")
+    print(f"Saved as: {prefix}cw_odmr_{timestamp}.npz in directory: {directory}")
     return save_path

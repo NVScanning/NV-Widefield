@@ -52,6 +52,7 @@ def set_cam_settings(cam, exposure_time, roi=(1, 1, camera_resolution, camera_re
 
 def read_image(cam,n_windows):
     # Re-arm specifically for this new capture
+    # cam.stop()
     cam.record(mode="sequence", number_of_images=n_windows)
     image = cam.image_average()
     cam.stop()

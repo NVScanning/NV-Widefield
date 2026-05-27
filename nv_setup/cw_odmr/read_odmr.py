@@ -3,7 +3,12 @@ import matplotlib.pyplot as plt
 import os
 from os import listdir
 from os.path import isfile, join
+from uncertainties import ufloat
+
 from pathlib import Path
+
+from packaging import markers
+
 import Lorentzian_fit as Lfit
 import sys
 sys.path.append(os.path.abspath("..."))
@@ -27,8 +32,8 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-05-22"
-time = "11-25-22"
+date = "2026-05-27"
+time = "15-04-45"
 max_peaks = 4
 
 
@@ -48,7 +53,7 @@ if (len(match)==0):
     exit()
 
 # assume only one file has the exact same time to the second
-if not match[0].startswith("scanned"):
+if match[0].startswith("cw_odmr"):
     # single point measurement
     # Because its in YY-MM-DD we can do:
     is_freq_saved = False
@@ -76,7 +81,7 @@ if not match[0].startswith("scanned"):
         print("Old file being read, frequency data is guessed and cannot be used for numerical analysis.")
         oPlot.plot_odmr(freqs, data)
 
-else:
+elif match[0].startswith("scanned"):
     # is widefield
 
     # Below code is to determine if magnetic field data is saved or not
@@ -159,3 +164,24 @@ else:
             print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4').")
 
 
+elif match[0].startswith("snr_contr_"):
+
+    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "snr_contr_cw_odmr_" + time)
+    plt.figure(figsize=(8, 5))
+
+    data = np.load(filepath + ".npz")
+
+
+    x_points = data["x"]
+    y_points = data["y"]
+    freqs = data["f"]
+    counts_2D = data["odmrs"]
+    snrs = data["snrs"]
+    contrasts = data["contr"]
+
+    overall_avg_snr = ufloat(np.mean(snrs), np.std(snrs))
+    overall_avg_contrast = ufloat(np.mean(contrasts), np.std(contrasts))
+    print(f"Overall average SNR:{overall_avg_snr:.2u}, average contrast:{overall_avg_contrast * 100:.2u}%")
+
+else:
+    print("file has wrong prefix", match[0])

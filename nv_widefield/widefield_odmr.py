@@ -26,13 +26,14 @@ structure + analysis(lorentzian fitting + conversion to B) is quite similar to s
 
 
 def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int = 1) -> np.ndarray:
-
+    print(f"measuring ODMR, estimate time to completion ~ {n_iter*2 * len(freqs) * (dwell + point_duration_s):.3f}s")
+    # 0.01 is approximate guessed picture transfer time
     seen=0
     image = pci.read_image(cam,1)
+    # TODO: one row of pixels is ~30% brighter than the rest, can't figure out what's going on
 
-    num_printouts = 10
+    num_printouts = 5
     printout_factor = len(freqs)*n_iter*2 // num_printouts
-
     brightnesses = np.zeros((n_iter*2, image.shape[0], image.shape[1], freqs.size)) # should be n_iter*2 when reversing as well
     for i in range(n_iter):
         print("Iteration " + str(i))
@@ -63,8 +64,8 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
 
 def main():
     # params
-    binning_amount = 4 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 128  # in physical (unbinned) pixels, diameter of circle of laser point
+    binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
+    focus_point_size = 32  # in physical (unbinned) pixels, diameter of circle of laser point
     focus_point_centre_x, focus_point_centre_y = 1000, 1110  # in pixels, center point of the laser point
     # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
     n_windows_per_point = 10 # n readouts to increase certainty without overexposing
@@ -75,7 +76,7 @@ def main():
     n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.4e9 # Hz, range of frequencies to sample
+    span = 0.2e9 # Hz, range of frequencies to sample
     N = 101 # num points in the frequency space to sample
 
 

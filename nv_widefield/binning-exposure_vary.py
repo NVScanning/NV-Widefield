@@ -26,11 +26,6 @@ limit it to powers of 2. It's done by summing the ODMRs from the nxn area, and m
 as a separate measurement for 2D odmr analysis
 """
 
-# Todo:
-#   Vary the z in tiny steps, and move to the optimal position (prolly maximize brightness) (can mostly copy-paste the z-counter code from before, binning the whole camera)
-#   vary the binning size from 1,2,4,8...2048 and compare contrasts/SNRs
-#   vary the exposure time and compare contrasts/SNRs
-#   vary both in a 2D array, and plot the contrasts/SNRs in a heatmap
 
 def plot_Z_dep_graph(z_range: np.ndarray, kcps: np.ndarray):
     plt.figure(figsize=(8, 5))
@@ -61,9 +56,29 @@ def plot_binned_snr_contr(binned_contrast_avg,ubinned_contrast_avg, binned_snr_a
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
     plt.grid(True)
     plt.show()
+def plot_exposure_snr_contr(contr_avg, ucontr_avg, snr_avg, usnr_avg, n_windows: int):
+    bins = np.power(2,range(n_windows))
+
+    fig, ax1 = plt.subplots()
+
+    color = 'tab:red'
+    ax1.set_xlabel('exposure time (num windows per point)')
+    ax1.set_ylabel('Average SNR', color=color)
+    ax1.errorbar(bins, snr_avg, yerr=usnr_avg, markersize=3, capsize=5, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+
+    ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
+
+    color = 'tab:blue'
+    ax2.set_ylabel('Average contrast(%)', color=color)  # we already handled the x-label with ax1
+    ax2.errorbar(bins, np.array(contr_avg) * 100, yerr=np.array(ucontr_avg) * 100, markersize=3, capsize=5, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    plt.grid(True)
+    plt.show()
 
 def find_best_z(cam, motor, z_range, dwell, point_duration_s, n_windows):
-    # TODO: convert this to work with camera instead
     seen = 0
     num_printouts = 5
     brightnesses = np.zeros(z_range.size)
@@ -89,12 +104,12 @@ def optimize_z():
     z_motor = cs.connect_motor(cs.z_mID)
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 256  # in pixels, diameter of circle of laser point, must be a multiple of either 4 or 16
-    focus_point_centre_x, focus_point_centre_y = 1000, 1100  # in pixels, center point of the laser point
+    focus_point_centre_x, focus_point_centre_y = 1024, 1024  # in pixels, center point of the laser point
     n_windows_per_point = 1
     dwell = 0.2 # s
     # position z parameters
-    z_center = 5.892
-    span = 0.05
+    z_center = 2.6
+    span = 0.1
     N = 51
 
     z_start, z_end, z_range = cs.calc_sweep_range(z_center, span, N)
@@ -103,7 +118,7 @@ def optimize_z():
     time.sleep(5) # move to rough middle, to have good auto exposure time
     cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
     point_duration_s = exposure_time * n_windows_per_point
-    print(f"Optimizing Z, estimate time to completion ~ {N * (dwell * point_duration_s) + 10}s")
+    print(f"Optimizing Z, estimate time to completion ~ {N * (dwell + point_duration_s) + 10:.2f}s")
     # here exact exposure time doesn't matter, as long as its constant throughout the range
     brightnesses, optimized_z_pos, max_brightness = find_best_z(cam, z_motor, z_range, dwell, point_duration_s, n_windows_per_point)
     cam.close()
@@ -141,7 +156,7 @@ def vary_binning():
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     n_bins = 6 # to bin 0,1,...n_bins-1 # note: n_bins must be at least 6
-    focus_point_centre_x, focus_point_centre_y = 1000, 1110  # in pixels, center point of the laser point
+    focus_point_centre_x, focus_point_centre_y = 1024, 1024  # in pixels, center point of the laser point
     n_windows_per_point = 10 # n readouts to increase certainty without overexposing
     amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
     dwell =  0.001 # seconds - time between setting a frequency on fn generator and reading value
@@ -218,7 +233,75 @@ def vary_exposure_time():
     # do a series of image-ODMRs, but all with the same camera settings EXCEPT for num windows per point
     # num windows should range from 1-100, maybe logarithmic scale again?
 
+    # params
+    binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
+    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 1024, 1024  # in pixels, center point of the laser point
+    amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
+    dwell =  0.001 # seconds - time between setting a frequency on fn generator and reading value
+    n_iter = 1
+    n_windows = 8 # range exposure time from 2^(0,1,... n_windows-1)
+    # frequency parameters
+    f_center = 2.87e9 # Hz, generally near 2.87GHz
+    span = 0.1e9 # Hz, range of frequencies to sample
+    N = 201 # num points in the frequency space to sample
+    max_peaks = 2 # TODO: make it able to detect the 4 peaks
 
+
+    roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
+    # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
+    print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
+    cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
+    f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
+    print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
+
+    snr_avg,usnr_avg = [], []
+    contr_avg,ucontr_avg = [], []
+    for window_exp in range(n_windows):
+        n_windows_per_point = 2**window_exp
+        point_duration_s = exposure_time * n_windows_per_point
+
+        cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+        time.sleep(0.1) # why sleep for a whole second? (previous was 1)
+        try:
+            counts_2D = wODMR.measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
+        finally:
+            cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
+            cam.stop()
+
+        # B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs)
+        # oPlot.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
+
+        print(f"\nAnalyzing SNR&contrast from ODMR, esimate ~{focus_point_size**2/250:.2f}s")
+        snrs, contrasts = Lfit.counts_to_SNR_contrast(x_space, y_space, counts_2D, freqs, max_peaks)
+        # all_snrs = np.zeros((x_space.shape[0], y_space.shape[0], max_peaks))
+        # all_contrasts = np.zeros((x_space.shape[0], y_space.shape[0], max_peaks))
+        # for x in range(x_space.shape[0]):
+        #     for y in range(y_space.shape[0]):
+        #         popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts_2D[x, y, :],max_peaks)
+        #         try:
+        #             snrs = Lfit.get_SNRs(baseline, counts_2D[x, y, :], freqs / 10 ** 9, popt)
+        #         except Exception as e:
+        #             # oPlot.plot_odmr(freqs/10**9, counts_2D[x, y, :])
+        #             oPlot.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+        #             print("caught exception when getting SNRs: ", e, f"Plotted odmr of problematic pixel, indices: {x},{y}")
+        #
+        #         # Lfit.print_SNR(snrs, freqs)
+        #         contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+        #         all_snrs[x, y, :] = snrs
+        #         all_contrasts[x, y, :] = contrasts
+
+        oPlot.save_2D_odmr_snr_contrast(x_space, y_space, freqs, snrs, contrasts, counts_2D)
+
+        overall_avg_snr = ufloat(np.mean(snrs), np.std(snrs))
+        overall_avg_contrast = ufloat(np.mean(contrasts), np.std(contrasts))
+        print(f"Overall average SNR:{overall_avg_snr:.2u}, average contrast:{overall_avg_contrast * 100:.2u}%")
+        snr_avg.append(overall_avg_snr.n)
+        contr_avg.append(overall_avg_contrast.n)
+        usnr_avg.append(overall_avg_snr.s)
+        ucontr_avg.append(overall_avg_contrast.s)
+
+    plot_exposure_snr_contr(contr_avg, ucontr_avg, snr_avg, usnr_avg, n_windows)
     return
 
 
@@ -236,10 +319,12 @@ def main():
     # optimize_z()
 
     # 2:
-    vary_binning()
+    # vary_binning()
 
     # 3:
     vary_exposure_time()
+
+    # TODO: create the combo exposure + binning variation, and see how things change
 
 
 

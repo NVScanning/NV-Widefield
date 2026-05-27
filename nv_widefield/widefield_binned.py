@@ -59,8 +59,8 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
 def main():
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 128  # in pixels, diameter of circle of laser point, must be a multiple of either 4 or 16
-    focus_point_centre_x, focus_point_centre_y = 1000, 1100  # in pixels, center of the laser point
+    focus_point_size = 256  # in pixels, diameter of circle of laser point, must be a multiple of either 4 or 16
+    focus_point_centre_x, focus_point_centre_y = 1000, 1050  # in pixels, center of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
@@ -71,7 +71,7 @@ def main():
     n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.2e9 # Hz, range of frequencies to sample
+    span = 0.1e9 # Hz, range of frequencies to sample
     N = 101 # num points in the frequency space to sample
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
@@ -97,7 +97,7 @@ def main():
 
     oPlot.save_point_odmr_measurement(counts, freqs)
 
-    max_peaks = 4
+    max_peaks = 2
     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
     Lfit.print_dip_params(popt)
 
