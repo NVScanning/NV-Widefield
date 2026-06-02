@@ -19,17 +19,19 @@ def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
 def plot_magnet_image(x_points, y_points, B_Z_overall):
     plt.figure(figsize=(10, 6))
     # shading='auto' handles the coordinate mapping automatically
-    mesh = plt.pcolormesh(x_points, y_points, B_Z_overall, shading='nearest', cmap='viridis')
+    mesh = plt.pcolormesh(x_points, y_points, B_Z_overall, shading='nearest', cmap='inferno')
 
     plt.colorbar(mesh, label='B_Z (T)')
     plt.xlabel('x space (mm)')
     plt.ylabel('y space (mm)')
     plt.title('Magnetic Field Heatmap')
     plt.show()
+
+
 def plot_dFreq_image(x_points, y_points, freq_deltas):
     plt.figure(figsize=(10, 6))
     # shading='auto' handles the coordinate mapping automatically
-    mesh = plt.pcolormesh(x_points, y_points, freq_deltas, shading='nearest', cmap='viridis')
+    mesh = plt.pcolormesh(x_points, y_points, freq_deltas, shading='nearest', cmap='inferno')
 
     plt.colorbar(mesh, label='B_Z (T)')
     plt.xlabel('x space (mm)')
@@ -76,7 +78,7 @@ def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
 
 
 def save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D):
-    save_path = get_newfile_dir("scanned_")
+    save_path = get_newfile_dir("widefield_")
     np.savez(save_path, x=x_points, y=y_points, f=freqs, magnet=B_Z_overall, odmrs=counts_2D)
 
 def save_2D_odmr_snr_contrast(x_points, y_points, freqs, SNR_overall, contrasts_overall, counts_2D):

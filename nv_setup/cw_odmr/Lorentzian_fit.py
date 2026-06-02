@@ -1,11 +1,9 @@
-from typing import Any
-
 import numpy as np
 from scipy.optimize import curve_fit
 import connection_setup as cs
 from scipy.signal import find_peaks, peak_widths
 
-from nv_widefield.odmr_plotting import plot_fitted_data
+from nv_widefield.helper_classes.odmr_plotting import plot_fitted_data
 
 
 # ============================
@@ -37,75 +35,76 @@ def multi_lorentzian(f, *params):
     return y
 
 def guess_initial_params(freqs, vals, max_peaks=None):
+    # freqs in GHz
     max_val = max(vals)
-    peaks, props = find_peaks(-vals,prominence=0.002*max_val, distance=3)
+    peaks, props = find_peaks(-vals,prominence=0.002*max_val, distance=max(1,0.005//(freqs[1]-freqs[0])))
 
     if max_peaks is not None and len(peaks) > max_peaks:
         prominences = props["prominences"]
-        # prominences = -vals[peaks]
         top_idx = np.argsort(prominences)[-max_peaks:]
         peaks = peaks[top_idx]
         peaks = peaks[np.argsort(peaks)]
 
-    # If we want a doublet but the code only saw 1 wide trough, artificially split it
-    if max_peaks in [2, 4] and len(peaks) == 1:
-        print("Warning: Unresolved overlapping doublet detected. Manually splitting peak seeds.")
-        sole_peak_idx = peaks[0]
-
+    if max_peaks == 2 and len(peaks) == 1:
+        # print("Warning: Unresolved overlapping doublet detected. Manually splitting peak seeds")
+        # sole_peak_idx = peaks[0]
+        sole_peak_idx = len(freqs) // 2 # assume centered around 2.87GHz
         # Calculate index offset corresponding to roughly 8 MHz splitting
-        df = np.mean(np.diff(freqs))
-        split_offset_idx = max(1, int(0.008 / df))
+        df = freqs[1]-freqs[0]
+        split_offset_idx = max(3, int(0.005 / df))
 
         # Seed two distinct peaks symmetrically around the center trough
         peak1 = max(0, sole_peak_idx - split_offset_idx)
         peak2 = min(len(freqs) - 1, sole_peak_idx + split_offset_idx)
         peaks = np.array([peak1, peak2])
+        print("Manually split 1 peak into", max_peaks, "at freqs", freqs[peaks], "GHz")
 
-    c0 = vals[0]            # offset - used to be np.mean
-    c1 = 0.0                # slope value 0
+    c0 = vals[0]                                                # offset - used to be np.mean
+    c1 = (vals[-1]-vals[0])/(freqs[-1]-freqs[0])                # slope value
 
     init_params = []
-    results_half = peak_widths(-vals, peaks, rel_height=0.5)
-    widths = results_half[0]
+    # results_half = peak_widths(-vals, peaks, rel_height=0.5)
+    # widths = results_half[0]
 
-    df = np.mean(np.diff(freqs))
+    df = abs(freqs[1]-freqs[0])
 
     for i, p in enumerate(peaks):
         f0 = freqs[p]
-        amp = vals[p] - c0
-        w_idx = widths[i]
-        fwhm = w_idx * df
-        gamma = fwhm / 2.0 if fwhm > 0 else df*3
+        amp = -abs(vals[p] - c0)
+        # w_idx = widths[i]
+        # fwhm = w_idx * df
+        gamma = df*3
         init_params.extend([amp, f0, gamma])
 
     init_params.extend([c0, c1])
     return np.array(init_params), peaks
 
 def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
+    # freqs in GHz
     p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
     n_peaks = (len(p0) - 2) // 3
     if max_peaks is not None and (n_peaks < max_peaks):
-        print(f"Guessed only {n_peaks} peaks out of {max_peaks} peaks at frequencies {freqs[peaks]}")
-
+        print(f"Guessed only {n_peaks} peaks out of {max_peaks} peaks at frequencies ", freqs[peaks])
     lower = []
     upper = []
     for i in range(n_peaks):
         A0, f0, g0 = p0[3*i:3*i+3]
-        lower += [-abs(A0*3), f0 - 0.02, 0] # changed lower bound of amp to be explicitly negative
-        upper += [0,          f0 + 0.02, 0.02]
+        lower += [-abs(A0*1.5), f0 - 0.005, 0]
+        upper += [-abs(A0*0.5) , f0 + 0.005, g0*2] # force HWHM to be at most 5 MHz
 
-    lower += [R_vals.min() - 1, -10]  
-    upper += [R_vals.max() + 1,  10]
+    lower += [R_vals.min() - 1, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
+    upper += [R_vals.max()*1.1,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
 
     try:
         popt, pcov = curve_fit(
             multi_lorentzian, freqs, R_vals,
-            p0=p0, bounds=(lower, upper)#, maxfev=10000
+            p0=p0, bounds=(lower, upper), maxfev=1000
             # ,ftol=0.001, xtol=0.001) # Note: these make convergence quicker, but lose accuracy
         )
         return popt, pcov, peaks
-    except:
-        print("Couldn't curve_fit, returning guessed vals with 0 uncertainty")
+    except Exception as e:
+        print("Couldn't curve_fit, threw:", e, ". trying to fit peaks at frequencies", freqs[peaks],
+              ". p0=",p0,", lower bounds:", lower,", upper bounds:", upper)
         return p0, np.zeros_like(p0), peaks
 
 
@@ -188,7 +187,6 @@ def print_SNR(snrs, freqs):
 def analyze_data(freqs, counts, max_peaks):
     # expects freqs in Hz
     popt, pcov, peaks = fit_odmr_multi_lorentzian(freqs / 10 ** 9, counts, max_peaks=max_peaks)
-
     fitted_counts = multi_lorentzian(freqs / 10 ** 9, *popt)
 
     # ---- Baseline from fit (off-resonance level) ----
@@ -267,7 +265,7 @@ def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
                 snrs = get_SNRs(baseline, counts_2D[x, y, :], freqs / 10 ** 9, popt)
             except Exception as e:
                 print("getting SNRs returned an error", e)
-                print(f"Fitted dip frequencies at {dip_Freqs}GHz")
+                print("Fitted dip frequencies at ", dip_Freqs, "GHz, with FWHMs ", FWHMs)
                 plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
             # Lfit.print_SNR(snrs, freqs)
             all_snrs[x, y, :] = snrs
