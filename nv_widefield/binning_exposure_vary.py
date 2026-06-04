@@ -29,7 +29,7 @@ as a separate measurement for 2D odmr analysis
 
 
 binning_amount = 1  # built-int pco camera binning, can only be 1,2,4
-focus_point_centre_x, focus_point_centre_y = 850, 1130 # in pixels, center point of the laser point
+focus_point_centre_x, focus_point_centre_y = 810, 1110 # in pixels, center point of the laser point
 amp_dbm = -10  # anything bigger than -10 does nothing (Hayden)
 dwell = 0.001  # seconds - time between setting a frequency on fn generator and reading value
 n_iter = 1
@@ -112,8 +112,8 @@ def optimize_z():
         image = pci.read_image(cam, n_windows_per_point)
         pci.plot_image(image, title=f"Image at z={z_motor.position:.4f}mm")
     finally:
-        cam.stop()
-        # cam.close()
+        # cam.stop()
+        cam.close()
         # time.sleep(5) # possibly cam needs time to stop itself properly
     return
 
@@ -137,7 +137,7 @@ def vary_binning():
 
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    n_bins = 6 # to bin 0,1,...n_bins-1 # note: n_bins must be at least 6
+    n_bins = 8 # to bin 0,1,...n_bins-1 # note: n_bins must be at least 6
     focus_point_size = 2**(n_bins-1)  # in physical (unbinned) pixels, diameter of circle of laser point
     n_windows_per_point = 10 # n readouts to increase certainty without overexposing
 
@@ -158,7 +158,8 @@ def vary_binning():
         counts_2D = wODMR.measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
     finally:
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-        cam.stop()
+        # cam.stop()
+        cam.close()
 
     print("")
 
@@ -177,7 +178,7 @@ def vary_binning():
         ubinned_contrast_avg.append(overall_avg_contrast.s)
 
         print(f"Overall average SNR:{overall_avg_snr:.2u}, average contrast:{overall_avg_contrast*100:.2u}%")
-    # TODO: save these values, and add a portion of read_ODMR which can read+display them
+    # TODO: save these values to a file, and add a portion of read_ODMR which can read+display them
 
     optPlot.plot_binned_snr_contr(binned_contrast_avg,ubinned_contrast_avg, binned_snr_avg, ubinned_snr_avg, n_bins)
 
@@ -199,6 +200,8 @@ def vary_exposure_time():
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
     cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
+    exposure_time = 0.1 # force 100ms exposure
+    cam.exposure_time = exposure_time
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
 
@@ -214,7 +217,8 @@ def vary_exposure_time():
             counts_2D = wODMR.measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
         finally:
             cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-            cam.stop()
+            # cam.stop()
+            cam.close()
 
         # print("plotting the magnet image as a sanity check for poor fitting")
         # B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs)
@@ -240,8 +244,8 @@ def vary_exposure_time():
 
 def vary_exposure_binning():
     # params
-    n_bins = 7 # to bin 0,1,...n_bins-1 # note: n_bins must be at least 6
-    n_windows = 6 # range exposure time from 2^(0,1,... n_windows-1)
+    n_bins = 8 # to bin 0,1,...n_bins-1 # note: n_bins must be at least 6
+    n_windows = 4 # range exposure time from 2^(0,1,... n_windows-1)
     focus_point_size = 2**(n_bins-1)  # in physical (unbinned) pixels, diameter of circle of laser point
 
 
@@ -251,6 +255,8 @@ def vary_exposure_binning():
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
     cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
+    exposure_time = 0.1 # force 100ms exposure
+    cam.exposure_time = exposure_time
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
 
@@ -266,7 +272,8 @@ def vary_exposure_binning():
             counts_2D = wODMR.measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
         finally:
             cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-            cam.stop()
+            # cam.stop()
+            cam.close()
 
         for bin in range(n_bins):
             print(f"binning+analyzing {2 ** bin}x{2 ** bin} area with {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200/(2**(bin*2)):.2f}s")
@@ -299,7 +306,7 @@ def main():
     # plot_binned_snr_contr([1,2],[0.1,0.15],[0.5,1.2],[0.07,0.105], 2)
 
     # 1: optimizing z:
-    optimize_z()
+    # optimize_z()
 
     # 2:
     # vary_binning()
@@ -308,7 +315,7 @@ def main():
     # vary_exposure_time()
 
     # 4:
-    # vary_exposure_binning()
+    vary_exposure_binning()
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import sys
 sys.path.append(os.path.abspath(".."))
 import helper_classes.pco_cam_interface as pci
 import helper_classes.odmr_plotting as oPlot
+import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
 """
 Use every pixel read from the camera as it's own sensor in its own independent ODMR
@@ -44,18 +45,18 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
             time.sleep(dwell)
             image = pci.read_image(cam,n_windows)
             brightnesses[i,:,:,j]=image / point_duration_s/1000
-            pci.plot_image(image)
+            # pci.plot_image(image)
             seen+=1
-        # for j,f in enumerate(freqs[::-1]):
-        #     if (seen % printout_factor == 0):
-        #         # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-        #         print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.1f}% done")
-        #     sg.write(f"FREQ {float(f)}")
-        #     time.sleep(dwell)
-        #     image = pci.read_image(cam,n_windows)
-        #     # pci.plot_image(image)
-        #     brightnesses[n_iter+i,:,:,j]=image / point_duration_s/1000
-        #     seen+=1
+        for j,f in enumerate(freqs[::-1]):
+            if (seen % printout_factor == 0):
+                # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
+                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.1f}% done")
+            sg.write(f"FREQ {float(f)}")
+            time.sleep(dwell)
+            image = pci.read_image(cam,n_windows)
+            # pci.plot_image(image)
+            brightnesses[n_iter+i,:,:,j]=image / point_duration_s/1000
+            seen+=1
 
     return np.sum(brightnesses,axis=0)/(n_iter*2)
 
@@ -63,25 +64,27 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
 def main():
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 64  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1016, 1024  # in pixels, center point of the laser point
+    focus_point_size = 128  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 830, 1110  # in pixels, center point of the laser point
     # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -30 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
     dwell =  0.001 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 1
+    n_iter = 10
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.04e9 # Hz, range of frequencies to sample
-    N = 5 # num points in the frequency space to sample
+    span = 0.1e9 # Hz, range of frequencies to sample
+    N = 51 # num points in the frequency space to sample
 
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
     cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
+    exposure_time = 0.1 # force 100ms exposure
+    cam.exposure_time = exposure_time
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
     point_duration_s = exposure_time * n_windows_per_point
@@ -92,13 +95,15 @@ def main():
         counts_2D = measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
     finally:
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
+        # cam.stop()
+        cam.close()
 
 
-    # print("Sweep done, now converting odmrs to B deltas")
-    # B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs)
-    # print("Conversion done, saving and plotting")
-    # oPlot.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
-    # oPlot.plot_dFreq_image(x_space, y_space, B_Z_overall)
+    print("Sweep done, now converting odmrs to B deltas")
+    B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs)
+    print("Conversion done, saving and plotting")
+    oPlot.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
+    oPlot.plot_dFreq_image(x_space, y_space, B_Z_overall)
 
 
 

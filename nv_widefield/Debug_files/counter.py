@@ -13,7 +13,7 @@ import helper_classes.pco_cam_interface as pci
 Get the images repeatedly, and plot the peak, total, and laplacian variance over time
 """
 
-num_points = 100
+num_points = 300
 
 t0 = time.time()
 timestamps = []
@@ -23,6 +23,7 @@ laplacian_variance = []
 
 def get_new_data(cam,n_windows,point_duration_s):
     image = pci.read_image(cam, n_windows)
+    # pci.plot_image(image)
     laplacian = ndimage.laplace(image.astype(float))
     lScore = laplacian.var()
     all_counts = pci.bin_image(image)
@@ -49,13 +50,13 @@ def plot_graphs():
     color1, color2, color3 = plt.cm.viridis([0, .5, .9])
 
     if len(timestamps)>num_points:
-        p1 = ax1.plot(timestamps[-num_points:], total_brightness[-num_points:],color=color1)
-        p2 = ax2.plot(timestamps[-num_points:], peak_brightness[-num_points:],color=color2)
         p3 = ax3.plot(timestamps[-num_points:], laplacian_variance[-num_points:],color=color3)
+        p2 = ax2.plot(timestamps[-num_points:], peak_brightness[-num_points:],color=color2)
+        p1 = ax1.plot(timestamps[-num_points:], total_brightness[-num_points:],color=color1)
     else :
-        p1 = ax1.plot(timestamps, total_brightness,color=color1)
-        p2 = ax2.plot(timestamps, peak_brightness,color=color2)
         p3 = ax3.plot(timestamps, laplacian_variance,color=color3)
+        p2 = ax2.plot(timestamps, peak_brightness,color=color2)
+        p1 = ax1.plot(timestamps, total_brightness,color=color1)
 
     ax1.yaxis.label.set_color(p1[0].get_color())
     ax2.yaxis.label.set_color(p2[0].get_color())
@@ -73,10 +74,8 @@ def plot_graphs():
 def main():
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 100  # in pixels, width of image taken, must be a multiple of 16
-    focus_point_centre_x, focus_point_centre_y = 610, 1110  # in pixels, center of the laser point
+    focus_point_centre_x, focus_point_centre_y = 840, 1110  # in pixels, center of the laser point
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
-    amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
-    dwell =  0.000 # seconds - time between setting a frequency on fn generator and reading value
 
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
@@ -95,8 +94,8 @@ def main():
             get_new_data(cam,n_windows_per_point,point_duration_s)
             plot_graphs()
     finally:
-        cam.stop()
-        # cam.close()
+        # cam.stop()
+        cam.close()
 
 
 

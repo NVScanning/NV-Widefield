@@ -19,8 +19,8 @@ SPCM used in cw_odmr.py
 
 
 def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int = 1) -> np.ndarray:
-
-    print(f"measuring binned ODMR with {n_iter} iterations, estimate time to completion ~{n_iter*2 * len(freqs) * (dwell + point_duration_s):.2f}s")
+    # below is off by a factor of ~2??
+    print(f"measuring binned ODMR with {n_iter} iterations, estimate time to completion ~{n_iter*2 * len(freqs) * (dwell + point_duration_s + 0.1):.0f}s")
     seen=0
 
     num_printouts = 10
@@ -70,8 +70,8 @@ def main():
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
-    dwell =  0.000 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 1
+    dwell =  0.001 # seconds - time between setting a frequency on fn generator and reading value
+    n_iter = 10
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
     span = 0.15e9 # Hz, range of frequencies to sample
@@ -82,7 +82,7 @@ def main():
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
 
     cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
-    exposure_time = 0.2 # s [0-0.5] manually set different exposure time
+    exposure_time = 0.1 # s [0-0.5], float, manually set different exposure time
     cam.exposure_time = exposure_time
 
 
@@ -96,8 +96,8 @@ def main():
         counts = measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
     finally:
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-        cam.stop()
-        # cam.close()
+        # cam.stop()
+        cam.close()
 
     oPlot.plot_odmr(freqs, counts)
 
