@@ -13,11 +13,6 @@ Use every pixel read from the camera as it's own sensor in its own independent O
 structure + analysis(lorentzian fitting + conversion to B) is quite similar to scanned_cw_odmr
 """
 
-# TODO:
-#   Potential measurements:
-#   vary the binning size from 1,2,4,8...2048 and compare contrasts/SNRs
-#   vary the exposure time and compare contrasts/SNRs
-#   vary both in a 2D array, and plot the contrasts/SNRs in a heatmap
 #   Potential features:
 #   do translation + widefield, to capture larger structures, atm we're limited to laser focus point size ~15um
 
@@ -30,7 +25,7 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
 
     seen=0
     image = pci.read_image(cam,1)
-    # TODO: one row of pixels is ~30% brighter than the rest, can't figure out what's going on
+    # Note: one row of pixels is ~30% brighter than the rest, can't figure out why though
 
     num_printouts = 5
     printout_factor = len(freqs)*n_iter*2 // num_printouts

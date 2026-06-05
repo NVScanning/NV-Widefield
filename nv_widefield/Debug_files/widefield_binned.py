@@ -62,8 +62,8 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
 def main():
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 75  # in pixels, width of image taken, must be a multiple of 16
-    focus_point_centre_x, focus_point_centre_y = 832, 1100  # in pixels, center of the laser point
+    focus_point_size = 200  # in pixels, width of image taken, must be a multiple of 16
+    focus_point_centre_x, focus_point_centre_y = 1370, 860  # in pixels, center of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -15 #anything bigger than -10 does nothing (Hayden)
@@ -71,7 +71,7 @@ def main():
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
     dwell =  0.001 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 10
+    n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
     span = 0.15e9 # Hz, range of frequencies to sample
@@ -92,12 +92,14 @@ def main():
 
     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-    try:
-        counts = measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
-    finally:
-        cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-        # cam.stop()
-        cam.close()
+    # try:
+    #     counts = measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
+    # finally:
+    #     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
+    #     # cam.stop()
+    #     cam.close()
+    params = freqs, dwell, point_duration_s, n_windows_per_point, n_iter
+    counts = pci.run_measurement(cam, sg, measure_odmr, params)
 
     oPlot.plot_odmr(freqs, counts)
 

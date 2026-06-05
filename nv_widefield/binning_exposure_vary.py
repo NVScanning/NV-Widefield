@@ -37,7 +37,7 @@ n_iter = 1
 f_center = 2.87e9  # Hz, generally near 2.87GHz
 span = 0.1e9  # Hz, range of frequencies to sample
 N = 101  # num points in the frequency space to sample
-max_peaks = 2
+max_peaks = 2 # TODO: make it able to detect the 4 peaks
 
 def find_best_z(cam, motor, z_range, dwell, point_duration_s, n_windows):
     seen = 0
@@ -66,8 +66,7 @@ def find_best_z(cam, motor, z_range, dwell, point_duration_s, n_windows):
 
 def optimize_z():
     print("Optimizing Z")
-    z_previous_position = cs.get_motor_position(cs.z_mID)
-    z_motor = cs.connect_motor(cs.z_mID)
+    z_motor,z_previous_position = cs.connect_motor(cs.z_mID)
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 300  # in pixels, diameter of circle of laser point, must be a multiple of 16
     n_windows_per_point = 1
@@ -114,14 +113,11 @@ def optimize_z():
     finally:
         # cam.stop()
         cam.close()
-        # time.sleep(5) # possibly cam needs time to stop itself properly
     return
 
 def bin_counts(counts_2D,binning_amount, x_space, y_space):
-    # assume counts_2D has dims (x_width, y_with, freqs_len)
-    # x,y width are equal and both a power of 2 times binning_amount
-
-    # counts_binned = np.zeros((counts_2D.shape[0]//binning_amount,counts_2D.shape[1]//binning_amount,counts_2D.shape[2]))
+    # counts_2D has shape (x_width, y_with, freqs_len)
+    # x,y width are (generally) equal and a multiple of binning_amount
 
     # counts_reshaped is of the shape: counts_x/bin, bin, counts_y/bin, bin, freq
     counts_reshaped = np.reshape(counts_2D,(counts_2D.shape[0]//binning_amount,binning_amount,counts_2D.shape[1]//binning_amount,binning_amount,counts_2D.shape[2]))
@@ -140,8 +136,6 @@ def vary_binning():
     n_bins = 8 # to bin 0,1,...n_bins-1 # note: n_bins must be at least 6
     focus_point_size = 2**(n_bins-1)  # in physical (unbinned) pixels, diameter of circle of laser point
     n_windows_per_point = 10 # n readouts to increase certainty without overexposing
-
-    # max_peaks = 2 # TODO: make it able to detect the 4 peaks
 
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
@@ -178,7 +172,6 @@ def vary_binning():
         ubinned_contrast_avg.append(overall_avg_contrast.s)
 
         print(f"Overall average SNR:{overall_avg_snr:.2u}, average contrast:{overall_avg_contrast*100:.2u}%")
-    # TODO: save these values to a file, and add a portion of read_ODMR which can read+display them
 
     optPlot.plot_binned_snr_contr(binned_contrast_avg,ubinned_contrast_avg, binned_snr_avg, ubinned_snr_avg, n_bins)
 
@@ -192,8 +185,6 @@ def vary_exposure_time():
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
     n_windows = 7 # range exposure time from 2^(0,1,... n_windows-1)
-
-    # max_peaks = 2 # TODO: make it able to detect the 4 peaks when a magnet is nearby
 
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
@@ -220,11 +211,6 @@ def vary_exposure_time():
             # cam.stop()
             cam.close()
 
-        # print("plotting the magnet image as a sanity check for poor fitting")
-        # B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs)
-        # oPlot.plot_magnet_image(x_space, y_space, B_Z_overall)
-
-        # oPlot.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
 
         print(f"\nAnalyzing SNR&contrast from ODMR for {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200:.2f}s")
         snrs, contrasts = Lfit.counts_to_SNR_contrast(x_space, y_space, counts_2D, freqs, max_peaks)

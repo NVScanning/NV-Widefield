@@ -126,10 +126,6 @@ def main():
     # Save data in folder with its date
     oPlot.save_point_odmr_measurement(counts, freqs)
 
-    # TODO: calculate the following and print
-    #   1. the space betweeen dips in Hz (magnetic field)
-    #   2. the width of dips (FWHM) in Hz (Rabi smth)
-    #   3. the background counts in cps (idk what this tells us)
 
     # Calculating space between dips
     max_peaks = 2

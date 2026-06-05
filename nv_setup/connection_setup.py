@@ -37,25 +37,13 @@ def enable_sg386(sg, amp_dbm: float = -12.0, enable: bool = True):
         print("sg386 OFF")
 
 def connect_motor(motor_id: int):
-    # TODO: refactor so that it returns motor position from before homing
-    available_devices = apt.list_available_devices()
-
-    if not available_devices:
-        raise Exception("No Thorlabs devices detected. Check USB connection/Power/Opened programs.")
-
-    sns = [device[1] for device in available_devices]
-
-    if motor_id not in sns:
-        raise Exception(f"Motor {motor_id} not found. Currently visible: {sns}. ")
-
-
-    motor = apt.Motor(motor_id)
+    motor, motor_position = get_motor_position(motor_id)
 
     motor.move_home(True)
     time.sleep(2) #
     print("Connected to motor, Motor ID:", motor_id)
 
-    return motor
+    return motor, motor_position
 
 def get_motor_position(motor_id: int):
     available_devices = apt.list_available_devices()
@@ -71,7 +59,7 @@ def get_motor_position(motor_id: int):
 
     motor = apt.Motor(motor_id)
 
-    return motor.position
+    return motor, motor.position
 
 
 # UTIL STUFS

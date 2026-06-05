@@ -49,23 +49,23 @@ def main():
     # EXPERIMENTAL CONFIGURATION PARAMETERS
     # -------------------------------------------------------------
     binning_amount = 1  # Hardware PCO configuration (1, 2, or 4)
-    focus_point_size = 2048  # Full frame window trace allocation
-    focus_point_centre_x, focus_point_centre_y = 1024, 1024
+    focus_point_size = 500  # Full frame window trace allocation
+    focus_point_centre_x, focus_point_centre_y = 1000,1000
 
     n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
     freq_dwell = 0.01  # Frequency switch recovery interval
-    z_dwell = 0.2
-    n_iter = 1  # Iterations per z-step
+    z_dwell = 1
+    n_iter = 4  # Iterations per z-step
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.1e9  # Hz
-    N_freqs = 51  # Total frequency resolution steps
+    span = 0.12e9  # Hz
+    N_freqs = 41  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 2.5  # Target focus center
-    z_span = 0.05  # Distance range over sweep
+    z_center = 3.16  # Target focus center
+    z_span = 0.02  # Distance range over sweep
     N_z_steps = 11  # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
@@ -77,7 +77,7 @@ def main():
     # -------------------------------------------------------------
     # HARDWARE INITIALIZATION
     # -------------------------------------------------------------
-    z_motor = cs.connect_motor(cs.z_mID)
+    z_motor, z_prev_position = cs.connect_motor(cs.z_mID)
     roi, _, _ = pci.get_spacial_params(binning_amount, (focus_point_size, focus_point_centre_x, focus_point_centre_y))
 
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
@@ -86,8 +86,8 @@ def main():
     time.sleep(5)
 
     cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
-    # exposure_time = 0.1
-    # cam.exposure_time = exposure_time
+    exposure_time = 0.1
+    cam.exposure_time = exposure_time
     point_duration_s = exposure_time * n_windows_per_point
 
     # Setup data store dictionary: {z_position: odmr_counts_array}
@@ -106,7 +106,7 @@ def main():
     z_motor.move_to(z_range[0])
     time.sleep(2)  # extra time for the first point
     try:
-        print(f"beggining measurements, estimate time to completion: {2 * N_z_steps * (n_iter * N_freqs * 2 * (point_duration_s + freq_dwell + focus_point_size**2/(5*10**6)) + z_dwell):.0f}s")
+        print(f"beggining measurements, estimate time to completion: {N_z_steps * (n_iter * N_freqs * 2 * 1.5 * (point_duration_s + freq_dwell + focus_point_size**2/(5*10**6)) + z_dwell)+50:.0f}s")
         for idx, z_pos in enumerate(z_range):
             print(f"\n[{idx + 1}/{N_z_steps}] Moving to z={z_pos:.5f}mm")
             z_motor.move_to(z_pos)

@@ -19,7 +19,7 @@
 # plot the (now-filled) 2D array of values as an image
 # when imaging bulk diamond this should be pretty much constant
 
-# TODO: problem of converting odmr to B field:
+# problem of converting odmr to B field:
 # when I first measure, I take each individual ODMR and get the B measured, and average over the n_iter
 # when I read a scan, all the odmrs have been averaged, so when I get the B measured it's only from this one
 # problem is: idk if there's a difference/which one is better if there is
@@ -130,8 +130,8 @@ def main():
 
     sg = cs.connect_sg386(cs.sg_resource) # connect to RF src
     # connect to motors
-    x_motor = cs.connect_motor(cs.x_mID)
-    y_motor = cs.connect_motor(cs.y_mID)
+    x_motor, x_prev_pos = cs.connect_motor(cs.x_mID)
+    y_motor, y_prev_pos = cs.connect_motor(cs.y_mID)
 
     # Create + Execute program on QM
     qmm = QuantumMachinesManager(host=qop_ip, port=qop_port, log_level="INFO")
