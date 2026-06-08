@@ -1,9 +1,14 @@
 
 import time
+from typing import Any
+
 import numpy as np
 import scipy.ndimage as ndimage
 import os
 import sys
+
+from numpy import dtype, float64, ndarray
+
 sys.path.append(os.path.abspath(".."))
 import nv_setup.connection_setup as cs
 import helper_classes.pco_cam_interface as pci
@@ -80,10 +85,10 @@ def optimize_z():
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     z_motor.move_to(z_center)
     time.sleep(5) # move to rough middle, to have good auto exposure time
-    cam, exposure_time = pci.connect_cam(roi, binning_amount)
+    cam = pci.connect_cam(roi, binning_amount)
 
 
-    point_duration_s = exposure_time * n_windows_per_point
+    point_duration_s = cam.exposure_time * n_windows_per_point
     print(f"Optimizing Z, estimate time to completion ~ {N * (dwell + point_duration_s) + 5:.0f}s")
     # here exact exposure time doesn't matter, as long as its constant throughout the range
     try:
@@ -115,16 +120,16 @@ def optimize_z():
         cam.close()
     return
 
-def bin_counts(counts_2D,binning_amount, x_space, y_space):
+def bin_counts(counts_2D, binning_num, x_space, y_space):
     # counts_2D has shape (x_width, y_with, freqs_len)
     # x,y width are (generally) equal and a multiple of binning_amount
 
     # counts_reshaped is of the shape: counts_x/bin, bin, counts_y/bin, bin, freq
-    counts_reshaped = np.reshape(counts_2D,(counts_2D.shape[0]//binning_amount,binning_amount,counts_2D.shape[1]//binning_amount,binning_amount,counts_2D.shape[2]))
+    counts_reshaped = np.reshape(counts_2D, (counts_2D.shape[0] // binning_num, binning_num, counts_2D.shape[1] // binning_num, binning_num, counts_2D.shape[2]))
     # counts_binned is of the shape: counts_x/bin, counts_y/bin, freq, meaning we have to sum over the two bin axes
     counts_binned = counts_reshaped.sum(axis=1).sum(axis=2) # sum over the
 
-    return counts_binned, x_space[0::binning_amount], y_space[0::binning_amount]
+    return counts_binned, x_space[0::binning_num], y_space[0::binning_num]
 
 
 def vary_binning():
@@ -141,41 +146,45 @@ def vary_binning():
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
-    cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
+    cam, sg = pci.connect_cam_RF(roi, binning_amount)
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
-    point_duration_s = exposure_time * n_windows_per_point
+    point_duration_s = cam.exposure_time * n_windows_per_point
 
     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-    try:
-        counts_2D = wODMR.measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
-    finally:
-        cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-        # cam.stop()
-        cam.close()
+    counts_2D = pci.run_odmr_measurement(cam,sg, wODMR.measure_odmr, (freqs, dwell, point_duration_s, n_windows_per_point, n_iter))
 
     print("")
 
-    binned_snr_avg,ubinned_snr_avg = [], []
-    binned_contrast_avg,ubinned_contrast_avg = [], []
+    binned_contrast_avg, binned_snr_avg, ubinned_contrast_avg, ubinned_snr_avg = bin_full_measurement(counts_2D, freqs,
+                                                                                                      n_bins, x_space,
+                                                                                                      y_space)
+
+    optPlot.plot_binned_snr_contr(binned_contrast_avg,ubinned_contrast_avg, binned_snr_avg, ubinned_snr_avg, n_bins)
+
+    return
+
+
+def bin_full_measurement(counts_2D, freqs: ndarray[tuple[Any, ...], dtype[float64]], n_bins: int, x_space: float,
+                         y_space: float) -> tuple[list[Any], list[Any], list[Any], list[Any]]:
+    binned_snr_avg, ubinned_snr_avg = [], []
+    binned_contrast_avg, ubinned_contrast_avg = [], []
     for bin in range(n_bins):
-        print(f"binning+analyzing {2**bin}x{2**bin} area:")
-        binned_counts, x_binned, y_binned = bin_counts(counts_2D, 2**bin, x_space, y_space)
+        print(f"binning+analyzing {2 ** bin}x{2 ** bin} area:")
+        binned_counts, x_binned, y_binned = bin_counts(counts_2D, 2 ** bin, x_space, y_space)
         snrs, contrasts = Lfit.counts_to_SNR_contrast(x_binned, y_binned, binned_counts, freqs, max_peaks)
 
         overall_avg_snr = ufloat(np.mean(snrs), np.std(snrs))
-        overall_avg_contrast = ufloat(np.mean(contrasts),np.std(contrasts))
+        overall_avg_contrast = ufloat(np.mean(contrasts), np.std(contrasts))
         binned_snr_avg.append(overall_avg_snr.n)
         binned_contrast_avg.append(overall_avg_contrast.n)
         ubinned_snr_avg.append(overall_avg_snr.s)
         ubinned_contrast_avg.append(overall_avg_contrast.s)
 
-        print(f"Overall average SNR:{overall_avg_snr:.2u}, average contrast:{overall_avg_contrast*100:.2u}%")
+        print(f"Overall average SNR:{overall_avg_snr:.2u}, average contrast:{overall_avg_contrast * 100:.2u}%")
+    return binned_contrast_avg, binned_snr_avg, ubinned_contrast_avg, ubinned_snr_avg
 
-    optPlot.plot_binned_snr_contr(binned_contrast_avg,ubinned_contrast_avg, binned_snr_avg, ubinned_snr_avg, n_bins)
-
-    return
 
 def vary_exposure_time():
     # do a series of image-ODMRs, but all with the same camera settings EXCEPT for num windows per point
@@ -190,9 +199,7 @@ def vary_exposure_time():
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
-    cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
-    exposure_time = 0.1 # force 100ms exposure
-    cam.exposure_time = exposure_time
+    cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
 
@@ -200,17 +207,11 @@ def vary_exposure_time():
     contr_avg,ucontr_avg = [], []
     for window_exp in range(n_windows):
         n_windows_per_point = 2**window_exp
-        point_duration_s = exposure_time * n_windows_per_point
+        point_duration_s = cam.exposure_time * n_windows_per_point
 
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
         time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-        try:
-            counts_2D = wODMR.measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
-        finally:
-            cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-            # cam.stop()
-            cam.close()
-
+        counts_2D = pci.run_odmr_measurement(cam, sg, wODMR.measure_odmr, (freqs, dwell, point_duration_s, n_windows_per_point, n_iter))
 
         print(f"\nAnalyzing SNR&contrast from ODMR for {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200:.2f}s")
         snrs, contrasts = Lfit.counts_to_SNR_contrast(x_space, y_space, counts_2D, freqs, max_peaks)
@@ -240,9 +241,9 @@ def vary_exposure_binning():
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
-    cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
-    exposure_time = 0.1 # force 100ms exposure
-    cam.exposure_time = exposure_time
+    cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
+    # exposure_time = 0.1 # force 100ms exposure
+    # cam.exposure_time = exposure_time
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
 
@@ -250,34 +251,33 @@ def vary_exposure_binning():
     contr_avg = np.zeros((n_windows, n_bins))
     for window_exp in range(n_windows):
         n_windows_per_point = 2**window_exp
-        point_duration_s = exposure_time * n_windows_per_point
+        point_duration_s = cam.exposure_time * n_windows_per_point
 
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
         time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-        try:
-            counts_2D = wODMR.measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
-        finally:
-            cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-            # cam.stop()
-            cam.close()
+        counts_2D = pci.run_odmr_measurement(cam, sg, wODMR.measure_odmr, (freqs, dwell, point_duration_s, n_windows_per_point, n_iter))
 
-        for bin in range(n_bins):
-            print(f"binning+analyzing {2 ** bin}x{2 ** bin} area with {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200/(2**(bin*2)):.2f}s")
+        binned_contrast_avg, binned_snr_avg, _, _ = bin_full_measurement(counts_2D, freqs,
+                                                                            n_bins, x_space, y_space)
+        snr_avg[window_exp, :] = binned_snr_avg
+        contr_avg[window_exp, :] = binned_contrast_avg
+        # for bin in range(n_bins):
+        #     print(f"binning+analyzing {2 ** bin}x{2 ** bin} area with {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200/(2**(bin*2)):.2f}s")
+        #
+        #     binned_counts, x_binned, y_binned = bin_counts(counts_2D, 2**bin, x_space, y_space)
+        #     snrs, contrasts = Lfit.counts_to_SNR_contrast(x_binned, y_binned, binned_counts, freqs, max_peaks)
+        #
+        #
+        #     oPlot.save_2D_odmr_snr_contrast(x_binned, y_binned, freqs, snrs, contrasts, binned_counts)
+        #
+        #     overall_avg_snr = np.mean(snrs)
+        #     overall_avg_contrast = np.mean(contrasts)
+        #     print(f"Overall average SNR:{overall_avg_snr:.2f}, average contrast:{overall_avg_contrast * 100:.2f}%")
+        #     snr_avg[window_exp, bin] = overall_avg_snr
+        #     contr_avg[window_exp, bin] = overall_avg_contrast
 
-            binned_counts, x_binned, y_binned = bin_counts(counts_2D, 2**bin, x_space, y_space)
-            snrs, contrasts = Lfit.counts_to_SNR_contrast(x_binned, y_binned, binned_counts, freqs, max_peaks)
-
-
-            oPlot.save_2D_odmr_snr_contrast(x_binned, y_binned, freqs, snrs, contrasts, binned_counts)
-
-            overall_avg_snr = np.mean(snrs)
-            overall_avg_contrast = np.mean(contrasts)
-            print(f"Overall average SNR:{overall_avg_snr:.2f}, average contrast:{overall_avg_contrast * 100:.2f}%")
-            snr_avg[window_exp, bin] = overall_avg_snr
-            contr_avg[window_exp, bin] = overall_avg_contrast
 
     optPlot.plot_exposure_snr_contr_bin(contr_avg, snr_avg, n_windows, n_bins)
-
 
 
 

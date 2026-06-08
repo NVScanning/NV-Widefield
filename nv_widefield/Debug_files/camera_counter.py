@@ -82,10 +82,10 @@ def main():
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
 
-    cam, exposure_time = pci.connect_cam(roi, binning_amount)
+    cam = pci.connect_cam(roi, binning_amount)
 
 
-    point_duration_s = exposure_time * n_windows_per_point
+    point_duration_s = cam.exposure_time * n_windows_per_point
 
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
 

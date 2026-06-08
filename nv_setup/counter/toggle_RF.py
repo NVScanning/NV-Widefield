@@ -23,10 +23,10 @@ def toggle_rf_at_resonance(sg, amp_dbm: float = -12.0, enable: bool = True):
 
 def main():
     # ---- parameters ----
-    sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
+    # sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
     amp_dbm = -12.0
 
-    sg = cs.connect_sg386(sg_resource)
+    sg = cs.connect_sg386(cs.sg_resource)
     time.sleep(3)
     toggle_rf_at_resonance(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(20)

@@ -63,7 +63,7 @@ def main():
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 200  # in pixels, width of image taken, must be a multiple of 16
-    focus_point_centre_x, focus_point_centre_y = 1370, 860  # in pixels, center of the laser point
+    focus_point_centre_x, focus_point_centre_y = 2050, 860  # in pixels, center of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -15 #anything bigger than -10 does nothing (Hayden)
@@ -81,25 +81,15 @@ def main():
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
 
-    cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
-    exposure_time = 0.1 # s [0-0.5], float, manually set different exposure time
-    cam.exposure_time = exposure_time
-
+    cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
-    point_duration_s = exposure_time * n_windows_per_point
+    point_duration_s = cam.exposure_time * n_windows_per_point
 
     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-    # try:
-    #     counts = measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
-    # finally:
-    #     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-    #     # cam.stop()
-    #     cam.close()
-    params = freqs, dwell, point_duration_s, n_windows_per_point, n_iter
-    counts = pci.run_measurement(cam, sg, measure_odmr, params)
+    counts = pci.run_odmr_measurement(cam, sg, measure_odmr, (freqs, dwell, point_duration_s, n_windows_per_point, n_iter))
 
     oPlot.plot_odmr(freqs, counts)
 

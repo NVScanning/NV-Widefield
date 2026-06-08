@@ -36,7 +36,7 @@ def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=5):
         # print(f"Adjusting exposure from {og_exposure:.3f} to {cam.exposure_time:.3f}s (Peak was: {peak:.3g}, now will be ~{peak * cam.exposure_time / og_exposure:.3g})")
     print(f"Adjusting exposure from {original_exposure:.3f} to {cam.exposure_time:.3f}s")
 
-    return cam.exposure_time
+    return
 
 def set_cam_settings(cam, exposure_time, roi=None, binning=(1, 1)):
     if roi is not None:
@@ -91,23 +91,25 @@ def select_one_pixel(image,x,y):
     return image[x,y]
 
 
-def connect_cam_RF(roi: tuple[int, int, int, int] | None,binning_amount) -> tuple[Camera, float, float]:
+def connect_cam_RF(roi: tuple[int, int, int, int] | None,binning_amount, forced_exposure = None) -> tuple[Camera, float]:
     # connect to RF src
     sg = cs.connect_sg386(cs.sg_resource)
     # connect to cam
-    cam, exposure_time = connect_cam(roi, binning_amount)
-    return cam, exposure_time, sg
+    cam = connect_cam(roi, binning_amount)
+    if forced_exposure is not None:
+        cam.exposure_time = forced_exposure
+    return cam, sg
 
 
-def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount) -> tuple[Camera, float]:
+def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount) -> Camera:
     # connect to cam
     cam = setup_cam()
     set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))
-    exposure_time = auto_expose(cam, target_intensity=0.3)  # returns exposure time in s)
+    auto_expose(cam, target_intensity=0.3)  # sets cameras exposure time
     img = read_image(cam,1)
     plot_image(img) # if roi fills, then plot full image
     print("Example image plotted")
-    return cam, exposure_time
+    return cam
 
 
 
@@ -136,10 +138,10 @@ def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, i
                fpcx + fps // 2, fpcy + fps // 2)
     return roi, x_space, y_space
 
-def run_measurement(cam, sg, fn, params):
+def run_odmr_measurement(cam, sg, fn, params):
     try:
-        counts = fn(cam, sg, *params)
+        ret_vals = fn(cam, sg, *params)
     finally:
         cs.enable_sg386(sg, enable=False)
         cam.close()
-    return counts
+    return ret_vals

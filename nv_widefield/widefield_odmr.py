@@ -77,21 +77,15 @@ def main():
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
-    cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
-    exposure_time = 0.1 # force 100ms exposure
-    cam.exposure_time = exposure_time
+    cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
-    point_duration_s = exposure_time * n_windows_per_point
+    point_duration_s = cam.exposure_time * n_windows_per_point
 
     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-    try:
-        counts_2D = measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows_per_point, n_iter)
-    finally:
-        cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
-        # cam.stop()
-        cam.close()
+    counts_2D = pci.run_odmr_measurement(cam, sg, measure_odmr, (freqs, dwell, point_duration_s, n_windows_per_point, n_iter))
+
 
 
     print("Sweep done, now converting odmrs to B deltas")

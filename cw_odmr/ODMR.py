@@ -170,14 +170,14 @@ def main():
     # ---- instruments parameters ----
     mfli_host = "192.168.91.174"
     mfli_dev = "dev5867"
-    sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
-    
+    # sg_resource = "TCPIP::169.254.2.7::5025::SOCKET"
+
     # --------------------------------------------------------------------------------------------
 
     # ---- User parameters ----
 
     # --------------------------------------------------------------------------------------------
-    
+
     # sweep frequency
     f_center = 2.88e9
     span = 0.1e9
@@ -216,7 +216,7 @@ def main():
 
     # ---- Connect instruments ----
     _, demod = connect_mfli(mfli_host, mfli_dev, demod_index=0)
-    sg = cs.connect_sg386(sg_resource)
+    sg = cs.connect_sg386(cs.sg_resource)
 
     # ---- Timing ----
     dwell, tau = compute_dwell_from_demod(demod, multiplier=5.0) # why choose mult=5?

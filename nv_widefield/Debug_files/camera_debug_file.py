@@ -60,10 +60,10 @@ def main():
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
-    cam, exposure_time, sg = pci.connect_cam_RF(roi, binning_amount)
+    cam, sg = pci.connect_cam_RF(roi, binning_amount)
     f_start, f_end, freqs = 2.87*10**9, 2.88*10**9, np.array([2.87,2.88])*10**9
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
-    point_duration_s = exposure_time * n_windows_per_point
+    point_duration_s = cam.exposure_time * n_windows_per_point
 
     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
