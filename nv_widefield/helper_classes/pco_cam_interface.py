@@ -50,7 +50,6 @@ def set_cam_settings(cam, exposure_time, roi=None, binning=(1, 1)):
         cam.configuration = {
             'exposure time': exposure_time,  # in seconds
             'trigger': 'auto sequence',
-            'binning': binning,
         }
 
 def read_image(cam,n_windows):
@@ -95,17 +94,19 @@ def connect_cam_RF(roi: tuple[int, int, int, int] | None,binning_amount, forced_
     # connect to RF src
     sg = cs.connect_sg386(cs.sg_resource)
     # connect to cam
-    cam = connect_cam(roi, binning_amount)
-    if forced_exposure is not None:
-        cam.exposure_time = forced_exposure
+    cam = connect_cam(roi, binning_amount, forced_exposure = forced_exposure)
+    # if forced_exposure is not None:
+    #     cam.exposure_time = forced_exposure
     return cam, sg
 
 
-def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount) -> Camera:
+def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount, forced_exposure = None) -> Camera:
     # connect to cam
     cam = setup_cam()
     set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))
     auto_expose(cam, target_intensity=0.3)  # sets cameras exposure time
+    if forced_exposure is not None:
+        cam.exposure_time = forced_exposure
     img = read_image(cam,1)
     plot_image(img) # if roi fills, then plot full image
     print("Example image plotted")
@@ -139,6 +140,7 @@ def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, i
     return roi, x_space, y_space
 
 def run_odmr_measurement(cam, sg, fn, params):
+    # Safely runs measurement with cam and sg, turning everything off correctly at the end
     try:
         ret_vals = fn(cam, sg, *params)
     finally:

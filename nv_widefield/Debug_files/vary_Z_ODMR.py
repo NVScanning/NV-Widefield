@@ -20,17 +20,19 @@ import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 """
 measure ODMRs at a variety of Z values
 
-Much of this code was combined from previously written code by Gemini, then editeds
+Much of this code was combined from previously written code by Gemini, then edited
 """
 
 
 def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
-    """Executes a dual-directional frequency sweep and returns a 1D binned array."""
+    """Executes a dual-directional frequency sweep and returns a 1D binned array, of the kilo brightness per second"""
     brightnesses = np.zeros((n_iter * 2, freqs.size))
 
     for i in range(n_iter):
         # Forward Frequency Sweep
         brightness = []
+        time.sleep(dwell)
+        image = pci.read_image(cam, n_windows) # take a first image you ignore, maybe it removes the slightly higher num from first measurement
         for f in freqs:
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
@@ -40,6 +42,8 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
         brightnesses[i] = brightness
 
         brightness = []
+        time.sleep(dwell)
+        image = pci.read_image(cam, n_windows) # take a first image you ignore
         for f in freqs[::-1]:
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
@@ -53,11 +57,11 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 def main():
     binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
-    focus_point_size = 600
-    focus_point_centre_x, focus_point_centre_y = 980,660
+    focus_point_size = 150
+    focus_point_centre_x, focus_point_centre_y = 980,680
 
     n_windows_per_point = 1
-    amp_dbm = -20  # RF Generator Amplitude
+    amp_dbm = -10  # RF Generator Amplitude
     freq_dwell = 0.1  # Frequency switch recovery interval
     z_dwell = 1
     n_iter = 1  # Iterations per z-step
@@ -68,34 +72,39 @@ def main():
     N_freqs = 41  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.06  # Target focus center
+    z_center = 3.04  # Target focus center
     z_span = 0.01  # Distance range over sweep
-    N_z_steps = 5  # Total step divisions to evaluate
+    N_z_steps = 11  # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
     _, _, z_range = cs.calc_sweep_range(z_center, z_span, N_z_steps)
     # z_range = [3.211, 3.227, 3.248] # to manually measure a few set points
+    # z_range = [3.042, 3.06, 3.09] # to manually measure a few set points
     # N_z_steps = len(z_range)
 
     # -------------------------------------------------------------
     # HARDWARE INITIALIZATION
     # -------------------------------------------------------------
     z_motor, z_prev_position = cs.connect_motor(cs.z_mID)
-    roi, _, _ = pci.get_spacial_params(binning_amount, (focus_point_size, focus_point_centre_x, focus_point_centre_y))
+    roi, _, _ = pci.get_spacial_params(binning_amount, (focus_point_size, focus_point_centre_x, focus_point_centre_y)) # Comment out to use previous image
 
-    print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
+    if roi is not None:
+        print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
+    else:
+        print("Using cam's previous roi and binning settings")
+
     z_motor.move_to(z_center)
     time.sleep(5)
 
-    cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
+    cam, sg = pci.connect_cam_RF(roi, binning_amount)
     point_duration_s = cam.exposure_time * n_windows_per_point
 
-    print(f"beggining measurements, estimate time to completion: {N_z_steps * (n_iter * N_freqs * 2 * 1.1 * (point_duration_s + freq_dwell + focus_point_size ** 2 / (5 * 10 ** 6)) + z_dwell) + 50:.0f}s")
+    print(f"beggining measurements, estimate time to completion: {N_z_steps * (n_iter * (N_freqs + 1) * 2 * 1.1 * (point_duration_s + freq_dwell + focus_point_size ** 2 / (5 * 10 ** 6)) + z_dwell) + 50:.0f}s")
 
     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
-    print(f"Staging motor to initial z-coordinate: {z_range[0]:.4f}mm...")
-    z_motor.move_to(z_range[0])
+    print(f"Staging motor to just below initial z-coordinate: {z_range[0]-0.003:.4f}mm...")
+    z_motor.move_to(z_range[0]-0.003) # Move to a bit below the first measurement, so always on same side of backlash
     time.sleep(2)  # extra time for the first point
 
     avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement(cam, sg, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, point_duration_s, z_dwell, z_motor, z_range))
@@ -148,7 +157,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
                   freqs: ndarray[tuple[Any, ...], dtype[float64]], n_iter: int, n_windows_per_point: int,
                   point_duration_s: float, z_dwell: int, z_motor: Motor,
                   z_range: ndarray[tuple[Any, ...], dtype[float64]]) -> tuple[
-    list[Any], list[Any], list[Any], dict[Any, Any]]:
+    list[float], list[float], list[float], dict[float, float]]:
     # Setup data store dictionary: {z_position: odmr_counts_array}
     z_sweep_results = {}
 
@@ -190,10 +199,6 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
         except Exception as fit_error:
             print(f"Data fit sequence rejected at z={z_pos:.4f} mm: {fit_error}")
 
-    # finally:
-    #     # Guarantee hardware teardown processes fire on exception failures
-    #     cs.enable_sg386(sg, enable=False)
-    #     cam.close()
     return avg_contrasts, avg_snrs, z_positions, z_sweep_results
 
 

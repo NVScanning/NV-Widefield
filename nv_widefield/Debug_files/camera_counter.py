@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib
+# matplotlib.use('TkAgg')
+# matplotlib.use('module://backend_interagg')
 import matplotlib.pyplot as plt
 import os
 import sys
@@ -13,7 +16,7 @@ import helper_classes.pco_cam_interface as pci
 Get the images repeatedly, and plot the peak, total, and laplacian variance over time
 """
 
-num_points = 300
+num_points = 9000
 
 t0 = time.time()
 timestamps = []
@@ -67,6 +70,8 @@ def plot_graphs():
     ax3.tick_params(axis='y', colors=p3[0].get_color())
 
     plt.show()
+    # plt.ion()
+    # plt.show(block=False)
 
     plt.pause(0.2)
     plt.close(fig)
@@ -74,7 +79,7 @@ def plot_graphs():
 def main():
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 100  # in pixels, width of image taken, must be a multiple of 16
-    focus_point_centre_x, focus_point_centre_y = 840, 1110  # in pixels, center of the laser point
+    focus_point_centre_x, focus_point_centre_y = 980, 660  # in pixels, center of the laser point
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
 
 
@@ -87,7 +92,7 @@ def main():
 
     point_duration_s = cam.exposure_time * n_windows_per_point
 
-    time.sleep(0.1) # why sleep for a whole second? (previous was 1)
+    time.sleep(0.1)
 
     try:
         while(True):

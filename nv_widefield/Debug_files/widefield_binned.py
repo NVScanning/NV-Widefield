@@ -17,6 +17,7 @@ all the relevant pixels together into one "brightness" signal, to use in place o
 SPCM used in cw_odmr.py
 """
 
+roi = None
 
 def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int = 1) -> np.ndarray:
     # below is off by a factor of ~2??
@@ -29,6 +30,8 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
     brightnesses = np.zeros((n_iter*2, freqs.size)) # should be n_iter*2 when reversing as well
     for i in range(n_iter):
         # print("Iteration " + str(i))
+        time.sleep(dwell)
+        image = pci.read_image(cam,n_windows) # ignore = first image - it has higher intensity always
 
         brightness=[]
         for j,f in enumerate(freqs):
@@ -63,10 +66,10 @@ def main():
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 200  # in pixels, width of image taken, must be a multiple of 16
-    focus_point_centre_x, focus_point_centre_y = 2050, 860  # in pixels, center of the laser point
+    focus_point_centre_x, focus_point_centre_y = 980,680  # in pixels, center of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
-    amp_dbm = -15 #anything bigger than -10 does nothing (Hayden)
+    amp_dbm = -20 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
@@ -81,7 +84,7 @@ def main():
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
 
-    cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
+    cam, sg = pci.connect_cam_RF(roi, binning_amount)
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
