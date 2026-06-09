@@ -176,8 +176,7 @@ def get_SNRs(baseline, counts, freqs, popt):
     return snrs
 
 def print_SNR(snrs, freqs):
-    # expect freqs in GHz
-    # snrs = get_SNRs(baseline, counts, freqs, popt)
+    # expect freqs of the dips in GHz
 
     snr = np.mean(snrs)
     for (freq, snr_val) in zip(freqs, snrs):
@@ -267,11 +266,12 @@ def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
             contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
             try:
                 snrs = get_SNRs(baseline, counts_2D[x, y, :], freqs / 10 ** 9, popt)
+                # print_SNR(snrs, dip_Freqs)
             except Exception as e:
                 print("getting SNRs returned an error", e)
                 print("Fitted dip frequencies at ", dip_Freqs, "GHz, with FWHMs ", FWHMs)
                 plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
-            # Lfit.print_SNR(snrs, freqs)
+
             all_snrs[x, y, :] = snrs
             all_contrasts[x, y, :] = contrasts
 

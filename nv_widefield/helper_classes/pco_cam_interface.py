@@ -10,6 +10,7 @@ camera_resolution = 2048 # pixels, range from 1 tpo 2048 inclusive
 extra_row_size = 8
 max_pixel_val = 65535 # 2^16-1
 min_roi_dims = 32
+objective_magnification = 50
 
 def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=5):
 
@@ -101,7 +102,7 @@ def connect_cam_RF(roi: tuple[int, int, int, int] | None,binning_amount, forced_
     return cam, sg
 
 
-def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount, forced_exposure = None) -> Camera:
+def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount=1, forced_exposure = None) -> Camera:
     # connect to cam
     cam = setup_cam()
     set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))
@@ -127,9 +128,9 @@ def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, i
     fpcy = focus_point_centre_y // 16 * 16 // binning_amount
     x_points = np.arange(fpcx - fps // 2 + 1, fpcx + fps // 2 + 1)
     y_points = np.arange(fpcy - fps // 2 + 1, fpcy + fps // 2 + 1)
-    # Approximately 65nm per physical pixel (6.5um pixel width, and 100x objective)
-    x_space = x_points * 65 / 10 ** 6 * binning_amount
-    y_space = y_points * 65 / 10 ** 6 * binning_amount
+    # Approximately 130nm per physical pixel (6.5um pixel width, and 50x objective)
+    x_space = x_points * 6.5/objective_magnification / 10 ** 3 * binning_amount # position in mm
+    y_space = y_points * 6.5/objective_magnification / 10 ** 3 * binning_amount
     # region of interest, crop into this portion of the camera's view
 
     # add a row of 8 pixels to y if space allows, to remove the bright row

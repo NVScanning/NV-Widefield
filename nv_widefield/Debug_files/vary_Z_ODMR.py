@@ -61,11 +61,11 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 def main():
     binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
     focus_point_size = 256
-    focus_point_centre_x, focus_point_centre_y = 990,675
+    focus_point_centre_x, focus_point_centre_y = 970,720
 
-    n_windows_per_point = 1
+    n_windows_per_point = 25
     amp_dbm = -10  # RF Generator Amplitude
-    freq_dwell = 0.1  # Frequency switch recovery interval
+    freq_dwell = 0.001  # Frequency switch recovery interval
     z_dwell = 1
     n_iter = 1  # Iterations per z-step
 
@@ -75,16 +75,17 @@ def main():
     N_freqs = 41  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.045  # Target focus center
-    z_span = 0.01  # Distance range over sweep
-    N_z_steps = 11  # Total step divisions to evaluate
+    z_center = 3.075  # Target focus center
+    z_span = 0.05  # Distance range over sweep
+    N_z_steps = 51  # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
     _, _, z_range = cs.calc_sweep_range(z_center, z_span, N_z_steps)
     # z_range = [3.211, 3.227, 3.248] # to manually measure a few set points
     # z_range = [3.042, 3.06, 3.09] # to manually measure a few set points
-    # N_z_steps = len(z_range)
+    # z_range = [3.054, 3.072, 3.095] # to manually measure a few set points
+    N_z_steps = len(z_range)
 
     # -------------------------------------------------------------
     # HARDWARE INITIALIZATION
@@ -109,7 +110,7 @@ def main():
     z_motor.move_to(z_range[0]-0.003) # Move to a bit below the first measurement, so always on same side of backlash
     time.sleep(2)  # extra time for the first point
 
-    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.2), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
+    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.02), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
 
     plot_SNR_contr(avg_contrasts, avg_snrs, z_positions)
 
@@ -117,6 +118,30 @@ def main():
 
 
     # TODO: ask the user to input a z position for the motor to move to
+
+    print("\n" + "=" * 40)
+    print("ODMRs at different Zs complete")
+    print("Type 'exit' to quit.")
+    print("Type 'prev' to move to previous position before measurement.")
+    print("Type a distance in mm [0,8] to move there")
+    print("=" * 40)
+    ans = input("Which Z to move to? ").strip().lower()
+
+    if ans.lower() == "exit":
+        print("Exiting interaction loop.")
+    elif ans == "n":
+        z_motor.move_to(z_prev_position)
+        time.sleep(1)
+        print("moved to pre-optimization position, possibly uncalibrated")
+    else:
+        try:
+            z_motor.move_to(float(ans)-0.005)
+            time.wait(3)
+            z_motor.move_to(float(ans))
+            time.wait(3)
+            print(f"Moved to z={ans}mm")
+        except:
+            print(f"Unable to move to z={ans}mm, exiting")
 
 
 def plot_odmrs(N_z_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], z_sweep_results):
@@ -164,7 +189,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
                   z_range: ndarray[tuple[Any, ...], dtype[float64]]) -> tuple[
     list[float], list[float], list[float], dict[float, float]]:
     point_duration_s = cam.exposure_time * n_windows
-    print(f"beggining measurements, estimate time to completion: {len(z_range) * (n_iter * (len(freqs) + 1) * 2 * 1.1 * (point_duration_s + freq_dwell + 0.1) + z_dwell) + 50:.0f}s")
+    print(f"beggining measurements, estimate time to completion: {len(z_range) * (n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell + 0.1) + z_dwell) + 50:.0f}s")
 
     # Setup data store dictionary: {z_position: odmr_counts_array}
     z_sweep_results = {}

@@ -63,7 +63,10 @@ if match[0].startswith("cw_odmr"):
         popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
         Lfit.print_dip_params(popt)
         snrs = Lfit.get_SNRs(baseline, counts, freqs/10**9, popt)
-        Lfit.print_SNR(snrs, freqs/10**9)
+
+        _, _, dip_Freqs = Lfit.get_dip_params(popt)
+
+        Lfit.print_SNR(snrs, dip_Freqs)
         oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
     else :
         data = np.load(filepath + ".npy")

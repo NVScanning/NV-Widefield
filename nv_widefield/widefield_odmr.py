@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import datetime
 import connection_setup as cs
 import os
 import sys
@@ -17,15 +18,15 @@ structure + analysis(lorentzian fitting + conversion to B) is quite similar to s
 #   do translation + widefield, to capture larger structures, atm we're limited to laser focus point size ~15um
 
 
-
+time0 = 0
 
 
 def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarray:
     point_duration_s = cam.exposure_time * n_windows
-    print(f"measuring ODMR with {n_iter} iterations, estimate time to completion ~{n_iter*2 * 1.1 * len(freqs) * (dwell + point_duration_s):.2f}s")
+    print(f"measuring ODMR with {n_iter} iterations, estimate time to completion ~{datetime.timedelta(n_iter*2 * 1.1 * len(freqs) * (dwell + point_duration_s)):.2f}")
 
     seen=0
-    image = pci.read_image(cam,1)
+    image = pci.read_image(cam,1) # Throw out first image, it's often too bright
     # Note: one row of pixels is ~30% brighter than the rest, can't figure out why though
 
     num_printouts = 10
@@ -36,7 +37,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
 
         for j,f in enumerate(freqs):
             if (seen % printout_factor == 0):
-                print(f"at iteration {i} and freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
+                print(f"at t={time.time()-time0}s, iteration {i} and freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             image = pci.read_image(cam,n_windows)
@@ -46,7 +47,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
         for j,f in enumerate(freqs[::-1]):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
+                print(f"at t={time.time()-time0}s, iteration {i} and freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             image = pci.read_image(cam,n_windows)
@@ -59,18 +60,18 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
 
 def main():
     # params
-    binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 100  # in physical (unbinned) pixels, diameter of circle of laser point
+    binning_amount = 4 # built-int pco camera binning, can only be 1,2,4
+    focus_point_size = 128  # in physical (unbinned) pixels, diameter of circle of laser point
     focus_point_centre_x, focus_point_centre_y = 990,675 # in pixels, center point of the laser point
     # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -10 # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
     dwell =  0.01 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 100
+    n_iter = 10
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
     span = 0.3e9 # Hz, range of frequencies to sample
-    N = 101 # num points in the frequency space to sample
+    N = 75 # num points in the frequency space to sample
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
@@ -83,6 +84,7 @@ def main():
 
     # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     # time.sleep(0.1) # why sleep for a whole second? (previous was 1)
+    time0 = time.time()
     counts_2D = pci.run_odmr_measurement((roi, binning_amount), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
 

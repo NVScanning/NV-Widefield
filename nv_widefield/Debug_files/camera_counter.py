@@ -13,6 +13,7 @@ Get the images repeatedly, and plot the peak, total, and laplacian variance over
 """
 
 num_points = 9000
+roi = None
 
 t0 = time.time()
 timestamps = []
@@ -73,15 +74,18 @@ def plot_graphs():
     plt.close(fig)
 
 def main():
-    binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 100  # in pixels, width of image taken, must be a multiple of 16
-    focus_point_centre_x, focus_point_centre_y = 980, 660  # in pixels, center of the laser point
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
+    binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
+    # focus_point_size = 100  # in pixels, width of image taken, must be a multiple of 16
+    # focus_point_centre_x, focus_point_centre_y = 980, 660  # in pixels, center of the laser point
+    #
+    #
+    # roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
 
-
-    roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
-    # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
-    print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
+    if roi is not None:
+        print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
+    else:
+        print("Using previous roi")
 
     cam = pci.connect_cam(roi, binning_amount)
 

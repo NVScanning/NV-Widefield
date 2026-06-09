@@ -67,7 +67,7 @@ def main():
     # params
     binning_amount = 4 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 128  # in pixels, approximate width of image taken, must be >=32 after binning
-    focus_point_centre_x, focus_point_centre_y = 990,675  # in pixels, center of the laser point
+    focus_point_centre_x, focus_point_centre_y = 960,724  # in pixels, center of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
@@ -75,10 +75,10 @@ def main():
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
     dwell =  0.001 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 1
+    n_iter = 10
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.3e9 # Hz, range of frequencies to sample
+    span = 0.12e9 # Hz, range of frequencies to sample
     N = 51 # num points in the frequency space to sample
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
@@ -92,7 +92,7 @@ def main():
     # point_duration_s = cam.exposure_time * n_windows_per_point
 
     # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
-    time.sleep(0.1) # why sleep for a whole second? (previous was 1)
+    # time.sleep(0.1) # why sleep for a whole second? (previous was 1)
     counts = pci.run_odmr_measurement((roi, binning_amount, 0.1), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     oPlot.plot_odmr(freqs, counts)
@@ -102,11 +102,12 @@ def main():
     max_peaks = 2
     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
     Lfit.print_dip_params(popt)
+    _, _, dip_Freqs = Lfit.get_dip_params(popt)
 
 
     try:
         snrs = Lfit.get_SNRs(baseline, counts, freqs/10**9, popt)
-        Lfit.print_SNR(snrs, freqs/10**9)
+        Lfit.print_SNR(snrs, dip_Freqs)
     except ValueError as e:
         # do nothing cuz printing snr didnt work
         print("getting SNR failed: " + str(e))
