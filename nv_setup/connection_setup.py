@@ -37,15 +37,17 @@ def enable_sg386(sg, amp_dbm: float = -12.0, enable: bool = True):
         print("sg386 OFF")
 
 def connect_motor(motor_id: int):
-    motor, motor_position = get_motor_position(motor_id)
+    motor = find_motor(motor_id)
+    prev_position = motor.position
 
     motor.move_home(True)
-    time.sleep(2) #
+    time.sleep(2) # Takes some time for the motor to perform the homing
+    print(f"Currently using backlash distance: {motor.backlash_distance}[idk units]")
     print("Connected to motor, Motor ID:", motor_id)
 
-    return motor, motor_position
+    return motor, prev_position
 
-def get_motor_position(motor_id: int):
+def find_motor(motor_id: int):
     available_devices = apt.list_available_devices()
 
     if not available_devices:
@@ -59,7 +61,7 @@ def get_motor_position(motor_id: int):
 
     motor = apt.Motor(motor_id)
 
-    return motor, motor.position
+    return motor
 
 
 # UTIL STUFS

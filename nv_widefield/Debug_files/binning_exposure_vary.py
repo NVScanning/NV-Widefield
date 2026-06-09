@@ -53,7 +53,7 @@ def find_best_z(cam, motor, z_range, dwell, point_duration_s, n_windows):
     time.sleep(5) # move to starting position, before connecting cam
     for z in z_range:
         if (seen % printout_factor == 0):
-            print(f"at z={z:.4f}mm {seen/(printout_factor*num_printouts)*100:.1f}% done")
+            print(f"at z={z:.4f}mm {seen/(printout_factor*num_printouts)*100:.0f}% done")
         motor.move_to(z)
         time.sleep(dwell)
         image = pci.read_image(cam,n_windows)
@@ -146,14 +146,14 @@ def vary_binning():
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
-    cam, sg = pci.connect_cam_RF(roi, binning_amount)
+    # cam, sg = pci.connect_cam_RF(roi, binning_amount)
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
-    point_duration_s = cam.exposure_time * n_windows_per_point
+    # point_duration_s = cam.exposure_time * n_windows_per_point
 
-    cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+    # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-    counts_2D = pci.run_odmr_measurement(cam,sg, wODMR.measure_odmr, (freqs, dwell, point_duration_s, n_windows_per_point, n_iter))
+    counts_2D = pci.run_odmr_measurement((roi, binning_amount),amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     print("")
 
@@ -199,7 +199,7 @@ def vary_exposure_time():
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
-    cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
+    # cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
 
@@ -207,11 +207,11 @@ def vary_exposure_time():
     contr_avg,ucontr_avg = [], []
     for window_exp in range(n_windows):
         n_windows_per_point = 2**window_exp
-        point_duration_s = cam.exposure_time * n_windows_per_point
+        # point_duration_s = cam.exposure_time * n_windows_per_point
 
-        cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+        # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
         time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-        counts_2D = pci.run_odmr_measurement(cam, sg, wODMR.measure_odmr, (freqs, dwell, point_duration_s, n_windows_per_point, n_iter))
+        counts_2D = pci.run_odmr_measurement((roi, binning_amount, 0.1), amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
         print(f"\nAnalyzing SNR&contrast from ODMR for {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200:.2f}s")
         snrs, contrasts = Lfit.counts_to_SNR_contrast(x_space, y_space, counts_2D, freqs, max_peaks)
@@ -241,7 +241,7 @@ def vary_exposure_binning():
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
-    cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
+    # cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
     # exposure_time = 0.1 # force 100ms exposure
     # cam.exposure_time = exposure_time
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
@@ -251,11 +251,11 @@ def vary_exposure_binning():
     contr_avg = np.zeros((n_windows, n_bins))
     for window_exp in range(n_windows):
         n_windows_per_point = 2**window_exp
-        point_duration_s = cam.exposure_time * n_windows_per_point
+        # point_duration_s = cam.exposure_time * n_windows_per_point
 
-        cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+        # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
         time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-        counts_2D = pci.run_odmr_measurement(cam, sg, wODMR.measure_odmr, (freqs, dwell, point_duration_s, n_windows_per_point, n_iter))
+        counts_2D = pci.run_odmr_measurement((roi, binning_amount, 0.1), amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
         binned_contrast_avg, binned_snr_avg, _, _ = bin_full_measurement(counts_2D, freqs,
                                                                             n_bins, x_space, y_space)

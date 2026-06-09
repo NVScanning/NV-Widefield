@@ -24,6 +24,9 @@ Much of this code was combined from previously written code by Gemini, then edit
 """
 
 
+roi = None
+
+
 def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
     """Executes a dual-directional frequency sweep and returns a 1D binned array, of the kilo brightness per second"""
     brightnesses = np.zeros((n_iter * 2, freqs.size))
@@ -56,9 +59,9 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 
 def main():
-    binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
-    focus_point_size = 150
-    focus_point_centre_x, focus_point_centre_y = 980,680
+    binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
+    focus_point_size = 256
+    focus_point_centre_x, focus_point_centre_y = 990,675
 
     n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
@@ -72,7 +75,7 @@ def main():
     N_freqs = 41  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.04  # Target focus center
+    z_center = 3.045  # Target focus center
     z_span = 0.01  # Distance range over sweep
     N_z_steps = 11  # Total step divisions to evaluate
 
@@ -97,21 +100,23 @@ def main():
     z_motor.move_to(z_center)
     time.sleep(5)
 
-    cam, sg = pci.connect_cam_RF(roi, binning_amount)
-    point_duration_s = cam.exposure_time * n_windows_per_point
+    # cam, sg = pci.connect_cam_RF(roi, binning_amount)
+    # point_duration_s = cam.exposure_time * n_windows_per_point
 
-    print(f"beggining measurements, estimate time to completion: {N_z_steps * (n_iter * (N_freqs + 1) * 2 * 1.1 * (point_duration_s + freq_dwell + focus_point_size ** 2 / (5 * 10 ** 6)) + z_dwell) + 50:.0f}s")
 
-    cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+    # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     print(f"Staging motor to just below initial z-coordinate: {z_range[0]-0.003:.4f}mm...")
     z_motor.move_to(z_range[0]-0.003) # Move to a bit below the first measurement, so always on same side of backlash
     time.sleep(2)  # extra time for the first point
 
-    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement(cam, sg, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, point_duration_s, z_dwell, z_motor, z_range))
+    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.2), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
 
     plot_SNR_contr(avg_contrasts, avg_snrs, z_positions)
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
+
+
+    # TODO: ask the user to input a z position for the motor to move to
 
 
 def plot_odmrs(N_z_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], z_sweep_results):
@@ -154,10 +159,13 @@ def plot_SNR_contr(avg_contrasts, avg_snrs, z_positions):
 
 
 def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
-                  freqs: ndarray[tuple[Any, ...], dtype[float64]], n_iter: int, n_windows_per_point: int,
-                  point_duration_s: float, z_dwell: int, z_motor: Motor,
+                  freqs: ndarray[tuple[Any, ...], dtype[float64]], n_iter: int, n_windows: int,
+                  z_dwell: int, z_motor: Motor,
                   z_range: ndarray[tuple[Any, ...], dtype[float64]]) -> tuple[
     list[float], list[float], list[float], dict[float, float]]:
+    point_duration_s = cam.exposure_time * n_windows
+    print(f"beggining measurements, estimate time to completion: {len(z_range) * (n_iter * (len(freqs) + 1) * 2 * 1.1 * (point_duration_s + freq_dwell + 0.1) + z_dwell) + 50:.0f}s")
+
     # Setup data store dictionary: {z_position: odmr_counts_array}
     z_sweep_results = {}
 
@@ -176,7 +184,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
 
         # Run binned measurement
         counts = measure_binned_odmr_at_z(
-            cam, sg, freqs, freq_dwell, point_duration_s, n_windows=n_windows_per_point, n_iter=n_iter
+            cam, sg, freqs, freq_dwell, point_duration_s, n_windows=n_windows, n_iter=n_iter
         )
         oPlot.save_point_odmr_measurement(counts, freqs)
         z_sweep_results[z_pos] = counts

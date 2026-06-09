@@ -1,4 +1,4 @@
-
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 import pco
@@ -9,6 +9,7 @@ import connection_setup as cs
 camera_resolution = 2048 # pixels, range from 1 tpo 2048 inclusive
 extra_row_size = 8
 max_pixel_val = 65535 # 2^16-1
+min_roi_dims = 32
 
 def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=5):
 
@@ -34,7 +35,7 @@ def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=5):
         cam.exposure_time = float(min(new_exposure,0.499)) # camera allows 500ms max, but set 499 due to floating point error
 
         # print(f"Adjusting exposure from {og_exposure:.3f} to {cam.exposure_time:.3f}s (Peak was: {peak:.3g}, now will be ~{peak * cam.exposure_time / og_exposure:.3g})")
-    print(f"Adjusting exposure from {original_exposure:.3f} to {cam.exposure_time:.3f}s")
+    print(f"Autoexpose changing exposure from {original_exposure:.3f} to {cam.exposure_time:.3f}s")
 
     return
 
@@ -106,6 +107,7 @@ def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount, forced_exp
     set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))
     auto_expose(cam, target_intensity=0.3)  # sets cameras exposure time
     if forced_exposure is not None:
+        print(f"Manually forcing exposure time of {forced_exposure:.3f}s")
         cam.exposure_time = forced_exposure
     img = read_image(cam,1)
     plot_image(img) # if roi fills, then plot full image
@@ -120,9 +122,9 @@ def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, i
         raise camera_exception.CameraException("Focus point size too small must be >=16")
     if focus_point_centre_x <8 | focus_point_centre_y <8 | focus_point_centre_x > 2040 | focus_point_centre_y > 2040:
         raise camera_exception.CameraException("Focus centre outside camera frame, must be 8<=x,y <=2040")
-    fps = focus_point_size // 8 * 8 // binning_amount  # forces fps to be a multiple of 8, before dividing by the binning
-    fpcx = focus_point_centre_x // 8 * 8 // binning_amount
-    fpcy = focus_point_centre_y // 8 * 8 // binning_amount
+    fps = max(min_roi_dims, focus_point_size // 16 * 16 // binning_amount)  # forces fps to be a multiple of 8, before dividing by the binning, must be >=32
+    fpcx = focus_point_centre_x // 16 * 16 // binning_amount
+    fpcy = focus_point_centre_y // 16 * 16 // binning_amount
     x_points = np.arange(fpcx - fps // 2 + 1, fpcx + fps // 2 + 1)
     y_points = np.arange(fpcy - fps // 2 + 1, fpcy + fps // 2 + 1)
     # Approximately 65nm per physical pixel (6.5um pixel width, and 100x objective)
@@ -139,10 +141,16 @@ def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, i
                fpcx + fps // 2, fpcy + fps // 2)
     return roi, x_space, y_space
 
-def run_odmr_measurement(cam, sg, fn, params):
+def run_odmr_measurement(cam_rf_params, amp_dbm, fn, odmr_params):
     # Safely runs measurement with cam and sg, turning everything off correctly at the end
+
+    # TODO: let this method start the cam and rf (code below, refactoring required)
+    cam, sg = connect_cam_RF(*cam_rf_params)
+    cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+    time.sleep(0.1) # why sleep for a whole second? (previous was 1)
+
     try:
-        ret_vals = fn(cam, sg, *params)
+        ret_vals = fn(cam, sg, *odmr_params)
     finally:
         cs.enable_sg386(sg, enable=False)
         cam.close()

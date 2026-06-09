@@ -88,11 +88,8 @@ def main():
         print("Using cam's previous roi and binning settings")
 
 
-    cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
-    point_duration_s = cam.exposure_time * n_windows_per_point
-
-    print(
-        f"Beginning measurements, estimate time to completion: {N_amp_steps * (n_iter * (N_freqs + 1) * 2 * 1.1 * (point_duration_s + freq_dwell + focus_point_size ** 2 / (5 * 10 ** 6)) + power_dwell) + 10:.0f}s")
+    # cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
+    # point_duration_s = cam.exposure_time * n_windows_per_point
 
     # Capture tracking image at stationary operational focus position
     img = pci.read_image(cam, 1)
@@ -100,8 +97,8 @@ def main():
 
     # Pass functional loop array down to interface controller execution stack
     avg_contrasts, avg_snrs, evaluated_powers, power_sweep_results = pci.run_odmr_measurement(
-        cam, sg, measure_power_dependency,
-        (freq_dwell, freqs, n_iter, n_windows_per_point, point_duration_s, power_dwell, amp_range)
+        (roi, binning_amount, 0.1), -10, measure_power_dependency,
+        (freq_dwell, freqs, n_iter, n_windows_per_point, power_dwell, amp_range)
     )
 
     plot_SNR_contr(avg_contrasts, avg_snrs, evaluated_powers)
@@ -149,10 +146,13 @@ def plot_SNR_contr(avg_contrasts, avg_snrs, evaluated_powers):
 
 
 def measure_power_dependency(cam: Camera, sg: Any, freq_dwell: float,
-                             freqs: ndarray[tuple[Any, ...], dtype[float64]], n_iter: int, n_windows_per_point: int,
-                             point_duration_s: float, power_dwell: float,
-                             amp_range: ndarray[tuple[Any, ...], dtype[float64]]) -> tuple[
+                             freqs: ndarray[tuple[Any, ...], dtype[float64]], n_iter: int, n_windows: int,
+                             power_dwell: float, amp_range: ndarray[tuple[Any, ...], dtype[float64]]) -> tuple[
     list[float], list[float], list[float], dict[float, float]]:
+    point_duration_s = cam.exposure_time * n_windows
+    print(
+        f"Beginning measurements, estimate time to completion: {len(amp_range) * (n_iter * (len(freqs) + 1) * 2 * 1.1 * (point_duration_s + freq_dwell + 0.1) + power_dwell) + 10:.0f}s")
+
     power_sweep_results = {}
     evaluated_powers = []
     avg_snrs = []
@@ -167,7 +167,7 @@ def measure_power_dependency(cam: Camera, sg: Any, freq_dwell: float,
 
         # Run binned sweep across current power state
         counts = measure_binned_odmr_at_power(
-            cam, sg, freqs, freq_dwell, point_duration_s, n_windows=n_windows_per_point, n_iter=n_iter
+            cam, sg, freqs, freq_dwell, point_duration_s, n_windows=n_windows, n_iter=n_iter
         )
         oPlot.save_point_odmr_measurement(counts, freqs)
         power_sweep_results[amp_val] = counts

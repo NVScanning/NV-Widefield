@@ -1,13 +1,9 @@
 import numpy as np
-import matplotlib
-# matplotlib.use('TkAgg')
-# matplotlib.use('module://backend_interagg')
 import matplotlib.pyplot as plt
 import os
 import sys
 import time
 import scipy.ndimage as ndimage
-import connection_setup as cs
 sys.path.append(os.path.abspath(".."))
 import helper_classes.pco_cam_interface as pci
 

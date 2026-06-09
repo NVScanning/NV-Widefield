@@ -55,7 +55,7 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
         for j,f in enumerate(freqs):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.1f}% done")
+                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             job.resume()
@@ -68,7 +68,7 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
         for j,f in enumerate(freqs[::-1]):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.1f}% done")
+                print(f"at freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             job.resume()
@@ -141,7 +141,7 @@ def main():
 
     try:
         snrs = Lfit.get_SNRs(baseline, counts, freqs/10**9, popt)
-        Lfit.print_SNR(snrs, freqs)
+        Lfit.print_SNR(snrs, freqs/10**9)
     except ValueError as e:
         # do nothing cuz printing snr didnt work
         print("getting SNR failed" + str(e))

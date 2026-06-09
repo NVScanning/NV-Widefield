@@ -3,6 +3,7 @@ from scipy.optimize import curve_fit
 import connection_setup as cs
 from scipy.signal import find_peaks, peak_widths
 
+import helper_classes.odmr_plotting as oPlot
 from nv_widefield.helper_classes.odmr_plotting import plot_fitted_data
 
 
@@ -103,8 +104,10 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
         )
         return popt, pcov, peaks
     except Exception as e:
-        print("Couldn't curve_fit, threw:", e, ". trying to fit peaks at frequencies", freqs[peaks],
-              ". p0=",p0,", lower bounds:", lower,", upper bounds:", upper)
+        print("Couldn't curve_fit, threw:", e, "Plotting ODMR")
+        # print("Couldn't curve_fit, threw:", e, ". trying to fit peaks at frequencies", freqs[peaks],
+        #       ". p0=",p0,", lower bounds:", lower,", upper bounds:", upper)
+        oPlot.plot_odmr(freqs*10**9, R_vals)
         return p0, np.zeros_like(p0), peaks
 
 
@@ -173,6 +176,7 @@ def get_SNRs(baseline, counts, freqs, popt):
     return snrs
 
 def print_SNR(snrs, freqs):
+    # expect freqs in GHz
     # snrs = get_SNRs(baseline, counts, freqs, popt)
 
     snr = np.mean(snrs)

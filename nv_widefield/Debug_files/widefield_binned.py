@@ -19,7 +19,8 @@ SPCM used in cw_odmr.py
 
 roi = None
 
-def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int = 1) -> np.ndarray:
+def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarray:
+    point_duration_s = cam.exposure_time * n_windows
     # below is off by a factor of ~2??
     print(f"measuring binned ODMR with {n_iter} iterations, estimate time to completion ~{n_iter*2 * len(freqs) * (dwell + point_duration_s + 0.1):.0f}s")
     seen=0
@@ -36,7 +37,7 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
         brightness=[]
         for j,f in enumerate(freqs):
             if (seen % printout_factor == 0):
-                print(f"at iteration {i} and freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.1f}% done")
+                print(f"at iteration {i} and freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             image = pci.read_image(cam,n_windows)
@@ -49,7 +50,7 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
         for j,f in enumerate(freqs[::-1]):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print(f"at iteration {i} and freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.1f}% done")
+                print(f"at iteration {i} and freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             image = pci.read_image(cam,n_windows)
@@ -64,12 +65,12 @@ def measure_odmr(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter: int
 
 def main():
     # params
-    binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 200  # in pixels, width of image taken, must be a multiple of 16
-    focus_point_centre_x, focus_point_centre_y = 980,680  # in pixels, center of the laser point
+    binning_amount = 4 # built-int pco camera binning, can only be 1,2,4
+    focus_point_size = 128  # in pixels, approximate width of image taken, must be >=32 after binning
+    focus_point_centre_x, focus_point_centre_y = 990,675  # in pixels, center of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
-    amp_dbm = -20 #anything bigger than -10 does nothing (Hayden)
+    amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
@@ -77,22 +78,22 @@ def main():
     n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.15e9 # Hz, range of frequencies to sample
-    N = 101 # num points in the frequency space to sample
+    span = 0.3e9 # Hz, range of frequencies to sample
+    N = 51 # num points in the frequency space to sample
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
 
-    cam, sg = pci.connect_cam_RF(roi, binning_amount)
+    # cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
-    point_duration_s = cam.exposure_time * n_windows_per_point
+    # point_duration_s = cam.exposure_time * n_windows_per_point
 
-    cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+    # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-    counts = pci.run_odmr_measurement(cam, sg, measure_odmr, (freqs, dwell, point_duration_s, n_windows_per_point, n_iter))
+    counts = pci.run_odmr_measurement((roi, binning_amount, 0.1), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     oPlot.plot_odmr(freqs, counts)
 
