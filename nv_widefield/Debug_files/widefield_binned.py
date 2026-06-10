@@ -37,7 +37,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
         brightness=[]
         for j,f in enumerate(freqs):
             if (seen % printout_factor == 0):
-                print(f"at iteration {i} and freq {str(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
+                print(f"at iteration {i} and freq {(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             image = pci.read_image(cam,n_windows)
@@ -50,7 +50,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
         for j,f in enumerate(freqs[::-1]):
             if (seen % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-                print(f"at iteration {i} and freq {str(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
+                print(f"at iteration {i} and freq {(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
             sg.write(f"FREQ {float(f)}")
             time.sleep(dwell)
             image = pci.read_image(cam,n_windows)
@@ -78,7 +78,7 @@ def main():
     n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.3e9 # Hz, range of frequencies to sample
+    span = 0.1e9 # Hz, range of frequencies to sample
     N = 75 # num points in the frequency space to sample
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
@@ -101,13 +101,14 @@ def main():
 
     max_peaks = 2
     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
-    Lfit.print_dip_params(popt)
-    _, _, dip_Freqs = Lfit.get_dip_params(popt)
+    # Lfit.print_dip_params(popt)
+    contrasts, _, dip_Freqs = Lfit.get_dip_params(popt)
 
 
     try:
         snrs = Lfit.get_SNRs(baseline, counts, freqs/10**9, popt)
-        Lfit.print_SNR(snrs, dip_Freqs)
+        # Lfit.print_SNR(snrs, dip_Freqs)
+        Lfit.print_contrast_snr(contrasts, snrs, dip_Freqs)
     except ValueError as e:
         # do nothing cuz printing snr didnt work
         print("getting SNR failed: " + str(e))

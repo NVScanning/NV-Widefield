@@ -135,6 +135,10 @@ def get_dip_params(popt):
         dip_Freqs.append(f0)
     return contrasts, FWHMs, dip_Freqs
 
+def print_contrast_snr(contrasts, snrs, dip_Freqs):
+    for (freq, snr_val, contr_val) in zip(dip_Freqs, snrs, contrasts):
+        print(f"At frequency {freq:.3f} GHz: Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
+    print(f"SNR avg: {np.mean(snrs):.3}, contrast avg: {np.mean(snrs)*100:.3}%")
 
 def print_dip_params(popt):
     contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
@@ -182,7 +186,7 @@ def print_SNR(snrs, freqs):
     for (freq, snr_val) in zip(freqs, snrs):
         print(f"At frequency {freq:.3f} GHz: snr = {snr_val:.3}")
 
-    print(f"SNR avg : {snr:.3}")
+    print(f"SNR avg: {snr:.3}")
 
 # ============================
 # Lorentzian fitting (with baseline normalization)

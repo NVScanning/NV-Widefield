@@ -75,9 +75,9 @@ def main():
     N_freqs = 41  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.06  # Target focus center
-    z_span = 0.1  # Distance range over sweep
-    N_z_steps = 21  # Total step divisions to evaluate
+    z_center = 3.086  # Target focus center
+    z_span = 0.005  # Distance range over sweep
+    N_z_steps = 5  # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
@@ -110,7 +110,7 @@ def main():
     z_motor.move_to(z_range[0]-0.003) # Move to a bit below the first measurement, so always on same side of backlash
     time.sleep(2)  # extra time for the first point
 
-    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.02), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
+    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.1), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
 
     plot_SNR_contr(avg_contrasts, avg_snrs, z_positions)
 
@@ -224,10 +224,12 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
             snrs = Lfit.get_SNRs(baseline, counts, freqs / 1e9, popt)
 
             z_positions.append(z_pos)
-            avg_snrs.append(np.mean(snrs))
-            # Convert fraction value back to a clean plotting percentage scale
-            avg_contrasts.append(np.mean(contrasts) * 100.0)
-
+            if len(snrs) > 0:
+                avg_snrs.append(np.mean(snrs))
+                avg_contrasts.append(np.mean(contrasts) * 100.0)
+            else:
+                avg_snrs.append(0.0)
+                avg_contrasts.append(0.0)
             print(
                 f"Fit Successful at z={z_pos:.4f}mm: Mean SNR={avg_snrs[-1]:.2f}, Mean Contrast={avg_contrasts[-1]:.2f}%")
         except Exception as fit_error:
