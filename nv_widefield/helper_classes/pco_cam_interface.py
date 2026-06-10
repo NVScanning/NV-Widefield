@@ -119,11 +119,11 @@ def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount=1, forced_e
 
 def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, int], float, float]:
     focus_point_size, focus_point_centre_x, focus_point_centre_y = pos_data
-    if focus_point_size < 16:
-        raise camera_exception.CameraException("Focus point size too small must be >=16")
+    if focus_point_size/binning_amount < 32:
+        raise camera_exception.CameraException("Focus point size too small must be >=32 after binning")
     if focus_point_centre_x <8 | focus_point_centre_y <8 | focus_point_centre_x > 2040 | focus_point_centre_y > 2040:
         raise camera_exception.CameraException("Focus centre outside camera frame, must be 8<=x,y <=2040")
-    fps = max(min_roi_dims, focus_point_size // 16 * 16 // binning_amount)  # forces fps to be a multiple of 8, before dividing by the binning, must be >=32
+    fps = focus_point_size // 16 * 16 // binning_amount
     fpcx = focus_point_centre_x // 16 * 16 // binning_amount
     fpcy = focus_point_centre_y // 16 * 16 // binning_amount
     x_points = np.arange(fpcx - fps // 2 + 1, fpcx + fps // 2 + 1)

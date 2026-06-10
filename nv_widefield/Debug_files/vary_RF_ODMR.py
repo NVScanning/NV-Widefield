@@ -92,8 +92,8 @@ def main():
     # point_duration_s = cam.exposure_time * n_windows_per_point
 
     # Capture tracking image at stationary operational focus position
-    img = pci.read_image(cam, 1)
-    pci.plot_image(img, title=f"Baseline camera image")
+    # img = pci.read_image(cam, 1)
+    # pci.plot_image(img, title=f"Baseline camera image")
 
     # Pass functional loop array down to interface controller execution stack
     avg_contrasts, avg_snrs, evaluated_powers, power_sweep_results = pci.run_odmr_measurement(

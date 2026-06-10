@@ -223,6 +223,8 @@ def odmr_to_delta_freq(counts, freqs):
 
 def counts_to_B_Z(x_points, y_points, counts_2D, freqs):
 
+    # TODO: conmvert this fitting to be on the GPU with JAXFit
+    # TODO: find a way to have a background term that's shared between nearby pixels
     B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
     problem_points = []
 

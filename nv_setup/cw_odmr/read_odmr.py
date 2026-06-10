@@ -29,8 +29,8 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-06-08" # YYYY-MM-DD
-time = "23-51-120"   # hh-mm_ss
+date = "2026-06-10" # YYYY-MM-DD
+time = "09-33-26"   # hh-mm_ss
 max_peaks = 4
 
 

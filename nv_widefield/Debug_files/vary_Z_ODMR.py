@@ -63,21 +63,21 @@ def main():
     focus_point_size = 256
     focus_point_centre_x, focus_point_centre_y = 970,720
 
-    n_windows_per_point = 25
+    n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
     freq_dwell = 0.001  # Frequency switch recovery interval
-    z_dwell = 1
-    n_iter = 1  # Iterations per z-step
+    z_dwell = 0.1
+    n_iter = 2  # Iterations at each z-step
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.12e9  # Hz
+    span = 0.1e9  # Hz
     N_freqs = 41  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.075  # Target focus center
-    z_span = 0.05  # Distance range over sweep
-    N_z_steps = 51  # Total step divisions to evaluate
+    z_center = 3.06  # Target focus center
+    z_span = 0.1  # Distance range over sweep
+    N_z_steps = 21  # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
@@ -116,9 +116,10 @@ def main():
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
 
+    move_to_user_input(z_motor, z_prev_position)
 
-    # TODO: ask the user to input a z position for the motor to move to
 
+def move_to_user_input(z_motor: Motor, z_prev_position: float):
     print("\n" + "=" * 40)
     print("ODMRs at different Zs complete")
     print("Type 'exit' to quit.")
@@ -128,17 +129,17 @@ def main():
     ans = input("Which Z to move to? ").strip().lower()
 
     if ans.lower() == "exit":
-        print("Exiting interaction loop.")
+        print("Exiting")
     elif ans == "n":
         z_motor.move_to(z_prev_position)
         time.sleep(1)
         print("moved to pre-optimization position, possibly uncalibrated")
     else:
         try:
-            z_motor.move_to(float(ans)-0.005)
-            time.wait(3)
+            z_motor.move_to(float(ans) - 0.005)
+            time.sleep(3)
             z_motor.move_to(float(ans))
-            time.wait(3)
+            time.sleep(3)
             print(f"Moved to z={ans}mm")
         except:
             print(f"Unable to move to z={ans}mm, exiting")

@@ -76,6 +76,15 @@ def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
     save_path = get_newfile_dir("")
     np.savez(save_path, x=freqs, y=counts)
 
+def overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, prev_path):
+    new_path = get_newfile_dir("widefield_")
+    np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=np.zeros((len(x_points),len(y_points))), odmrs=counts_2D)
+    try:
+        os.remove(prev_path)
+        print(f"Deleted old file {prev_path}")
+    except Exception as e:
+        print("trying to delete old file caused an error:", e)
+    return new_path
 
 def save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D):
     save_path = get_newfile_dir("widefield_")
@@ -96,5 +105,5 @@ def get_newfile_dir(prefix):
     if not os.path.exists(directory):
         os.makedirs(directory)
     save_path = os.path.join(directory, f"{prefix}cw_odmr_{timestamp}.npz")
-    print(f"Saved as: {prefix}cw_odmr_{timestamp}.npz in directory: {directory}")
+    print(f"Saving as: {prefix}cw_odmr_{timestamp}.npz in directory: {directory}")
     return save_path
