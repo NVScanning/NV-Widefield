@@ -12,6 +12,9 @@ max_pixel_val = 65535 # 2^16-1
 min_roi_dims = 32
 objective_magnification = 50
 
+background_rate = 0 # 18 550 000 / 128^2  # total brightness divided by num pixels divided by exposure time
+# ^ This num ends up being like 1.1k
+
 def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=5):
 
     target = max_pixel_val * target_intensity # highest individual pixel brightness we want to allow
@@ -62,13 +65,8 @@ def read_image(cam,n_windows):
     if np.amax(image) > 0.95*max_pixel_val:
         # overexposed
         print("Image is likely overexposed, highest pixel val",np.amax(image))
-    return image
+    return np.maximum(image - cam.exposure_time * background_rate, [0])
 
-def setup_cam():
-    cam = pco.Camera()
-    # cam.sdk.set_metadata_mode(0)  # 0 = off, 1 = on/embedded
-    set_cam_settings(cam, 10e-3)
-    return cam
 
 def plot_image(image, x_points=None, y_points=None, title = ""):
     if x_points is None:
@@ -104,14 +102,16 @@ def connect_cam_RF(roi: tuple[int, int, int, int] | None,binning_amount, forced_
 
 def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount=1, forced_exposure = None) -> Camera:
     # connect to cam
-    cam = setup_cam()
+    cam = pco.Camera()
     set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))
     auto_expose(cam, target_intensity=0.3)  # sets cameras exposure time
     if forced_exposure is not None:
+        if forced_exposure > cam.exposure_time:
+            print(f"Manually forcing exposure time of {forced_exposure:.3f}s. Warning, higher than autoexposed value, may cause overexposure")
         print(f"Manually forcing exposure time of {forced_exposure:.3f}s")
         cam.exposure_time = forced_exposure
     img = read_image(cam,1)
-    plot_image(img) # if roi fills, then plot full image
+    plot_image(img)
     print("Example image plotted")
     return cam
 

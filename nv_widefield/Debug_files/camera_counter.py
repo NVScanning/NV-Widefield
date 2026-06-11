@@ -29,7 +29,7 @@ def get_new_data(cam,n_windows,point_duration_s):
     all_counts = pci.bin_image(image)
 
     total_brightness.append(all_counts / point_duration_s / 1000)
-    peak_brightness.append(np.max(image))
+    peak_brightness.append(np.max(image)) # not divided by exposure time or 1000
     laplacian_variance.append(lScore)
     timestamps.append(time.time() - t0)
 
@@ -40,9 +40,9 @@ def plot_graphs():
     ax3 = ax1.twinx()
 
     ax1.set_xlabel("time [s]")
-    ax1.set_ylabel("total brightness")
-    ax2.set_ylabel("peak brightness")
-    ax3.set_ylabel("laplacian variance")
+    ax1.set_ylabel("total brightness [kcounts/s]")
+    ax2.set_ylabel("peak brightness [counts]")
+    ax3.set_ylabel("laplacian variance [unitless?]")
 
     # right, left, top, bottom
     ax3.spines['right'].set_position(('outward', 60))

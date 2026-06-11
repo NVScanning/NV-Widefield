@@ -58,7 +58,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
         peak1 = max(0, sole_peak_idx - split_offset_idx)
         peak2 = min(len(freqs) - 1, sole_peak_idx + split_offset_idx)
         peaks = np.array([peak1, peak2])
-        print("Manually split 1 peak into", max_peaks, "at freqs", freqs[peaks], "GHz")
+        print("Manually split 1 dip into", max_peaks, "at freqs", freqs[peaks], "GHz")
 
     c0 = vals[0]                                                # offset - used to be np.mean
     c1 = (vals[-1]-vals[0])/(freqs[-1]-freqs[0])                # slope value
@@ -99,7 +99,7 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
     try:
         popt, pcov = curve_fit(
             multi_lorentzian, freqs, R_vals,
-            p0=p0, bounds=(lower, upper), maxfev=1000
+            p0=p0, bounds=(lower, upper), maxfev=10000
             # ,ftol=0.001, xtol=0.001) # Note: these make convergence quicker, but lose accuracy
         )
         return popt, pcov, peaks
@@ -138,7 +138,7 @@ def get_dip_params(popt):
 def print_contrast_snr(contrasts, snrs, dip_Freqs):
     for (freq, snr_val, contr_val) in zip(dip_Freqs, snrs, contrasts):
         print(f"At frequency {freq:.3f} GHz: Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
-    print(f"SNR avg: {np.mean(snrs):.3}, contrast avg: {np.mean(snrs)*100:.3}%")
+    print(f"SNR avg: {np.mean(snrs):.3}, contrast avg: {np.mean(contrasts)*100:.3}%")
 
 def print_dip_params(popt):
     contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
@@ -213,7 +213,7 @@ def analyze_data(freqs, counts, max_peaks):
 
 def odmr_to_delta_freq(counts, freqs):
     delta_freq = 0
-    max_peaks = 4
+    max_peaks = 2 # nominally 4, try 2 if the middle dips r too small to see
     popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks)
     contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
     # print_SNR(baseline, counts, freqs / 10 ** 9, popt)

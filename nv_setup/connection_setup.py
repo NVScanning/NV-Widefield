@@ -28,7 +28,17 @@ def connect_sg386(resource: str, timeout_ms: int = 5000):
     print("Connected to sg386")
     return sg
 
-def enable_sg386(sg, amp_dbm: float = -12.0, enable: bool = True):
+def enable_sg386(sg, amp_dbm: float = -10.0, enable: bool = True):
+    # below numbers are for the 2.5-3GHz range we use
+    # ZHL 2W amp has nominally between 42.5 and 45dB of gain, max power output of ~30dB
+    # SAM100 amp has nominally 47dB of gain, max power output of ~42.3dB
+
+    # Below -30dB I see no result, above -10dB the ZHL amp can't output more power
+    # Above -2,-3 dB, the SAM100 burns the silver paint
+
+    if amp_dbm >= -5: # -5 is a few db below SAM100 problem, and ZHL can't output enough power
+        raise Exception("RF amplitude too high, risk of burning solder, must be < -5dB")
+
     sg.write(f"AMPR {amp_dbm}")
     sg.write(f"ENBR {1 if enable else 0}")
     if enable:
@@ -41,7 +51,7 @@ def connect_motor(motor_id: int):
     prev_position = motor.position
 
     motor.move_home(True)
-    time.sleep(2) # Takes some time for the motor to perform the homing
+    time.sleep(1) # Takes some time for the motor to perform the homing
     print(f"Currently using backlash distance: {motor.backlash_distance}[idk units]")
     print("Connected to motor, Motor ID:", motor_id)
 

@@ -53,23 +53,23 @@ def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_wind
 
 
 def main():
-    binning_amount = 1
-    focus_point_size = 150
-    focus_point_centre_x, focus_point_centre_y = 980, 680
+    binning_amount = 4
+    focus_point_size = 256
+    focus_point_centre_x, focus_point_centre_y = 960,720
 
     n_windows_per_point = 1
-    freq_dwell = 0.1
-    power_dwell = 0.2  # Settle interval following an amplitude step update
+    freq_dwell = 0.001
+    power_dwell = 1  # Settle interval following an amplitude step update
     n_iter = 1
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9
-    span = 0.12e9
-    N_freqs = 41
+    span = 0.1e9
+    N_freqs = 1
 
 
     # RF Power Amplitude Sweep Parameters
-    amp_min = -20.0  # dBm
+    amp_min = -10.0  # dBm
     amp_max = 0.0  # dBm
     N_amp_steps = 11  # Total power increments to evaluate
     amp_range = np.linspace(amp_min, amp_max, N_amp_steps)
@@ -180,8 +180,18 @@ def measure_power_dependency(cam: Camera, sg: Any, freq_dwell: float,
             snrs = Lfit.get_SNRs(baseline, counts, freqs / 1e9, popt)
 
             evaluated_powers.append(amp_val)
-            avg_snrs.append(np.mean(snrs))
-            avg_contrasts.append(np.mean(contrasts) * 100.0)
+            if len(snrs) > 0:
+                avg_snrs.append(np.mean(snrs))
+                avg_contrasts.append(np.mean(contrasts) * 100.0)
+            else:
+                avg_snrs.append(0.0)
+                avg_contrasts.append(0.0)
+            # contrasts, _, _ = Lfit.get_dip_params(popt)
+            # snrs = Lfit.get_SNRs(baseline, counts, freqs / 1e9, popt)
+            #
+            # evaluated_powers.append(amp_val)
+            # avg_snrs.append(np.mean(snrs))
+            # avg_contrasts.append(np.mean(contrasts) * 100.0)
 
             print(
                 f"Fit Successful at {amp_val:.2f} dBm: Mean SNR={avg_snrs[-1]:.2f}, Mean Contrast={avg_contrasts[-1]:.2f}%")

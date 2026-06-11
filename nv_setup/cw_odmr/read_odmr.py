@@ -30,8 +30,8 @@ it's possible there were mistakes in the code, so be aware of where things are s
 
 # Params to change
 date = "2026-06-10" # YYYY-MM-DD
-time = "09-33-26"   # hh-mm_ss
-max_peaks = 4
+time = "15-26-58"   # hh-mm_ss
+max_peaks = 2
 
 
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"

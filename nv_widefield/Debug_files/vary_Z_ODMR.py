@@ -61,22 +61,22 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 def main():
     binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
     focus_point_size = 256
-    focus_point_centre_x, focus_point_centre_y = 970,720
+    focus_point_centre_x, focus_point_centre_y = 960,720
 
     n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
     freq_dwell = 0.001  # Frequency switch recovery interval
     z_dwell = 0.1
-    n_iter = 2  # Iterations at each z-step
+    n_iter = 1  # Iterations at each z-step
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.1e9  # Hz
-    N_freqs = 41  # Total frequency resolution steps
+    span = 0.12e9  # Hz
+    N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.086  # Target focus center
-    z_span = 0.005  # Distance range over sweep
+    z_center = 3.16  # Target focus center
+    z_span = 0.01  # Distance range over sweep
     N_z_steps = 5  # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
@@ -85,6 +85,7 @@ def main():
     # z_range = [3.211, 3.227, 3.248] # to manually measure a few set points
     # z_range = [3.042, 3.06, 3.09] # to manually measure a few set points
     # z_range = [3.054, 3.072, 3.095] # to manually measure a few set points
+    # z_range = [3.15, 3.175]
     N_z_steps = len(z_range)
 
     # -------------------------------------------------------------
@@ -110,11 +111,11 @@ def main():
     z_motor.move_to(z_range[0]-0.003) # Move to a bit below the first measurement, so always on same side of backlash
     time.sleep(2)  # extra time for the first point
 
-    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.1), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
-
-    plot_SNR_contr(avg_contrasts, avg_snrs, z_positions)
+    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.02), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
+
+    plot_SNR_contr(avg_contrasts, avg_snrs, z_positions)
 
     move_to_user_input(z_motor, z_prev_position)
 
@@ -160,7 +161,7 @@ def plot_odmrs(N_z_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], 
 
     plt.xlabel("Frequency [GHz]", fontsize=12)
     plt.ylabel("Binned Brightness (arb units/s)", fontsize=12)
-    plt.title("full-sensor ODMR for varying z positions", fontsize=14)
+    plt.title("Binned-sensor ODMR for varying z positions", fontsize=14)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend(loc="best", frameon=True, shadow=True)
     plt.tight_layout()
@@ -205,8 +206,8 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
         print(f"\n[{idx + 1}/{len(z_range)}] Moving to z={z_pos:.5f}mm")
         z_motor.move_to(z_pos)
         time.sleep(z_dwell)  # Allow structural mechanical settle time
-        img = pci.read_image(cam, 1)
-        pci.plot_image(img, title=f"Camera image at z={z_pos:.5f}")  # if roi fills, then plot full image
+        # img = pci.read_image(cam, 1)
+        # pci.plot_image(img, title=f"Camera image at z={z_pos:.5f}")  # if roi fills, then plot full image
 
         # Run binned measurement
         counts = measure_binned_odmr_at_z(
