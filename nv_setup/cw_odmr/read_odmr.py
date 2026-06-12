@@ -5,8 +5,10 @@ from os import listdir
 from os.path import isfile, join
 from uncertainties import ufloat
 
+import re
 
 import Lorentzian_fit as Lfit
+import helper_classes.pco_cam_interface as pci
 import sys
 sys.path.append(os.path.abspath("..."))
 import nv_widefield.helper_classes.odmr_plotting as oPlot
@@ -29,8 +31,8 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-06-10" # YYYY-MM-DD
-time = "15-26-58"   # hh-mm_ss
+date = "2026-06-12" # YYYY-MM-DD
+time = "11-26-00"   # hh-mm_ss
 max_peaks = 2
 
 
@@ -97,7 +99,7 @@ elif match[0].startswith("scanned"):
     counts_2D = data["odmrs"]
     if is_B_saved:
         B_Z_overall = data["magnet"]
-        oPlot.plot_dFreq_image(x_points, y_points, B_Z_overall)
+        oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
     else:
 
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -127,11 +129,11 @@ elif match[0].startswith("scanned"):
         if user_input.lower() == "reanalyze":
             print("Reanalyzing, will write new file")
 
-            B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_points, y_points, counts_2D, freqs)
+            B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=max_peaks)
             if (len(problem_points) > 0):
                 print("following indices didn't autofit >=2 dips:")
                 print(problem_points)
-            oPlot.plot_dFreq_image(x_points, y_points, B_Z_overall)
+            oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
             oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
 
@@ -198,7 +200,7 @@ elif match[0].startswith("widefield"):
     counts_2D = data["odmrs"]
     if is_B_saved:
         B_Z_overall = data["magnet"]
-        oPlot.plot_dFreq_image(x_points, y_points, B_Z_overall)
+        oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
     else:
 
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -217,6 +219,7 @@ elif match[0].startswith("widefield"):
     print(f"Available Y indices: 0 to {len(y_points) - 1}")
     print("Type 'exit' to quit.")
     print("Type 'reanalyze' to re-analyze image from saved odmrs")
+    print("Type 'bin _' to re-analyze a binned version of the image (must be an even divisor of the image dimensions)")
     print("=" * 40)
 
     while True:
@@ -228,35 +231,56 @@ elif match[0].startswith("widefield"):
         if user_input.lower() == "reanalyze":
             print("Reanalyzing, will write new file")
 
-            B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_points, y_points, counts_2D, freqs)
+            B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=max_peaks)
             if (len(problem_points) > 0):
                 print("following indices didn't autofit >=2 dips:")
                 print(problem_points)
-            oPlot.plot_dFreq_image(x_points, y_points, B_Z_overall)
+            oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
             oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+        if user_input.lower().startswith("bin"):
+            try:
+                numbers = re.findall(r'\d+', user_input)
+                numbers = [int(num) for num in numbers]
+                print(f"Trying to bin a {numbers[-1]}x{numbers[-1]} region")
+                binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, numbers[-1], x_points, y_points)
+                B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_binned, y_binned, binned_counts, freqs,
+                                                                 max_peaks=max_peaks)
+                if (len(problem_points) > 0):
+                    print("following indices didn't autofit >=2 dips:")
+                    print(problem_points)
+                oPlot.plot_magnet_image(x_binned, y_binned, B_Z_overall)
 
-        try:
-            # Parse the input string into integers
-            x_str, y_str = user_input.split(",")
-            x_ind = int(x_str.strip())
-            y_ind = int(y_str.strip())
+                oPlot.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_overall, binned_counts)
 
-            # Boundary validation
-            if (not ((0 <= x_ind < len(x_points))
-                and (0 <= y_ind < len(y_points)))):
-                print(f"Indices out of bounds! Keep X within [0, {len(x_points) - 1}] "
-                      f"and Y within [0, {len(y_points) - 1}].")
-                continue
+                counts_2D = binned_counts
+                x_points, y_points = x_binned, y_binned
 
-            counts = counts_2D[x_ind,y_ind]
-            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
-            Lfit.print_dip_params(popt)
-            # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
-            # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
-            oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
-        except ValueError:
-            print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4').")
+            except Exception as e:
+                print("Trying to parse binning amount caused an error:", e)
+                break
+        else: # Look at the ODMR for one pixel
+            try:
+                # Parse the input string into integers
+                x_str, y_str = user_input.split(",")
+                x_ind = int(x_str.strip())
+                y_ind = int(y_str.strip())
+
+                # Boundary validation
+                if (not ((0 <= x_ind < len(x_points))
+                    and (0 <= y_ind < len(y_points)))):
+                    print(f"Indices out of bounds! Keep X within [0, {len(x_points) - 1}] "
+                          f"and Y within [0, {len(y_points) - 1}].")
+                    continue
+
+                counts = counts_2D[x_ind,y_ind]
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+                Lfit.print_dip_params(popt)
+                # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+                # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
+                oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+            except ValueError:
+                print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4').")
 
 
 else:

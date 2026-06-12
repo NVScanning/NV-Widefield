@@ -15,6 +15,7 @@ import connection_setup as cs
 import helper_classes.pco_cam_interface as pci
 import helper_classes.odmr_plotting as oPlot
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
+import pco
 
 
 """
@@ -60,8 +61,8 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 def main():
     binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
-    focus_point_size = 256
-    focus_point_centre_x, focus_point_centre_y = 960,720
+    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 930,770 # in pixels, center point of the laser point
 
     n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
@@ -71,12 +72,15 @@ def main():
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.12e9  # Hz
+    span = 0.1e9  # Hz
     N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.16  # Target focus center
-    z_span = 0.01  # Distance range over sweep
+    # z_center = 3.1625  # Target focus center
+    # z_span = 0.005  # Distance range over sweep
+    # N_z_steps = 5  # Total step divisions to evaluate
+    z_center = 3.165  # Target focus center
+    z_span = 0.005  # Distance range over sweep
     N_z_steps = 5  # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
@@ -101,6 +105,11 @@ def main():
 
     z_motor.move_to(z_center)
     time.sleep(5)
+
+
+    # with pco.Camera() as cam:
+    #     pci.set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))
+    #     pci.auto_expose(cam, target_intensity=0.3)  # sets cameras exposure time
 
     # cam, sg = pci.connect_cam_RF(roi, binning_amount)
     # point_duration_s = cam.exposure_time * n_windows_per_point

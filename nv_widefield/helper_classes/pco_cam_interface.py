@@ -12,8 +12,8 @@ max_pixel_val = 65535 # 2^16-1
 min_roi_dims = 32
 objective_magnification = 50
 
-background_rate = 0 # 18 550 000 / 128^2  # total brightness divided by num pixels divided by exposure time
-# ^ This num ends up being like 1.1k
+background_rate = 0 # 5600 000 / 128^2  # total brightness divided by num physical pixels divided by exposure time
+# ^ This num ends up being like 341.8 counts/s on each pixel
 
 def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=5):
 
@@ -156,3 +156,31 @@ def run_odmr_measurement(cam_rf_params, amp_dbm, fn, odmr_params):
         cs.enable_sg386(sg, enable=False)
         cam.close()
     return ret_vals
+
+
+
+def bin_counts(counts_2D, binning_num, x_space, y_space):
+    # counts_2D has shape (x_width, y_with, freqs_len)
+    # x,y width are (generally) equal and a multiple of binning_amount
+    if len(x_space) == 0 or len(y_space) == 0:
+        raise camera_exception.CameraException(
+            f"Cannot bin empty spatial coordinates. x_space len: {len(x_space)}, y_space len: {len(y_space)}"
+        )
+
+    if binning_num < 1:
+        raise camera_exception.CameraException(f"Binning number must be >= 1, was {binning_num}")
+    elif binning_num == 1:
+        return counts_2D, x_space, y_space
+    elif binning_num > len(x_space):
+        raise camera_exception.CameraException(f"Binning number must be smaller than dimension width, was {binning_num} with image dimensions {len(x_space)}x{len(y_space)}")
+    elif len(x_space) % binning_num != 0:
+        raise camera_exception.CameraException(f"Binning number must be an even multiple of dimension width, was {binning_num} with image dimensions {len(x_space)}x{len(y_space)}")
+
+    # counts_reshaped is of the shape: counts_x/bin, bin, counts_y/bin, bin, freq
+    counts_reshaped = np.reshape(counts_2D, (counts_2D.shape[0] // binning_num, binning_num, counts_2D.shape[1] // binning_num, binning_num, counts_2D.shape[2]))
+    # print("Reshaping image worked")
+    # counts_binned is of the shape: counts_x/bin, counts_y/bin, freq, meaning we have to sum over the two bin axes
+    counts_binned = counts_reshaped.sum(axis=1).sum(axis=2) # sum over the
+    # print("Summing image worked, returning")
+
+    return counts_binned, x_space[0::binning_num], y_space[0::binning_num]

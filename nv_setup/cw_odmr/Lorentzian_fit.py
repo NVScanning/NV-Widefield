@@ -211,9 +211,9 @@ def analyze_data(freqs, counts, max_peaks):
 
 
 
-def odmr_to_delta_freq(counts, freqs):
+def odmr_to_delta_freq(counts, freqs, max_peaks=4):
     delta_freq = 0
-    max_peaks = 2 # nominally 4, try 2 if the middle dips r too small to see
+    # max_peaks = 2 # nominally 4, try 2 if the middle dips r too small to see
     popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks)
     contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
     # print_SNR(baseline, counts, freqs / 10 ** 9, popt)
@@ -225,7 +225,7 @@ def odmr_to_delta_freq(counts, freqs):
     # if you didn't get >=2 dips there's no delta, so return 0
     return delta_freq
 
-def counts_to_B_Z(x_points, y_points, counts_2D, freqs):
+def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
 
     # TODO: conmvert this fitting to be on the GPU with JAXFit
     # TODO: find a way to have a background term that's shared between nearby pixels
@@ -241,7 +241,7 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs):
             if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
                 # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
                 print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
-            delta_freq = odmr_to_delta_freq(counts_2D[x_ind,y_ind], freqs)
+            delta_freq = odmr_to_delta_freq(counts_2D[x_ind,y_ind], freqs, max_peaks=max_peaks)
             B_Z = delta_freq / (2*cs.gamma_e) # in T
             B_Z_overall[x_ind,y_ind]=B_Z
             if delta_freq == 0:

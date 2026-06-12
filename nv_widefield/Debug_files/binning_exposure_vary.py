@@ -120,17 +120,6 @@ def optimize_z():
         cam.close()
     return
 
-def bin_counts(counts_2D, binning_num, x_space, y_space):
-    # counts_2D has shape (x_width, y_with, freqs_len)
-    # x,y width are (generally) equal and a multiple of binning_amount
-
-    # counts_reshaped is of the shape: counts_x/bin, bin, counts_y/bin, bin, freq
-    counts_reshaped = np.reshape(counts_2D, (counts_2D.shape[0] // binning_num, binning_num, counts_2D.shape[1] // binning_num, binning_num, counts_2D.shape[2]))
-    # counts_binned is of the shape: counts_x/bin, counts_y/bin, freq, meaning we have to sum over the two bin axes
-    counts_binned = counts_reshaped.sum(axis=1).sum(axis=2) # sum over the
-
-    return counts_binned, x_space[0::binning_num], y_space[0::binning_num]
-
 
 def vary_binning():
     # Do one image-ODMR, then do a variety of binnings
@@ -172,7 +161,7 @@ def bin_full_measurement(counts_2D, freqs: ndarray[tuple[Any, ...], dtype[float6
     binned_contrast_avg, ubinned_contrast_avg = [], []
     for bin in range(n_bins):
         print(f"binning+analyzing {2 ** bin}x{2 ** bin} area:")
-        binned_counts, x_binned, y_binned = bin_counts(counts_2D, 2 ** bin, x_space, y_space)
+        binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, 2 ** bin, x_space, y_space)
         snrs, contrasts = Lfit.counts_to_SNR_contrast(x_binned, y_binned, binned_counts, freqs, max_peaks)
 
         overall_avg_snr = ufloat(np.mean(snrs), np.std(snrs))
@@ -234,7 +223,7 @@ def vary_exposure_binning():
     n_bins = 8 # to bin 0,1,...n_bins-1 # note: n_bins must be at least 6
     n_windows = 4 # range exposure time from 2^(0,1,... n_windows-1)
     focus_point_size = 2**(n_bins-1)  # in physical (unbinned) pixels, diameter of circle of laser point
-
+    # binning_amount = 4
 
 
 
@@ -261,20 +250,6 @@ def vary_exposure_binning():
                                                                             n_bins, x_space, y_space)
         snr_avg[window_exp, :] = binned_snr_avg
         contr_avg[window_exp, :] = binned_contrast_avg
-        # for bin in range(n_bins):
-        #     print(f"binning+analyzing {2 ** bin}x{2 ** bin} area with {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200/(2**(bin*2)):.2f}s")
-        #
-        #     binned_counts, x_binned, y_binned = bin_counts(counts_2D, 2**bin, x_space, y_space)
-        #     snrs, contrasts = Lfit.counts_to_SNR_contrast(x_binned, y_binned, binned_counts, freqs, max_peaks)
-        #
-        #
-        #     oPlot.save_2D_odmr_snr_contrast(x_binned, y_binned, freqs, snrs, contrasts, binned_counts)
-        #
-        #     overall_avg_snr = np.mean(snrs)
-        #     overall_avg_contrast = np.mean(contrasts)
-        #     print(f"Overall average SNR:{overall_avg_snr:.2f}, average contrast:{overall_avg_contrast * 100:.2f}%")
-        #     snr_avg[window_exp, bin] = overall_avg_snr
-        #     contr_avg[window_exp, bin] = overall_avg_contrast
 
 
     optPlot.plot_exposure_snr_contr_bin(contr_avg, snr_avg, n_windows, n_bins)

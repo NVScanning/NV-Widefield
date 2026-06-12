@@ -33,7 +33,7 @@ def plot_dFreq_image(x_points, y_points, freq_deltas):
     # shading='auto' handles the coordinate mapping automatically
     mesh = plt.pcolormesh(x_points, y_points, freq_deltas, shading='nearest', cmap='inferno')
 
-    plt.colorbar(mesh, label='B_Z (T)')
+    plt.colorbar(mesh, label='freq delta [GHz]')
     plt.xlabel('x space (mm)')
     plt.ylabel('y space (mm)')
     plt.title('Frequency delta')
@@ -76,12 +76,13 @@ def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
     save_path = get_newfile_dir("")
     np.savez(save_path, x=freqs, y=counts)
 
-def overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, prev_path):
-    new_path = get_newfile_dir("widefield_")
+def overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, prev_path, print_saving=True):
+    new_path = get_newfile_dir("widefield_", print_saving=print_saving)
     np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=np.zeros((len(x_points),len(y_points))), odmrs=counts_2D)
     try:
         os.remove(prev_path)
-        print(f"Deleted old file {prev_path}")
+        if print_saving:
+            print(f"Deleted old file {prev_path}")
     except Exception as e:
         print("trying to delete old file caused an error:", e)
     return new_path
@@ -96,7 +97,7 @@ def save_2D_odmr_snr_contrast(x_points, y_points, freqs, SNR_overall, contrasts_
 
 
 
-def get_newfile_dir(prefix):
+def get_newfile_dir(prefix, print_saving=True):
     now = datetime.datetime.now()
     datestamp = now.strftime("%Y-%m-%d")
     timestamp = now.strftime("%H-%M-%S")
@@ -105,5 +106,6 @@ def get_newfile_dir(prefix):
     if not os.path.exists(directory):
         os.makedirs(directory)
     save_path = os.path.join(directory, f"{prefix}cw_odmr_{timestamp}.npz")
-    print(f"Saving as: {prefix}cw_odmr_{timestamp}.npz in directory: {directory}")
+    if print_saving:
+        print(f"Saving as: {prefix}cw_odmr_{timestamp}.npz in directory: {directory}")
     return save_path

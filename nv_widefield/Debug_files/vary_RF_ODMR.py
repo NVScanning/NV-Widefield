@@ -20,6 +20,10 @@ measure ODMRs at a variety of RF powers
 Much of this code was combined from previously written code by Gemini, then edited
 """
 
+amp_name = ""
+# amp_name = "SAM100"
+# amp_name = "ZHL-2W"
+
 def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
     """Executes a dual-directional frequency sweep and returns a 1D binned array of kilo brightness per second."""
     brightnesses = np.zeros((n_iter * 2, freqs.size))
@@ -55,22 +59,22 @@ def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_wind
 def main():
     binning_amount = 4
     focus_point_size = 256
-    focus_point_centre_x, focus_point_centre_y = 960,720
+    focus_point_centre_x, focus_point_centre_y = 930,770
 
     n_windows_per_point = 1
     freq_dwell = 0.001
-    power_dwell = 1  # Settle interval following an amplitude step update
+    power_dwell = 0.2  # Settle interval following an amplitude step update
     n_iter = 1
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9
     span = 0.1e9
-    N_freqs = 1
+    N_freqs = 51
 
 
     # RF Power Amplitude Sweep Parameters
-    amp_min = -10.0  # dBm
-    amp_max = 0.0  # dBm
+    amp_min = -25.0  # dBm
+    amp_max = -10.0  # dBm
     N_amp_steps = 11  # Total power increments to evaluate
     amp_range = np.linspace(amp_min, amp_max, N_amp_steps)
 
@@ -97,7 +101,7 @@ def main():
 
     # Pass functional loop array down to interface controller execution stack
     avg_contrasts, avg_snrs, evaluated_powers, power_sweep_results = pci.run_odmr_measurement(
-        (roi, binning_amount, 0.1), -10, measure_power_dependency,
+        (roi, binning_amount, 0.02), -10, measure_power_dependency,
         (freq_dwell, freqs, n_iter, n_windows_per_point, power_dwell, amp_range)
     )
 
@@ -140,7 +144,7 @@ def plot_SNR_contr(avg_contrasts, avg_snrs, evaluated_powers):
 
     ax1.tick_params(axis='y', labelcolor="tab:blue")
     ax2.tick_params(axis='y', labelcolor="tab:orange")
-    plt.title("SNR & Contrast dependency on RF power amplitude", fontsize=14)
+    plt.title(f"SNR & Contrast dependency on RF power amplitude with {amp_name} amp", fontsize=14)
     ax1.grid(True, linestyle="--", alpha=0.5)
     plt.show()
 

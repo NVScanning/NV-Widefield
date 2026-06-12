@@ -66,8 +66,8 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
 def main():
     # params
     binning_amount = 4 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 256  # in pixels, approximate width of image taken, must be >=32 after binning
-    focus_point_centre_x, focus_point_centre_y = 960,720  # in pixels, center of the laser point
+    focus_point_size = 128  # in pixels, approximate width of image taken, must be >=32 after binning
+    focus_point_centre_x, focus_point_centre_y = 890,730  # in pixels, center of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
@@ -79,7 +79,7 @@ def main():
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
     span = 0.1e9 # Hz, range of frequencies to sample
-    N = 51 # num points in the frequency space to sample
+    N = 41 # num points in the frequency space to sample
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)

@@ -17,8 +17,8 @@ structure + analysis(lorentzian fitting + conversion to B) is quite similar to s
 #   Potential features:
 #   do translation + widefield, to capture larger structures, atm we're limited to laser focus point size ~15um
 
-
 time0 = time.time()
+
 def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarray:
     point_duration_s = cam.exposure_time * n_windows
     print(f"measuring ODMR with {n_iter} iterations, estimate time to completion ~{n_iter*2 * 1.1 * len(freqs) * (dwell + point_duration_s) + 50:.3}s")
@@ -57,7 +57,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
             # pci.plot_image(image)
             brightnesses[n_iter+i,:,:,j]=image / point_duration_s/1000
             seen+=1
-        prev_path = oPlot.overwrite_2D_odmr_measurement(np.arange(image.shape[0]), np.arange(image.shape[1]), freqs, np.sum(brightnesses,axis=0)/(i*2 + 2), prev_path)
+        prev_path = oPlot.overwrite_2D_odmr_measurement(np.arange(image.shape[0]), np.arange(image.shape[1]), freqs, np.sum(brightnesses,axis=0)/(i*2 + 2), prev_path, print_saving=False)
 
     return np.sum(brightnesses,axis=0)/(n_iter*2)
 
@@ -65,17 +65,19 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
 def main():
     # params
     binning_amount = 4 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 128  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 960,724 # in pixels, center point of the laser point
+    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 890,730 # in pixels, center point of the laser point
     # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -10 # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
     dwell =  0.01 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 300
+    n_iter = 200
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
     span = 0.3e9 # Hz, range of frequencies to sample
     N = 101 # num points in the frequency space to sample
+
+    max_peaks = 2
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
@@ -85,12 +87,12 @@ def main():
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
     # point_duration_s = cam.exposure_time * n_windows_per_point
 
-    counts_2D = pci.run_odmr_measurement((roi, binning_amount), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts_2D = pci.run_odmr_measurement((roi, binning_amount, 0.05), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
 
 
     print(f"Sweep done, now converting odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)}s")
-    B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs)
+    B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs, max_peaks=max_peaks)
     print("Conversion done, saving and plotting")
     oPlot.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
     oPlot.plot_dFreq_image(x_space, y_space, B_Z_overall)
