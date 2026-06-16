@@ -4,7 +4,8 @@ import connection_setup as cs
 from scipy.signal import find_peaks, peak_widths
 
 import helper_classes.odmr_plotting as oPlot
-from nv_widefield.helper_classes.odmr_plotting import plot_fitted_data
+import helper_classes.pco_cam_interface as pci
+# from nv_widefield.helper_classes.odmr_plotting import plot_fitted_data
 
 
 # ============================
@@ -38,7 +39,8 @@ def multi_lorentzian(f, *params):
 def guess_initial_params(freqs, vals, max_peaks=None):
     # freqs in GHz
     max_val = max(vals)
-    peaks, props = find_peaks(-vals,prominence=0.002*max_val, distance=max(1,0.005//(freqs[1]-freqs[0])))
+    # peaks, props = find_peaks(-vals,prominence=0.002*max_val, distance=max(1,0.005//(freqs[1]-freqs[0])))
+    peaks, props = find_peaks(-vals, prominence=0, distance=max(1,0.005//(freqs[1]-freqs[0])))
 
     if max_peaks is not None and len(peaks) > max_peaks:
         prominences = props["prominences"]
@@ -80,9 +82,12 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     init_params.extend([c0, c1])
     return np.array(init_params), peaks
 
-def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
+def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None, default_fit = None):
     # freqs in GHz
-    p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
+    if default_fit is None:
+        p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
+    else:
+        p0, peaks = default_fit
     n_peaks = (len(p0) - 2) // 3
     if max_peaks is not None and (n_peaks < max_peaks):
         print(f"Guessed only {n_peaks} peaks out of {max_peaks} peaks at frequencies ", freqs[peaks])
@@ -93,13 +98,17 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None):
         lower += [-abs(A0*1.5), f0 - 0.005, 0]
         upper += [-abs(A0*0.5) , f0 + 0.005, g0*2] # force HWHM to be at most 5 MHz
 
-    lower += [R_vals.min() - 1, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
-    upper += [R_vals.max()*1.1,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
+    # lower += [R_vals.min() - 1, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
+    # upper += [R_vals.max()*1.1,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
+    # lower += [p0[-2]*0.8, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
+    # upper += [p0[-2]*1.2,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
+    lower += [p0[-2]*0.8, min(p0[-1]*0.8,p0[-1]*1.2)]
+    upper += [p0[-2]*1.2, max(p0[-1]*0.8,p0[-1]*1.2)]
 
     try:
         popt, pcov = curve_fit(
             multi_lorentzian, freqs, R_vals,
-            p0=p0, bounds=(lower, upper), maxfev=10000
+            p0=p0, bounds=(lower, upper), maxfev=1000
             # ,ftol=0.001, xtol=0.001) # Note: these make convergence quicker, but lose accuracy
         )
         return popt, pcov, peaks
@@ -210,6 +219,17 @@ def analyze_data(freqs, counts, max_peaks):
 
 
 
+def params_to_B(popt):
+    delta_freq = 0
+    _, _, dip_Freqs = get_dip_params(popt)
+    # print_SNR(baseline, counts, freqs / 10 ** 9, popt)
+    # oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+    if (len(dip_Freqs) >= 2):
+        # need exactly at least 2 dips to get the difference between the two
+        # if >2 dips, assume the additional ones are the middle dips (irrelevant i think)
+        delta_freq = dip_Freqs[-1] - dip_Freqs[0]
+    # if you didn't get >=2 dips there's no delta, so return 0
+    return delta_freq / (2 * cs.gamma_e)  # in T
 
 def odmr_to_delta_freq(counts, freqs, max_peaks=4):
     delta_freq = 0
@@ -229,6 +249,7 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
 
     # TODO: conmvert this fitting to be on the GPU with JAXFit
     # TODO: find a way to have a background term that's shared between nearby pixels
+    # TODO: try fitting a binned version of the counts to use as initial guess for each individual fit
     B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
     problem_points = []
 
@@ -247,6 +268,30 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
             if delta_freq == 0:
                 # had problem fitting
                 problem_points.append((x_ind, y_ind))
+    return B_Z_overall, problem_points
+
+
+def counts_to_B_Z_bin_init_params(x_points, y_points, counts_2D, freqs, max_peaks=4, binning_num=1):
+    # binning num must be an even divisor of axis sizes
+
+    B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
+    problem_points = []
+
+    binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, binning_num, x_points, y_points)
+    for x_ind in range(len(x_binned)):
+        for y_ind in range(len(y_binned)):
+            popt_bin, _, peaks_bin = fit_odmr_multi_lorentzian(freqs / 10 ** 9, binned_counts[x_ind, y_ind], max_peaks=max_peaks)
+            # Use popt as initial params for fitment for each of the
+            for x_in_bin in range(binning_num):
+                for y_in_bin in range(binning_num):
+                    # Fit with popt, somehow have to feed this into the
+                    counts = counts_2D[x_ind*binning_num + x_in_bin, y_ind*binning_num + y_in_bin]/binning_num**2
+                    popt, pcov, peaks = fit_odmr_multi_lorentzian(freqs / 10 ** 9, counts, default_fit=(popt_bin, peaks_bin))
+                    B_Z = params_to_B(popt)
+                    B_Z_overall[x_ind * binning_num + x_in_bin, y_ind * binning_num + y_in_bin] = B_Z
+                    if B_Z == 0:
+                        # had problem fitting
+                        problem_points.append((x_ind * binning_num + x_in_bin, y_ind * binning_num + y_in_bin))
     return B_Z_overall, problem_points
 
 def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
@@ -276,7 +321,7 @@ def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
             except Exception as e:
                 print("getting SNRs returned an error", e)
                 print("Fitted dip frequencies at ", dip_Freqs, "GHz, with FWHMs ", FWHMs)
-                plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+                oPlot.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
 
             all_snrs[x, y, :] = snrs
             all_contrasts[x, y, :] = contrasts

@@ -200,6 +200,7 @@ elif match[0].startswith("widefield"):
     counts_2D = data["odmrs"]
     if is_B_saved:
         B_Z_overall = data["magnet"]
+        # freq_deltas = np.zeros_like(B_Z_overall)
         oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
     else:
 
@@ -209,6 +210,7 @@ elif match[0].startswith("widefield"):
         ax.set_ylabel("x space (mm)")
 
         freq_deltas = data["deltas"]
+        B_Z_overall = np.zeros_like(freq_deltas)
         oPlot.plot_dFreq_image(x_points,y_points,freq_deltas)
 
 
@@ -219,6 +221,7 @@ elif match[0].startswith("widefield"):
     print(f"Available Y indices: 0 to {len(y_points) - 1}")
     print("Type 'exit' to quit.")
     print("Type 'reanalyze' to re-analyze image from saved odmrs")
+    print("Type 'reanalyze bin _' to re-analyze image from saved odmrs with initial params derived from a binned version of the image")
     print("Type 'bin _' to re-analyze a binned version of the image (must be an even divisor of the image dimensions)")
     print("=" * 40)
 
@@ -228,6 +231,38 @@ elif match[0].startswith("widefield"):
         if user_input.lower() == "exit":
             print("Exiting interaction loop.")
             break
+        if user_input.lower().startswith("reanalyze bin"):
+            try:
+                numbers = re.findall(r'\d+', user_input)
+                numbers = [int(num) for num in numbers]
+
+                print(f"Reanalyzing with initial guesses from a  {numbers[-1]}x{numbers[-1]} bin, will write new file")
+
+                B_Z_overall, problem_points = Lfit.counts_to_B_Z_bin_init_params(x_points, y_points, counts_2D, freqs,
+                                                                 max_peaks=max_peaks, binning_num=numbers[-1])
+                if (len(problem_points) > 0):
+                    print("following indices didn't autofit >=2 dips:")
+                    print(problem_points)
+                oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
+
+                oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+                # print(f"Trying to bin a {numbers[-1]}x{numbers[-1]} region")
+                # binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, numbers[-1], x_points, y_points)
+                # B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_binned, y_binned, binned_counts, freqs,
+                #                                                  max_peaks=max_peaks)
+                # if (len(problem_points) > 0):
+                #     print("following indices didn't autofit >=2 dips:")
+                #     print(problem_points)
+                # oPlot.plot_magnet_image(x_binned, y_binned, B_Z_overall)
+                #
+                # oPlot.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_overall, binned_counts)
+                #
+                # counts_2D = binned_counts
+                # x_points, y_points = x_binned, y_binned
+
+            except Exception as e:
+                print("Trying to parse fit with binningl caused an error:", e)
+                break
         if user_input.lower() == "reanalyze":
             print("Reanalyzing, will write new file")
 
@@ -273,8 +308,10 @@ elif match[0].startswith("widefield"):
                           f"and Y within [0, {len(y_points) - 1}].")
                     continue
 
+                B_Z_saved = B_Z_overall[y_ind, x_ind]
                 counts = counts_2D[x_ind,y_ind]
                 popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+                print(f"B_Z was saved in the file as {B_Z_saved:.3}")
                 Lfit.print_dip_params(popt)
                 # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
                 # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
