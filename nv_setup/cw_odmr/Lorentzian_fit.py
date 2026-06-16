@@ -39,44 +39,84 @@ def multi_lorentzian(f, *params):
 def guess_initial_params(freqs, vals, max_peaks=None):
     # freqs in GHz
     max_val = max(vals)
+    df = abs(freqs[1]-freqs[0])
     # peaks, props = find_peaks(-vals,prominence=0.002*max_val, distance=max(1,0.005//(freqs[1]-freqs[0])))
-    peaks, props = find_peaks(-vals, prominence=0, distance=max(1,0.005//(freqs[1]-freqs[0])))
+    peaks, props = find_peaks(-vals, prominence=0.001*max_val, distance=max(1,0.01//df))
+
+    # print("Find_peaks found " + str(len(peaks)) + " peaks, at frequencies: ", freqs[peaks])
+    print(f"Find_peaks found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
 
     if max_peaks is not None and len(peaks) > max_peaks:
+        # Sort by prominences
         prominences = props["prominences"]
         top_idx = np.argsort(prominences)[-max_peaks:]
         peaks = peaks[top_idx]
         peaks = peaks[np.argsort(peaks)]
 
     if max_peaks == 2 and len(peaks) == 1:
-        # print("Warning: Unresolved overlapping doublet detected. Manually splitting peak seeds")
-        # sole_peak_idx = peaks[0]
-        sole_peak_idx = len(freqs) // 2 # assume centered around 2.87GHz
-        # Calculate index offset corresponding to roughly 8 MHz splitting
-        df = freqs[1]-freqs[0]
-        split_offset_idx = max(3, int(0.005 / df))
+        # # print("Warning: Unresolved overlapping doublet detected. Manually splitting peak seeds")
+        # # sole_peak_idx = peaks[0]
+        # sole_peak_idx = len(freqs) // 2 # assume centered around 2.87GHz
+        # # Calculate index offset corresponding to roughly 8 MHz splitting
+        # df = freqs[1]-freqs[0]
+        # split_offset_idx = max(3, int(0.005 / df))
+        #
+        # # Seed two distinct peaks symmetrically around the center trough
+        # peak1 = max(0, sole_peak_idx - split_offset_idx)
+        # peak2 = min(len(freqs) - 1, sole_peak_idx + split_offset_idx)
+        # peaks = np.array([peak1, peak2])
+        # print("Manually split 1 dip into", max_peaks, "at freqs", freqs[peaks], "GHz")
 
-        # Seed two distinct peaks symmetrically around the center trough
-        peak1 = max(0, sole_peak_idx - split_offset_idx)
-        peak2 = min(len(freqs) - 1, sole_peak_idx + split_offset_idx)
+
+        detected_peak_idx = peaks[0]
+        # Seed two distinct peaks symmetrically around the detected dip center (approx 6-8 MHz split)
+        split_offset_idx = max(2, int(0.004 / df))
+
+        peak1 = max(0, detected_peak_idx - split_offset_idx)
+        peak2 = min(len(freqs) - 1, detected_peak_idx + split_offset_idx)
         peaks = np.array([peak1, peak2])
-        print("Manually split 1 dip into", max_peaks, "at freqs", freqs[peaks], "GHz")
+        print(f"Manually split 1 dip into {max_peaks} around real trough at freqs {freqs[peaks]} GHz")
+    elif len(peaks) == 0:
+        center_idx = len(freqs) // 2
+        split_offset_idx = max(2, int(0.006 / df))
+        peaks = np.array([center_idx - split_offset_idx, center_idx + split_offset_idx])
+        print(f"No peaks resolved. Defaulting to blind center seeds: {freqs[peaks]} GHz")
 
+    print("After culling lowest peaks, using " + str(len(peaks)) + " initial peaks, at frequencies: ", freqs[peaks])
     c0 = vals[0]                                                # offset - used to be np.mean
     c1 = (vals[-1]-vals[0])/(freqs[-1]-freqs[0])                # slope value
 
     init_params = []
     # results_half = peak_widths(-vals, peaks, rel_height=0.5)
     # widths = results_half[0]
+    #
+    #
+    # for i, p in enumerate(peaks):
+    #     f0 = freqs[p]
+    #     amp = -abs(vals[p] - c0)
+    #     w_idx = widths[i]
+    #     fwhm = w_idx * df
+    #     # gamma = df*3
+    #     gamma = fwhm/2
+    #     init_params.extend([amp, f0, gamma])
+    #
+    # init_params.extend([c0, c1])
+    # return np.array(init_params), peaks
 
-    df = abs(freqs[1]-freqs[0])
+    try:
+        results_half = peak_widths(-vals, peaks, rel_height=0.5)
+        widths = results_half[0]
+    except Exception:
+        # Fallback if peak_widths fails on highly overlapping, noisy regions
+        widths = [max(3, int(0.015 / df))] * len(peaks)
 
     for i, p in enumerate(peaks):
         f0 = freqs[p]
-        amp = -abs(vals[p] - c0)
-        # w_idx = widths[i]
-        # fwhm = w_idx * df
-        gamma = df*3
+        amp = -abs(vals[p] - (c0 + c1 * f0))
+        fwhm = widths[i] * df
+
+        # Constrain initial gamma guess to prevent broad overlapping seeds from starting too wide
+        gamma = np.clip(fwhm / 2, 0.003, 0.015)
         init_params.extend([amp, f0, gamma])
 
     init_params.extend([c0, c1])
@@ -89,26 +129,26 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None, default_fit = None)
     else:
         p0, peaks = default_fit
     n_peaks = (len(p0) - 2) // 3
-    if max_peaks is not None and (n_peaks < max_peaks):
-        print(f"Guessed only {n_peaks} peaks out of {max_peaks} peaks at frequencies ", freqs[peaks])
+    # if max_peaks is not None and (n_peaks < max_peaks):
+    #     print(f"Guessed only {n_peaks} peaks out of {max_peaks} peaks at frequencies ", freqs[peaks])
     lower = []
     upper = []
     for i in range(n_peaks):
         A0, f0, g0 = p0[3*i:3*i+3]
-        lower += [-abs(A0*1.5), f0 - 0.005, 0]
-        upper += [-abs(A0*0.5) , f0 + 0.005, g0*2] # force HWHM to be at most 5 MHz
+        lower += [-abs(A0*3), f0 - 0.015, 0.001]
+        upper += [-abs(A0*0.1) , f0 + 0.015, 0.040] # max HWHF is 40MHz
 
     # lower += [R_vals.min() - 1, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
     # upper += [R_vals.max()*1.1,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
     # lower += [p0[-2]*0.8, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
     # upper += [p0[-2]*1.2,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
-    lower += [p0[-2]*0.8, min(p0[-1]*0.8,p0[-1]*1.2)]
-    upper += [p0[-2]*1.2, max(p0[-1]*0.8,p0[-1]*1.2)]
+    lower += [p0[-2]*0.8, min(p0[-1]*0.5,p0[-1]*2)]
+    upper += [p0[-2]*1.2, max(p0[-1]*0.5,p0[-1]*2)]
 
     try:
         popt, pcov = curve_fit(
             multi_lorentzian, freqs, R_vals,
-            p0=p0, bounds=(lower, upper), maxfev=1000
+            p0=p0, bounds=(lower, upper), maxfev=3000
             # ,ftol=0.001, xtol=0.001) # Note: these make convergence quicker, but lose accuracy
         )
         return popt, pcov, peaks
@@ -169,12 +209,12 @@ def get_SNRs(baseline, counts, freqs, popt):
     dip_params = popt[:3 * n_dips].reshape(n_dips, 3)
     off_mask = np.ones_like(freqs, dtype=bool)
 
-    k_exclude = 1.5  # was previously 3.0
+    k_exclude = 1  # was previously 3.0
     for A, f0, gamma in dip_params:
         FWHM = 2.0 * gamma
         off_mask &= (np.abs(freqs - f0) > (k_exclude * FWHM))
 
-    if np.count_nonzero(off_mask) < max(10, 0.1 * len(freqs)):
+    if np.count_nonzero(off_mask) < max(5, 0.1 * len(freqs)):
 
         raise ValueError("Off-resonance region too small. Decrease k_exclude or widen sweep range.")
 

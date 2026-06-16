@@ -6,7 +6,7 @@ import datetime
 import os
 
 def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
-
+    # freqs in Hz
     plt.figure(figsize=(8, 5))
     plt.plot(freqs / 1e9, kcps, "-o", markersize=2)
     plt.xlabel("Frequency (GHz)")

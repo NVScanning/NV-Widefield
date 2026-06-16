@@ -69,13 +69,13 @@ def main():
     focus_point_size = 128  # in pixels, approximate width of image taken, must be >=32 after binning
     focus_point_centre_x, focus_point_centre_y = 890,730  # in pixels, center of the laser point
 
-    n_windows_per_point = 10 # n readouts to increase certainty without overexposing
+    n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -30 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
     dwell =  0.001 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 20
+    n_iter = 5
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
     span = 0.1e9 # Hz, range of frequencies to sample
@@ -93,7 +93,7 @@ def main():
 
     # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     # time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-    counts = pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts = pci.run_odmr_measurement((roi, binning_amount, 0.1), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     oPlot.plot_odmr(freqs, counts)
 

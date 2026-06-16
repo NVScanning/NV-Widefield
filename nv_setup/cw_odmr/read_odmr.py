@@ -31,8 +31,8 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-06-12" # YYYY-MM-DD
-time = "11-26-00"   # hh-mm_ss
+date = "2026-06-16" # YYYY-MM-DD
+time = "13-50-11"   # hh-mm_ss
 max_peaks = 2
 
 
@@ -60,9 +60,23 @@ if match[0].startswith("cw_odmr"):
     if (is_freq_saved):
         data = np.load(filepath + ".npz")
         freqs, counts = data["x"], data["y"]
-        oPlot.plot_odmr(freqs/10**9, counts)
+        oPlot.plot_odmr(freqs, counts)
 
+        # p0 = np.array([-3e4, 2.86, 0.02, -3e4, 2.88, 0.02, (3.8765e7-2.82e5), 1e5])
+        # # popt, pcov, peaks = Lfit.fit_odmr_multi_lorentzian(freqs / 10 ** 9, counts, max_peaks=max_peaks, default_fit=(p0, [22, 29]))
+        # popt = p0
+        # fitted_counts = Lfit.multi_lorentzian(freqs / 10 ** 9, *popt)
+        #
+        # # ---- Baseline from fit (off-resonance level) ----
+        # c0, c1 = popt[-2], popt[-1]
+        # baseline = c0 + c1 * freqs / 10 ** 9
+        #
+        # # ---- Normalized intensity (baseline = 1) ----
+        # # if there's a linear term in the counts, then this also removes that
+        # counts_norm = counts / baseline
+        # fitted_norm = fitted_counts / baseline
         popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+
         Lfit.print_dip_params(popt)
         snrs = Lfit.get_SNRs(baseline, counts, freqs/10**9, popt)
 

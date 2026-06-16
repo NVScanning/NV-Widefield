@@ -67,10 +67,10 @@ def main():
     focus_point_centre_x, focus_point_centre_y = 1024,750 # in pixels, center point of the laser point
 
     n_windows_per_point = 1
-    amp_dbm = -10  # RF Generator Amplitude
+    amp_dbm = -30  # RF Generator Amplitude
     freq_dwell = 0.001  # Frequency switch recovery interval
     z_dwell = 0.1
-    n_iter = 1  # Iterations at each z-step
+    n_iter = 5  # Iterations at each z-step
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
@@ -81,9 +81,9 @@ def main():
     # z_center = 3.1625  # Target focus center
     # z_span = 0.005  # Distance range over sweep
     # N_z_steps = 5  # Total step divisions to evaluate
-    z_center = 2.4  # Target focus center
-    z_span = 0.2  # Distance range over sweep
-    N_z_steps = 11  # Total step divisions to evaluate
+    z_center = 2.36  # Target focus center
+    z_span = 0.04  # Distance range over sweep
+    N_z_steps = 5  # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
@@ -99,7 +99,7 @@ def main():
     # -------------------------------------------------------------
     z_motor, z_prev_position = cs.connect_motor(cs.z_mID)
     # roi, _, _ = pci.get_spacial_params(binning_amount, (focus_point_size, focus_point_centre_x, focus_point_centre_y)) # Comment out to use previous image
-    roi = (1,1,2048,2048)
+    roi = (1,1,pci.camera_resolution//binning_amount,pci.camera_resolution//binning_amount)
     if roi is not None:
         print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
     else:
@@ -122,7 +122,7 @@ def main():
     z_motor.move_to(z_range[0]-0.003) # Move to a bit below the first measurement, so always on same side of backlash
     time.sleep(2)  # extra time for the first point
 
-    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.001), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
+    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.4), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
 
@@ -164,6 +164,7 @@ def plot_odmrs(N_z_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], 
     for idx, (z_pos, counts) in enumerate(z_sweep_results.items()):
         plt.plot(
             freqs / 1e9,
+            # counts/max(counts) + 0.008*idx, # display normalized curves above each other
             counts,
             label=f"z = {z_pos:.5f} mm",
             color=colors[idx],
