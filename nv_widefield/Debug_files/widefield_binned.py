@@ -65,24 +65,24 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
 
 def main():
     # params
-    binning_amount = 4 # built-int pco camera binning, can only be 1,2,4
+    binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 128  # in pixels, approximate width of image taken, must be >=32 after binning
     focus_point_centre_x, focus_point_centre_y = 890,730  # in pixels, center of the laser point
 
-    n_windows_per_point = 1 # n readouts to increase certainty without overexposing
-    amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
+    n_windows_per_point = 10 # n readouts to increase certainty without overexposing
+    amp_dbm = -30 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
     dwell =  0.001 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 1
+    n_iter = 20
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
     span = 0.1e9 # Hz, range of frequencies to sample
-    N = 41 # num points in the frequency space to sample
+    N = 101 # num points in the frequency space to sample
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
-    # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
+    roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
 
     # cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
@@ -93,7 +93,7 @@ def main():
 
     # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     # time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-    counts = pci.run_odmr_measurement((roi, binning_amount, 0.1), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts = pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     oPlot.plot_odmr(freqs, counts)
 

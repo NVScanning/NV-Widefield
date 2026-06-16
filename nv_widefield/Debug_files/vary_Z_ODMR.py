@@ -60,9 +60,11 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 
 def main():
-    binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
-    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 930,770 # in pixels, center point of the laser point
+    binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
+    # focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+    # focus_point_centre_x, focus_point_centre_y = 930,770 # in pixels, center point of the laser point
+    focus_point_size = 1024  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 1024,750 # in pixels, center point of the laser point
 
     n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
@@ -79,9 +81,9 @@ def main():
     # z_center = 3.1625  # Target focus center
     # z_span = 0.005  # Distance range over sweep
     # N_z_steps = 5  # Total step divisions to evaluate
-    z_center = 3.165  # Target focus center
-    z_span = 0.005  # Distance range over sweep
-    N_z_steps = 5  # Total step divisions to evaluate
+    z_center = 2.4  # Target focus center
+    z_span = 0.2  # Distance range over sweep
+    N_z_steps = 11  # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
@@ -96,8 +98,8 @@ def main():
     # HARDWARE INITIALIZATION
     # -------------------------------------------------------------
     z_motor, z_prev_position = cs.connect_motor(cs.z_mID)
-    roi, _, _ = pci.get_spacial_params(binning_amount, (focus_point_size, focus_point_centre_x, focus_point_centre_y)) # Comment out to use previous image
-
+    # roi, _, _ = pci.get_spacial_params(binning_amount, (focus_point_size, focus_point_centre_x, focus_point_centre_y)) # Comment out to use previous image
+    roi = (1,1,2048,2048)
     if roi is not None:
         print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
     else:
@@ -120,7 +122,7 @@ def main():
     z_motor.move_to(z_range[0]-0.003) # Move to a bit below the first measurement, so always on same side of backlash
     time.sleep(2)  # extra time for the first point
 
-    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.02), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
+    avg_contrasts, avg_snrs, z_positions, z_sweep_results = pci.run_odmr_measurement((roi, binning_amount, 0.001), amp_dbm, measure_ODMRs, (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range))
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
 
@@ -215,8 +217,8 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
         print(f"\n[{idx + 1}/{len(z_range)}] Moving to z={z_pos:.5f}mm")
         z_motor.move_to(z_pos)
         time.sleep(z_dwell)  # Allow structural mechanical settle time
-        # img = pci.read_image(cam, 1)
-        # pci.plot_image(img, title=f"Camera image at z={z_pos:.5f}")  # if roi fills, then plot full image
+        img = pci.read_image(cam, 1)
+        pci.plot_image(img, title=f"Camera image at z={z_pos:.5f}")  # if roi fills, then plot full image
 
         # Run binned measurement
         counts = measure_binned_odmr_at_z(

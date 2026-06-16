@@ -34,7 +34,7 @@ as a separate measurement for 2D odmr analysis
 
 
 binning_amount = 1  # built-int pco camera binning, can only be 1,2,4
-focus_point_centre_x, focus_point_centre_y = 810, 1110 # in pixels, center point of the laser point
+focus_point_centre_x, focus_point_centre_y = 1024, 1024 # in pixels, center point of the laser point
 amp_dbm = -10  # anything bigger than -10 does nothing (Hayden)
 dwell = 0.001  # seconds - time between setting a frequency on fn generator and reading value
 n_iter = 1
@@ -73,13 +73,13 @@ def optimize_z():
     print("Optimizing Z")
     z_motor,z_previous_position = cs.connect_motor(cs.z_mID)
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 300  # in pixels, diameter of circle of laser point, must be a multiple of 16
+    focus_point_size = 1024  # in pixels, diameter of circle of laser point, must be a multiple of 16
     n_windows_per_point = 1
     dwell = 0.01 # s
     # position z parameters
-    z_center = 3.229
-    span = 0.005
-    N = 21
+    z_center = 2
+    span = 0.5
+    N = 11
 
     z_start, z_end, z_range = cs.calc_sweep_range(z_center, span, N)
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
@@ -267,7 +267,7 @@ def main():
     # plot_binned_snr_contr([1,2],[0.1,0.15],[0.5,1.2],[0.07,0.105], 2)
 
     # 1: optimizing z:
-    # optimize_z()
+    optimize_z()
 
     # 2:
     # vary_binning()
@@ -276,7 +276,7 @@ def main():
     # vary_exposure_time()
 
     # 4:
-    vary_exposure_binning()
+    # vary_exposure_binning()
 
 
 if __name__ == "__main__":

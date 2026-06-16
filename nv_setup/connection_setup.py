@@ -52,7 +52,7 @@ def connect_motor(motor_id: int):
 
     motor.move_home(True)
     time.sleep(1) # Takes some time for the motor to perform the homing
-    print(f"Currently using backlash distance: {motor.backlash_distance:.3}[mm]")
+    print(f"Currently using backlash distance: {motor.backlash_distance:.3}mm")
     print("Connected to motor, Motor ID:", motor_id)
 
     return motor, prev_position

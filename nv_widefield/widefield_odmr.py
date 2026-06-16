@@ -64,7 +64,8 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
 
 def main():
     # params
-    binning_amount = 4 # built-int pco camera binning, can only be 1,2,4
+    camera_binning = 4 # built-int pco camera binning, can only be 1,2,4
+    post_processing_binning = 1
     focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
     focus_point_centre_x, focus_point_centre_y = 890,730 # in pixels, center point of the laser point
     # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
@@ -79,16 +80,18 @@ def main():
 
     max_peaks = 2
 
-    roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
+    roi, x_space, y_space = pci.get_spacial_params(camera_binning,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
-    print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
+    print(f"Using the following roi: {roi} and binning a {camera_binning}x{camera_binning} region")
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
     # point_duration_s = cam.exposure_time * n_windows_per_point
 
-    counts_2D = pci.run_odmr_measurement((roi, binning_amount, 0.05), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts_2D = pci.run_odmr_measurement((roi, camera_binning, 0.05), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
+    binned_counts = pci.bin_counts(counts_2D, post_processing_binning, x_space, y_space)
+    # do smth with binned counts if you want ig
 
 
     print(f"Sweep done, now converting odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)}s")
