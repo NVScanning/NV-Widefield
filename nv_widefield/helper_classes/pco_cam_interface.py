@@ -104,12 +104,14 @@ def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount=1, forced_e
     # connect to cam
     cam = pco.Camera()
     set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))
-    auto_expose(cam, target_intensity=0.3)  # sets cameras exposure time
     if forced_exposure is not None:
         if forced_exposure > cam.exposure_time:
             print(f"Manually forcing exposure time of {forced_exposure:.3f}s. Warning, higher than autoexposed value, may cause overexposure")
         print(f"Manually forcing exposure time of {forced_exposure:.3f}s")
         cam.exposure_time = forced_exposure
+    else:
+        # Only auto-expose if a set value isn't given
+        auto_expose(cam, target_intensity=0.3)  # sets cameras exposure time
     img = read_image(cam,1)
     plot_image(img)
     print("Example image plotted")
@@ -138,7 +140,7 @@ def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, i
         roi = (fpcx - fps // 2 + 1, fpcy - fps // 2 + 1,
                fpcx + fps // 2, fpcy + fps // 2 + extra_row_size)
     else:
-        roi = (fpcx - fps // 21, fpcy - fps // 2 + 1,
+        roi = (fpcx - fps // 2 + 1, fpcy - fps // 2 + 1,
                fpcx + fps // 2, fpcy + fps // 2)
     return roi, x_space, y_space
 

@@ -41,10 +41,9 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     max_val = max(vals)
     df = abs(freqs[1]-freqs[0])
     # peaks, props = find_peaks(-vals,prominence=0.002*max_val, distance=max(1,0.005//(freqs[1]-freqs[0])))
-    peaks, props = find_peaks(-vals, prominence=0.001*max_val, distance=max(1,0.01//df))
+    peaks, props = find_peaks(-vals, prominence=0.0002*max_val, distance=max(1,0.01//df))
 
-    # print("Find_peaks found " + str(len(peaks)) + " peaks, at frequencies: ", freqs[peaks])
-    print(f"Find_peaks found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
+    # print(f"Find_peaks found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
 
     if max_peaks is not None and len(peaks) > max_peaks:
         # Sort by prominences
@@ -54,35 +53,34 @@ def guess_initial_params(freqs, vals, max_peaks=None):
         peaks = peaks[np.argsort(peaks)]
 
     if max_peaks == 2 and len(peaks) == 1:
-        # # print("Warning: Unresolved overlapping doublet detected. Manually splitting peak seeds")
-        # # sole_peak_idx = peaks[0]
-        # sole_peak_idx = len(freqs) // 2 # assume centered around 2.87GHz
-        # # Calculate index offset corresponding to roughly 8 MHz splitting
-        # df = freqs[1]-freqs[0]
-        # split_offset_idx = max(3, int(0.005 / df))
-        #
-        # # Seed two distinct peaks symmetrically around the center trough
-        # peak1 = max(0, sole_peak_idx - split_offset_idx)
-        # peak2 = min(len(freqs) - 1, sole_peak_idx + split_offset_idx)
-        # peaks = np.array([peak1, peak2])
-        # print("Manually split 1 dip into", max_peaks, "at freqs", freqs[peaks], "GHz")
+        # print("Warning: Unresolved overlapping doublet detected. Manually splitting peak seeds")
+        # sole_peak_idx = peaks[0]
+        sole_peak_idx = len(freqs) // 2 # assume centered around 2.87GHz
+        # Calculate index offset corresponding to roughly 8 MHz splitting
+        df = freqs[1]-freqs[0]
+        split_offset_idx = max(3, int(0.005 / df))
 
-
-        detected_peak_idx = peaks[0]
-        # Seed two distinct peaks symmetrically around the detected dip center (approx 6-8 MHz split)
-        split_offset_idx = max(2, int(0.004 / df))
-
-        peak1 = max(0, detected_peak_idx - split_offset_idx)
-        peak2 = min(len(freqs) - 1, detected_peak_idx + split_offset_idx)
+        # Seed two distinct peaks symmetrically around the center trough
+        peak1 = max(0, sole_peak_idx - split_offset_idx)
+        peak2 = min(len(freqs) - 1, sole_peak_idx + split_offset_idx)
         peaks = np.array([peak1, peak2])
-        print(f"Manually split 1 dip into {max_peaks} around real trough at freqs {freqs[peaks]} GHz")
+
+
+        # detected_peak_idx = peaks[0]
+        # # Seed two distinct peaks symmetrically around the detected dip center (approx 6-8 MHz split)
+        # split_offset_idx = max(2, int(0.004 / df))
+        #
+        # peak1 = max(0, detected_peak_idx - split_offset_idx)
+        # peak2 = min(len(freqs) - 1, detected_peak_idx + split_offset_idx)
+        # peaks = np.array([peak1, peak2])
+        print(f"Manually split 1 dip into {max_peaks} at freqs {freqs[peaks]} GHz")
     elif len(peaks) == 0:
         center_idx = len(freqs) // 2
         split_offset_idx = max(2, int(0.006 / df))
         peaks = np.array([center_idx - split_offset_idx, center_idx + split_offset_idx])
         print(f"No peaks resolved. Defaulting to blind center seeds: {freqs[peaks]} GHz")
 
-    print("After culling lowest peaks, using " + str(len(peaks)) + " initial peaks, at frequencies: ", freqs[peaks])
+    # print(f"After culling lowest peaks, using {len(peaks)} initial peaks, at frequencies: {freqs[peaks]}GHz")
     c0 = vals[0]                                                # offset - used to be np.mean
     c1 = (vals[-1]-vals[0])/(freqs[-1]-freqs[0])                # slope value
 
@@ -136,7 +134,7 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None, default_fit = None)
     for i in range(n_peaks):
         A0, f0, g0 = p0[3*i:3*i+3]
         lower += [-abs(A0*3), f0 - 0.015, 0.001]
-        upper += [-abs(A0*0.1) , f0 + 0.015, 0.040] # max HWHF is 40MHz
+        upper += [-abs(A0*0.1) , f0 + 0.015, 2 * g0] # max HWHF is 40MHz
 
     # lower += [R_vals.min() - 1, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
     # upper += [R_vals.max()*1.1,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
