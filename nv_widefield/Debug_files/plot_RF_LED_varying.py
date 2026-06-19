@@ -5,38 +5,118 @@ import matplotlib.pyplot as plt
 import datetime
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
-
 def parse_metadata_file(filepath):
-    """Parses timestamps and numerical values from the text configuration log."""
+    """Parses timestamps and numerical values from the text configuration log for multiple sweeps."""
     with open(filepath, 'r') as f:
         content = f.read()
 
-    # Split into sections based on your header keywords
-    sections = re.split(r'Following sweep ', content)
+    # Split flexibly on either "Following sweep " or "Following is a sweep in "
+    sections = re.split(r'Following\s+(?:is a\s+)?sweep\s+(?:in\s+)?', content)
 
-    oled_data = {}
-    rf_data = {}
+    sweep_results = {}
 
     for section in sections:
-        if section.startswith('LED power'):
-            # Matches: 'X'uA or 'X'mA followed by text blocks containing 'saved as hh-mm-ss'
-            # Uses a greedy match to find the final timestamp if duplicates exist in a block
+        # 1. Parse OLED / LED current sweeps
+        if section.startswith('LED power') or section.startswith('OLED power'):
             pattern = r'(\d+)\s*(?:uA|mA)[^\n]*:\s*.*?saved as\s+(\d{2}-\d{2}-\d{2})'
             matches = re.findall(pattern, section, re.DOTALL)
-            for val, time_str in matches:
-                oled_data[int(val)] = time_str
+            if matches:
+                data_map = {int(val): time_str for val, time_str in matches}
+                sweep_results["oled"] = {
+                    "data": data_map,
+                    "title": "ODMR Dependence on OLED Current",
+                    "label_prefix": "OLED current",
+                    "unit": "uA",
+                    "cmap": "plasma"
+                }
 
+        # 2. Parse RF power sweeps (Updated to support decimals and 'Saving as:' format)
         elif section.startswith('RF power'):
-            # Matches signed integers: '-X dBm' or '-X.X dBm' followed by text blocks with 'saved as hh-mm-ss'
-            pattern = r'(-?\d+)\s*dBm:\s*.*?saved as\s+(\d{2}-\d{2}-\d{2})'
+            # This pattern matches both:
+            #   "-30 dBm:\n saved as 15-53-39"
+            #   "power=-51.67 dBm\n Saving as: cw_odmr_16-36-27.npz"
+            pattern = r'(?:power=)?(-?\d+(?:\.\d+)?)\s*dBm.*?(?:saved as|Saving as:\s+cw_odmr_)\s*(\d{2}-\d{2}-\d{2})'
             matches = re.findall(pattern, section, re.DOTALL)
-            for val, time_str in matches:
-                rf_data[int(val)] = time_str
+            if matches:
+                # Store keys as floats to preserve decimal precision (-51.67, etc.)
+                data_map = {float(val): time_str for val, time_str in matches}
+                sweep_results["rf"] = {
+                    "data": data_map,
+                    "title": "ODMR Dependence on RF Power",
+                    "label_prefix": "RF Power (pre-amp)",
+                    "unit": "dBm",
+                    "cmap": "plasma"
+                }
 
-        # Else, parse some other section to add
+        # 3. Parse number of magnets sweeps
+        elif section.startswith('num magnets') or section.startswith('magnet count'):
+            pattern = r'(\d+)\s*magnets?:\s*.*?saved as\s+(\d{2}-\d{2}-\d{2})'
+            matches = re.findall(pattern, section, re.DOTALL)
+            if matches:
+                data_map = {int(val): time_str for val, time_str in matches}
+                sweep_results["magnets"] = {
+                    "data": data_map,
+                    "title": "ODMR Dependence on Number of Magnets",
+                    "label_prefix": "Magnets",
+                    "unit": "",
+                    "cmap": "viridis"
+                }
 
-    return oled_data, rf_data
-
+    return sweep_results
+# def parse_metadata_file(filepath):
+#     """Parses timestamps and numerical values from the text configuration log for multiple sweeps."""
+#     with open(filepath, 'r') as f:
+#         content = f.read()
+#
+#     sections = re.split(r'Following sweep ', content)
+#
+#     # Dictionary containing data and metadata parameters for each detected sweep
+#     sweep_results = {}
+#
+#     for section in sections:
+#         # 1. Parse OLED / LED current sweeps
+#         if section.startswith('LED power') or section.startswith('OLED power'):
+#             pattern = r'(\d+)\s*(?:uA|mA)[^\n]*:\s*.*?saved as\s+(\d{2}-\d{2}-\d{2})'
+#             matches = re.findall(pattern, section, re.DOTALL)
+#             if matches:
+#                 data_map = {int(val): time_str for val, time_str in matches}
+#                 sweep_results["oled"] = {
+#                     "data": data_map,
+#                     "title": "ODMR Dependence on OLED Current",
+#                     "label_prefix": "OLED current",
+#                     "unit": "uA",
+#                     "cmap": "plasma"
+#                 }
+#
+#         # 2. Parse RF power sweeps
+#         elif section.startswith('RF power'):
+#             pattern = r'(-?\d+)\s*dBm:\s*.*?saved as\s+(\d{2}-\d{2}-\d{2})'
+#             matches = re.findall(pattern, section, re.DOTALL)
+#             if matches:
+#                 data_map = {int(val): time_str for val, time_str in matches}
+#                 sweep_results["rf"] = {
+#                     "data": data_map,
+#                     "title": "ODMR Dependence on RF Power",
+#                     "label_prefix": "RF Power (pre-amp)",
+#                     "unit": "dBm",
+#                     "cmap": "plasma"
+#                 }
+#
+#         # 3. Parse number of magnets sweeps
+#         elif section.startswith('num magnets'):
+#             pattern = r'(\d+)\s*magnets?:\s*.*?saved as\s+(\d{2}-\d{2}-\d{2})'
+#             matches = re.findall(pattern, section, re.DOTALL)
+#             if matches:
+#                 data_map = {int(val): time_str for val, time_str in matches}
+#                 sweep_results["magnets"] = {
+#                     "data": data_map,
+#                     "title": "ODMR Dependence on Number of Magnets",
+#                     "label_prefix": "Magnets",
+#                     "unit": "",
+#                     "cmap": "plasma"
+#                 }
+#
+#     return sweep_results
 
 
 def plot_overlaid_data(data_map, base_dir, date_str, title, label_prefix, unit, cmap_name):
@@ -47,8 +127,6 @@ def plot_overlaid_data(data_map, base_dir, date_str, title, label_prefix, unit, 
 
     plt.figure(figsize=(6, 6))
     colors = plt.get_cmap(cmap_name)(np.linspace(0, 0.85, len(data_map)))
-
-    # Sort by numerical key (ascending order)
     sorted_items = sorted(data_map.items())
 
     for idx, (val, time_str) in enumerate(sorted_items):
@@ -68,100 +146,94 @@ def plot_overlaid_data(data_map, base_dir, date_str, title, label_prefix, unit, 
 
             plt.plot(
                 freqs / 1e9,
-                # counts/max(counts), # normalize to the max value rather than
-                counts_norm + 0.0008*idx,
-                label=f"{label_prefix} = {val} {unit}",
+                counts_norm + 0.005 * idx,
+                label=f"{label_prefix} = {val} {unit}".strip(),
                 color=colors[idx],
-                linewidth=2,
                 marker=".",
+                markersize=2,
                 linestyle=""
-                # make this dots
             )
             plt.plot(
                 freqs / 1e9,
-                fitted_norm + 0.0008*idx,
-                label=f"{label_prefix} = {val} {unit}",
+                fitted_norm + 0.005 * idx,
+                label=f"{label_prefix} = {val} {unit}".strip(),
                 color=colors[idx],
-                linewidth=2,
+                linewidth=1.5,
                 marker="",
                 linestyle="--"
-                # make this dashedline
             )
         except Exception as e:
             print(f"Error loading {filename}: {e}")
 
     plt.xlabel("Frequency [GHz]", fontsize=12)
-    # plt.ylabel("Binned Brightness (arb units/s)", fontsize=12)
     plt.yticks([])
     plt.title(title, fontsize=14, fontweight='bold', loc="left")
-    # plt.grid(True, linestyle="--", alpha=0.6)
-    # plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    # plt.legend(loc="lower right", frameon=True,
-    #             shadow=True, bbox_to_anchor=(+0.2, +0.2),
-    #             fancybox=True, ncol=1)
+
+    # plt.xlim(2.72,3.02)
+
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     plt.legend(
         by_label.values(),
         by_label.keys(),
-        loc="upper left",  # Anchor point on the legend box itself
-        bbox_to_anchor=(1.02, 1),  # Places anchor point slightly past the right edge (x=1.02) at the top (y=1)
+        loc="upper left",
+        bbox_to_anchor=(1.02, 1),
         frameon=True,
         shadow=True,
         fancybox=True,
         ncol=1
     )
-
     plt.tight_layout()
 
 
 def main():
-    date_str = "2026-06-15"
+    # File to look at
+    date_str = "2026-06-19"
     desktop_dir = r"C:\Users\NVCFM\Desktop"
-    txt_path = os.path.join(desktop_dir, "NVCFM_Data", date_str, "Checking_LED_illumination.txt")
+    file_name = "B_thin_bulk_redo_LED.txt" # Jun 19
+    # file_name = "B_thin_bulk_LED.txt" # Jun 18
+    # file_name = "Current_OLED_illumination.txt" # jun 17
+    # file_name = "Z_B_OLED_illumination.txt" # jun 16
+    # file_name = "RF_Current_OLED_illumination.txt" # jun 15
+    txt_path = os.path.join(desktop_dir, "NVCFM_Data", date_str, file_name)
 
+    # Output save directories
     now = datetime.datetime.now()
     datestamp = now.strftime("%Y-%m-%d")
-    timestamp = now.strftime("%H-%M-%S")
-    project_root = "C:\\Users\\NVCFM\\Desktop"
-    directory = os.path.join(project_root, "NVCFM_Data", datestamp)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    save_directory = os.path.join(desktop_dir, "NVCFM_Data", datestamp)
+    if not os.path.exists(save_directory):
+        os.makedirs(save_directory)
 
-    # Step 1: Extract profiles from textual logs
+    # Step 1: Extract any active profiles from the textual logs
     try:
-        oled_map, rf_map = parse_metadata_file(txt_path)
+        active_sweeps = parse_metadata_file(txt_path)
     except FileNotFoundError:
         print(f"Log file not found at: {txt_path}")
         return
 
-    # Step 2: Render LED Power Dependence Group
-    print(f"Loaded {len(oled_map)} entries for OLED sweeps.")
-    plot_overlaid_data(
-        data_map=oled_map,
-        base_dir=desktop_dir,
-        date_str=date_str,
-        title="ODMR Dependence on OLED Current",
-        label_prefix="OLED current",
-        unit="uA",
-        cmap_name="plasma"
-    )
-    plt.savefig(directory + "/ODMR dependence on OLED current.pdf")
+    if not active_sweeps:
+        print("No valid sweep configurations parsed from file.")
+        return
 
-    # Step 3: Render RF Power Dependence Group
-    print(f"Loaded {len(rf_map)} entries for RF sweeps.")
-    plot_overlaid_data(
-        data_map=rf_map,
-        base_dir=desktop_dir,
-        date_str=date_str,
-        title="ODMR Dependence on RF Power",
-        label_prefix="RF Power (pre-amp)",
-        unit="dBm",
-        cmap_name="plasma"
-    )
+    # Step 2: Dynamically loop through and generate plots for found parameters
+    for sweep_key, config in active_sweeps.items():
+        print(f"\nProcessing parsed sweep: {sweep_key} ({len(config['data'])} data points found)")
 
-    plt.savefig(directory + "/ODMR dependence on RF power.pdf")
-    # Display both plots asynchronously in SciView
+        plot_overlaid_data(
+            data_map=config["data"],
+            base_dir=desktop_dir,
+            date_str=date_str,
+            title=config["title"],
+            label_prefix=config["label_prefix"],
+            unit=config["unit"],
+            cmap_name=config["cmap"]
+        )
+
+        # Save output figure to folder using config metadata
+        sanitized_title = config["title"].replace(" ", "_").lower()
+        pdf_filename = f"{sanitized_title}.tif"
+        plt.savefig(os.path.join(save_directory, pdf_filename), dpi=300)
+
     plt.show()
 
 
