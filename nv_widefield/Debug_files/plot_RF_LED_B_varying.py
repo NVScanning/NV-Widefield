@@ -59,65 +59,10 @@ def parse_metadata_file(filepath):
                     "title": "ODMR Dependence on Number of Magnets",
                     "label_prefix": "Magnets",
                     "unit": "",
-                    "cmap": "viridis"
+                    "cmap": "plasma"
                 }
 
     return sweep_results
-# def parse_metadata_file(filepath):
-#     """Parses timestamps and numerical values from the text configuration log for multiple sweeps."""
-#     with open(filepath, 'r') as f:
-#         content = f.read()
-#
-#     sections = re.split(r'Following sweep ', content)
-#
-#     # Dictionary containing data and metadata parameters for each detected sweep
-#     sweep_results = {}
-#
-#     for section in sections:
-#         # 1. Parse OLED / LED current sweeps
-#         if section.startswith('LED power') or section.startswith('OLED power'):
-#             pattern = r'(\d+)\s*(?:uA|mA)[^\n]*:\s*.*?saved as\s+(\d{2}-\d{2}-\d{2})'
-#             matches = re.findall(pattern, section, re.DOTALL)
-#             if matches:
-#                 data_map = {int(val): time_str for val, time_str in matches}
-#                 sweep_results["oled"] = {
-#                     "data": data_map,
-#                     "title": "ODMR Dependence on OLED Current",
-#                     "label_prefix": "OLED current",
-#                     "unit": "uA",
-#                     "cmap": "plasma"
-#                 }
-#
-#         # 2. Parse RF power sweeps
-#         elif section.startswith('RF power'):
-#             pattern = r'(-?\d+)\s*dBm:\s*.*?saved as\s+(\d{2}-\d{2}-\d{2})'
-#             matches = re.findall(pattern, section, re.DOTALL)
-#             if matches:
-#                 data_map = {int(val): time_str for val, time_str in matches}
-#                 sweep_results["rf"] = {
-#                     "data": data_map,
-#                     "title": "ODMR Dependence on RF Power",
-#                     "label_prefix": "RF Power (pre-amp)",
-#                     "unit": "dBm",
-#                     "cmap": "plasma"
-#                 }
-#
-#         # 3. Parse number of magnets sweeps
-#         elif section.startswith('num magnets'):
-#             pattern = r'(\d+)\s*magnets?:\s*.*?saved as\s+(\d{2}-\d{2}-\d{2})'
-#             matches = re.findall(pattern, section, re.DOTALL)
-#             if matches:
-#                 data_map = {int(val): time_str for val, time_str in matches}
-#                 sweep_results["magnets"] = {
-#                     "data": data_map,
-#                     "title": "ODMR Dependence on Number of Magnets",
-#                     "label_prefix": "Magnets",
-#                     "unit": "",
-#                     "cmap": "plasma"
-#                 }
-#
-#     return sweep_results
-
 
 def plot_overlaid_data(data_map, base_dir, date_str, title, label_prefix, unit, cmap_name):
     """Loads matching files from disk and overlays them onto a single figure."""
@@ -142,7 +87,10 @@ def plot_overlaid_data(data_map, base_dir, date_str, title, label_prefix, unit, 
             freqs = data["x"]
             counts = data["y"]
 
-            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, 2)
+            if "magnet" in title.lower():
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, 6)
+            else:
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, 2)
 
             plt.plot(
                 freqs / 1e9,
@@ -169,7 +117,8 @@ def plot_overlaid_data(data_map, base_dir, date_str, title, label_prefix, unit, 
     plt.yticks([])
     plt.title(title, fontsize=14, fontweight='bold', loc="left")
 
-    # plt.xlim(2.72,3.02)
+    if "magnet" in title.lower():
+        plt.xlim(2.69,3.05)
 
     handles, labels = plt.gca().get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
@@ -230,7 +179,7 @@ def main():
         )
 
         # Save output figure to folder using config metadata
-        sanitized_title = config["title"].replace(" ", "_").lower()
+        sanitized_title = (config["title"] + "_" + date_str).replace(" ", "_").lower()
         pdf_filename = f"{sanitized_title}.tif"
         plt.savefig(os.path.join(save_directory, pdf_filename), dpi=300)
 
