@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.ndimage as ndi
 from scipy.optimize import curve_fit
 import connection_setup as cs
 from scipy.signal import find_peaks, peak_widths
@@ -41,9 +42,14 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     max_val = max(vals)
     df = abs(freqs[1]-freqs[0])
     # peaks, props = find_peaks(-vals,prominence=0.002*max_val, distance=max(1,0.005//(freqs[1]-freqs[0])))
-    peaks, props = find_peaks(-vals, prominence=0.0002*max_val, distance=max(1,0.01//df))
+    # peaks, props = find_peaks(-vals, prominence=0.0002*max_val, distance=max(1,0.01//df))
+    # peaks, props = find_peaks(-vals, prominence=0.005*max_val, distance=max(1,0.005//df))
 
-    # print(f"Find_peaks found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
+    filtered_vals = ndi.gaussian_filter(vals, sigma=1.5)
+    # oPlot.plot_odmr(freqs*10**9, filtered_vals) # print the filtered values to know what kind of prominence to expect
+    peaks, props = find_peaks(-filtered_vals, prominence=0.001*max_val, distance=max(1,0.005//df))
+
+    # print(f"\nFind_peaks found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
 
     if max_peaks is not None and len(peaks) > max_peaks:
         # Sort by prominences
@@ -81,8 +87,9 @@ def guess_initial_params(freqs, vals, max_peaks=None):
         print(f"No peaks resolved. Defaulting to blind center seeds: {freqs[peaks]} GHz")
 
     # print(f"After culling lowest peaks, using {len(peaks)} initial peaks, at frequencies: {freqs[peaks]}GHz")
-    c0 = vals[0]                                                # offset - used to be np.mean
-    c1 = (vals[-1]-vals[0])/(freqs[-1]-freqs[0])                # slope value
+    filtered_vals = ndi.gaussian_filter(vals, sigma=10)
+    c1 = (filtered_vals[-1]-filtered_vals[0])/(freqs[-1]-freqs[0])                # slope value
+    c0 = filtered_vals[0] - c1*freqs[0]                                           # offset
 
     init_params = []
     # results_half = peak_widths(-vals, peaks, rel_height=0.5)
@@ -133,15 +140,15 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None, default_fit = None)
     upper = []
     for i in range(n_peaks):
         A0, f0, g0 = p0[3*i:3*i+3]
-        lower += [-abs(A0*3), f0 - 0.015, 0.001]
-        upper += [-abs(A0*0.1) , f0 + 0.015, 2 * g0] # max HWHF is 40MHz
+        lower += [-abs(A0*1.5), f0 - 0.005, 0.001]
+        upper += [-abs(A0*0.5), f0 + 0.005, 2 * g0] # max HWHF is 40MHz
 
     # lower += [R_vals.min() - 1, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
     # upper += [R_vals.max()*1.1,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
     # lower += [p0[-2]*0.8, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
     # upper += [p0[-2]*1.2,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
-    lower += [p0[-2]*0.8, min(p0[-1]*0.5,p0[-1]*2)]
-    upper += [p0[-2]*1.2, max(p0[-1]*0.5,p0[-1]*2)]
+    lower += [p0[-2]-0.15*max(R_vals), p0[-1]-0.1*max(R_vals)]
+    upper += [p0[-2]+0.15*max(R_vals), p0[-1]+0.1*max(R_vals)]
 
     try:
         popt, pcov = curve_fit(
@@ -151,9 +158,11 @@ def fit_odmr_multi_lorentzian(freqs, R_vals, max_peaks=None, default_fit = None)
         )
         return popt, pcov, peaks
     except Exception as e:
-        print("Couldn't curve_fit, threw:", e, "Plotting ODMR")
-        # print("Couldn't curve_fit, threw:", e, ". trying to fit peaks at frequencies", freqs[peaks],
-        #       ". p0=",p0,", lower bounds:", lower,", upper bounds:", upper)
+        # print("Couldn't curve_fit, threw:", e, "Plotting ODMR")
+        print("\nCouldn't curve_fit, threw:", e, ". trying to fit peaks at frequencies", freqs[peaks],
+              ". p0=",p0,")")
+        print("lower bounds:", lower)
+        print("upper bounds:", upper)
         oPlot.plot_odmr(freqs*10**9, R_vals)
         return p0, np.zeros_like(p0), peaks
 
