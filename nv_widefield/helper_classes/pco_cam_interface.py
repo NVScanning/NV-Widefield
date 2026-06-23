@@ -105,8 +105,8 @@ def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount=1, forced_e
     cam = pco.Camera()
     set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))
     if forced_exposure is not None:
-        if forced_exposure > cam.exposure_time:
-            print(f"Manually forcing exposure time of {forced_exposure:.3f}s. Warning, higher than autoexposed value, may cause overexposure")
+        # if forced_exposure > cam.exposure_time:
+        #     print(f"Manually forcing exposure time of {forced_exposure:.3f}s. Warning, higher than autoexposed value, may cause overexposure")
         print(f"Manually forcing exposure time of {forced_exposure:.3f}s")
         cam.exposure_time = forced_exposure
     else:
@@ -147,10 +147,9 @@ def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, i
 def run_odmr_measurement(cam_rf_params, amp_dbm, fn, odmr_params):
     # Safely runs measurement with cam and sg, turning everything off correctly at the end
 
-    # TODO: let this method start the cam and rf (code below, refactoring required)
     cam, sg = connect_cam_RF(*cam_rf_params)
     cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
-    time.sleep(0.1) # why sleep for a whole second? (previous was 1)
+    time.sleep(0.1)
 
     try:
         ret_vals = fn(cam, sg, *odmr_params)
@@ -186,3 +185,20 @@ def bin_counts(counts_2D, binning_num, x_space, y_space):
     # print("Summing image worked, returning")
 
     return counts_binned, x_space[0::binning_num], y_space[0::binning_num]
+
+
+
+def sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> tuple[list[int]]:
+    point_duration_s = cam.exposure_time * n_windows
+    brightness = []
+    for j, f in enumerate(freqs):
+        cs.print_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
+        # if (seen % printout_factor == 0):
+        #     print(f"at iteration {i} and freq {(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
+        sg.write(f"FREQ {float(f)}")
+        time.sleep(dwell)
+        image = read_image(cam, n_windows)
+        all_counts = bin_image(image)
+        # pci.plot_image(image)
+        brightness.append(all_counts / point_duration_s)
+    return brightness

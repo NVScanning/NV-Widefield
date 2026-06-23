@@ -37,14 +37,14 @@ def enable_sg386(sg, amp_dbm: float = -10.0, enable: bool = True):
     # Above -2,-3 dB, the SAM100 definitely burns the silver paint, above -5 it can, depending on tension put on the connector
 
     if amp_dbm > -8: # -8 is a few db below SAM100 problem, and ZHL can't output enough power
-        raise Exception("RF amplitude too high, risk of burning solder, must be < -5dB")
+        raise Exception("RF amplitude too high, risk of burning solder, must be < -8dB")
 
     sg.write(f"AMPR {amp_dbm}")
     sg.write(f"ENBR {1 if enable else 0}")
-    if enable:
-        print("sg386 ON")
-    else:
-        print("sg386 OFF")
+    # if enable:
+    #     print("sg386 ON")
+    # else:
+    #     print("sg386 OFF")
 
 def connect_motor(motor_id: int):
     motor = find_motor(motor_id)
@@ -80,4 +80,13 @@ def calc_sweep_range(center: float, span: float, num_points: int):
     end = center + span / 2
     point_array = np.linspace(start, end, num_points)
     return start, end, point_array
+
+def print_progress(idx, total_points, i, f):
+    # expects frequency in Hz
+    percent = int((idx + 1) / (total_points) * 100)
+    bar_length = 20
+    filled_length = int(bar_length * idx + 1) // (total_points)
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+    sys.stdout.write(f"\r\033[K[{bar}] {percent}% | Iteration {i} | Freq: {f/10**9:.3f} GHz")
+    sys.stdout.flush()
 

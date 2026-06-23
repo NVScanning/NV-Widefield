@@ -21,23 +21,22 @@ time0 = time.time()
 
 def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarray:
     point_duration_s = cam.exposure_time * n_windows
-    print(f"measuring ODMR with {n_iter} iterations, estimate time to completion ~{n_iter*2 * 1.1 * len(freqs) * (dwell + point_duration_s) + 50:.3}s")
+    print(f"measuring ODMR with {n_iter} iterations and {n_windows} windows, estimate time to completion ~{n_iter*2 * 1.1 * (len(freqs) + 1) * (dwell + point_duration_s + 0.01*n_windows) + 50:.0f}s")
 
     seen=0
     image = pci.read_image(cam,1) # Throw out first image, it's often too bright
     # Note: one row of pixels is ~30% brighter than the rest, can't figure out why though
 
-    num_printouts = 10
+    num_printouts = 5
     printout_factor = len(freqs)*n_iter*2 // num_printouts
     brightnesses = np.zeros((n_iter*2, image.shape[0], image.shape[1], freqs.size)) # should be n_iter*2 when reversing as well
 
-    prev_path = oPlot.get_newfile_dir("temp_")
+    prev_path = oPlot.get_newfile_dir("temp_", print_saving=False)
     with open(prev_path, "a", encoding="utf-8") as f:
         f.write("temp file so no errors come up when deleting")
 
     for i in range(n_iter):
         # print("Iteration " + str(i))
-
         for j,f in enumerate(freqs):
             if (seen % printout_factor == 0):
                 print(f"at t={time.time()-time0:.0f}s, iteration {i} and freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
@@ -66,29 +65,29 @@ def main():
     # params
     camera_binning = 4 # built-int pco camera binning, can only be 1,2,4
     post_processing_binning = 1
-    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 890,730 # in pixels, center point of the laser point
+    focus_point_size = 800  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 950, 740  # in pixels, center of the laser point
     # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
-    amp_dbm = -10 # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
+    amp_dbm = -20 # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
     dwell =  0.01 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 200
+    n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
     span = 0.3e9 # Hz, range of frequencies to sample
-    N = 101 # num points in the frequency space to sample
+    N = 201 # num points in the frequency space to sample
 
-    max_peaks = 2
+    max_peaks = 4
 
     roi, x_space, y_space = pci.get_spacial_params(camera_binning,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
-    # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
+    # roi=(1,1,pci.camera_resolution//camera_binning,pci.camera_resolution//camera_binning)
     print(f"Using the following roi: {roi} and binning a {camera_binning}x{camera_binning} region")
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
     # point_duration_s = cam.exposure_time * n_windows_per_point
 
-    counts_2D = pci.run_odmr_measurement((roi, camera_binning, 0.05), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts_2D = pci.run_odmr_measurement((roi, camera_binning), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     binned_counts = pci.bin_counts(counts_2D, post_processing_binning, x_space, y_space)
     # do smth with binned counts if you want ig
