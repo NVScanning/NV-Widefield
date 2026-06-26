@@ -81,12 +81,22 @@ def calc_sweep_range(center: float, span: float, num_points: int):
     point_array = np.linspace(start, end, num_points)
     return start, end, point_array
 
-def print_progress(idx, total_points, i, f):
+def print_odmr_progress(idx, total_points, i, f):
     # expects frequency in Hz
     percent = int((idx + 1) / (total_points) * 100)
     bar_length = 20
     filled_length = int(bar_length * idx + 1) // (total_points)
     bar = '█' * filled_length + '-' * (bar_length - filled_length)
     sys.stdout.write(f"\r\033[K[{bar}] {percent}% | Iteration {i} | Freq: {f/10**9:.3f} GHz")
+    sys.stdout.flush()
+
+
+def print_analysis_progress(idx, total_points):
+    # expects frequency in Hz
+    percent = int((idx + 1) / (total_points) * 100)
+    bar_length = 20
+    filled_length = int(bar_length * idx + 1) // (total_points)
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+    sys.stdout.write(f"\r\033[K[{bar}] {percent}% ")
     sys.stdout.flush()
 

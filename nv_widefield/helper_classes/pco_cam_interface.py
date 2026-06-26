@@ -192,7 +192,7 @@ def sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> t
     point_duration_s = cam.exposure_time * n_windows
     brightness = []
     for j, f in enumerate(freqs):
-        cs.print_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
+        cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
         # if (seen % printout_factor == 0):
         #     print(f"at iteration {i} and freq {(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
         sg.write(f"FREQ {float(f)}")
@@ -202,3 +202,20 @@ def sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> t
         # pci.plot_image(image)
         brightness.append(all_counts / point_duration_s)
     return brightness
+
+
+def sweep_freqs(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> tuple[list[int]]:
+    point_duration_s = cam.exposure_time * n_windows
+    image = read_image(cam,1) # Throw out first image, it's often too bright
+    brightnesses = np.zeros((image.shape[0], image.shape[1], freqs.size)) # should be n_iter*2 when reversing as well
+    for j, f in enumerate(freqs):
+        cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
+        # if (seen % printout_factor == 0):
+        #     print(f"at iteration {i} and freq {(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
+        sg.write(f"FREQ {float(f)}")
+        time.sleep(dwell)
+        image = read_image(cam, n_windows)
+        # pci.plot_image(image)
+        brightnesses[:,:,j] =(image / point_duration_s)
+    return brightnesses
+
