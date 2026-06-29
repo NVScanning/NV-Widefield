@@ -1,0 +1,11 @@
+This directory (cw_odmr) is sorta irrelevant (I think). These use the mfli lock-in with photodiode
+which isn't really used anymore
+
+in the nv_setup there's an cw_odmr directory with an ODMR measurement file for taking ODMRs with a
+single photon counting module (SPCM)
+
+nv_widefield directory is where all code using PCO camera is held, there is the main widefield_odmr
+file which takes ODMR of each pixel independently, as well as many debug files which do some binning
+or vary a certain parameter taking ODMRs at each point, etc. Most of the code here is copy-pasted
+from one another with slight modifications, but where possible I call a pre-defined version of the
+function, often in a helper class, to minimize the number of changes required when making modifications.

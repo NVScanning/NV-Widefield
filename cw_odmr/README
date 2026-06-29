@@ -1,6 +1,0 @@
-This directory (cw_odmr) is sorta irrelevant (I think)
-
-in the nv_setup there's an cw_odmr directory with an ODMR measurement file
-
-Actually in looking at it closer, I think this has more fleshed out usage than the one in the nv_setup/cw_odmr.
-More time looking into this is required
