@@ -25,45 +25,34 @@ amp_name = ""
 # amp_name = "ZHL-2W"
 
 def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
-    """Executes a dual-directional frequency sweep and returns a 1D binned array of kilo brightness per second."""
+    """Executes a dual-directional frequency sweep and returns a 1D binned array of brightness per second."""
+
+
+    t0 = time.time()
     brightnesses = np.zeros((n_iter * 2, freqs.size))
 
     for i in range(n_iter):
         # Forward Frequency Sweep
-        brightness = []
+        # brightness = []
         time.sleep(dwell)
-        _ = pci.read_image(cam, n_windows)  # Pre-sweep frame dump to clear pixel transient values
-        for f in freqs:
-            sg.write(f"FREQ {float(f)}")
-            time.sleep(dwell)
-            image = pci.read_image(cam, n_windows)
-            all_counts = pci.bin_image(image)
-            brightness.append(all_counts / point_duration_s / 1000.0)
-        brightnesses[i] = brightness
 
-        # Backward Frequency Sweep
-        brightness = []
-        time.sleep(dwell)
-        _ = pci.read_image(cam, n_windows)  # Pre-sweep frame dump
-        for f in freqs[::-1]:
-            sg.write(f"FREQ {float(f)}")
-            time.sleep(dwell)
-            image = pci.read_image(cam, n_windows)
-            all_counts = pci.bin_image(image)
-            brightness.append(all_counts / point_duration_s / 1000.0)
-        brightnesses[n_iter + i] = brightness[::-1]
+        brightnesses[i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
+        brightnesses[n_iter + i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
+    sys.stdout.write(f"\r\033[KODMR finished, took {time.time()-t0:.0f}s\n") # Clear progress bar
+    sys.stdout.flush()
+
 
     return np.sum(brightnesses, axis=0) / (n_iter * 2)
 
 
 def main():
-    binning_amount = 4
-    focus_point_size = 256
-    focus_point_centre_x, focus_point_centre_y = 930,770
+    binning_amount = 1
+    focus_point_size = 150
+    focus_point_centre_x, focus_point_centre_y = 880,1045
 
     n_windows_per_point = 1
-    freq_dwell = 0.001
-    power_dwell = 0.2  # Settle interval following an amplitude step update
+    freq_dwell = 0.000
+    power_dwell = 0.01  # Settle interval following an amplitude step update
     n_iter = 1
 
     # Frequency Sweep Space Configuration
@@ -73,9 +62,9 @@ def main():
 
 
     # RF Power Amplitude Sweep Parameters
-    amp_min = -25.0  # dBm
+    amp_min = -20.0  # dBm
     amp_max = -10.0  # dBm
-    N_amp_steps = 11  # Total power increments to evaluate
+    N_amp_steps = 5  # Total power increments to evaluate
     amp_range = np.linspace(amp_min, amp_max, N_amp_steps)
 
     # Calculate operational frequency sweep coordinates
@@ -92,16 +81,10 @@ def main():
         print("Using cam's previous roi and binning settings")
 
 
-    # cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
-    # point_duration_s = cam.exposure_time * n_windows_per_point
-
-    # Capture tracking image at stationary operational focus position
-    # img = pci.read_image(cam, 1)
-    # pci.plot_image(img, title=f"Baseline camera image")
 
     # Pass functional loop array down to interface controller execution stack
     avg_contrasts, avg_snrs, evaluated_powers, power_sweep_results = pci.run_odmr_measurement(
-        (roi, binning_amount, 0.02), -10, measure_power_dependency,
+        (roi, binning_amount), -10, measure_power_dependency,
         (freq_dwell, freqs, n_iter, n_windows_per_point, power_dwell, amp_range)
     )
 
@@ -116,7 +99,7 @@ def plot_odmrs(N_amp_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]]
     for idx, (amp_val, counts) in enumerate(power_sweep_results.items()):
         plt.plot(
             freqs / 1e9,
-            counts,
+            counts/max(counts),
             label=f"Power = {amp_val:.2f} dBm",
             color=colors[idx],
             linewidth=2
@@ -144,7 +127,10 @@ def plot_SNR_contr(avg_contrasts, avg_snrs, evaluated_powers):
 
     ax1.tick_params(axis='y', labelcolor="tab:blue")
     ax2.tick_params(axis='y', labelcolor="tab:orange")
-    plt.title(f"SNR & Contrast dependency on RF power amplitude with {amp_name} amp", fontsize=14)
+    if amp_name != "":
+        plt.title(f"SNR & Contrast dependency on RF power amplitude with {amp_name} amp", fontsize=14)
+    else:
+        plt.title(f"SNR & Contrast dependency on RF power", fontsize=14)
     ax1.grid(True, linestyle="--", alpha=0.5)
     plt.show()
 
@@ -161,6 +147,8 @@ def measure_power_dependency(cam: Camera, sg: Any, freq_dwell: float,
     evaluated_powers = []
     avg_snrs = []
     avg_contrasts = []
+
+    t0 = time.time()
 
     for idx, amp_val in enumerate(amp_range):
         print(f"\n[{idx + 1}/{len(amp_range)}] Setting RF Amplitude to power={amp_val:.2f} dBm")
@@ -202,6 +190,7 @@ def measure_power_dependency(cam: Camera, sg: Any, freq_dwell: float,
         except Exception as fit_error:
             print(f"Data fit sequence rejected at {amp_val:.2f} dBm: {fit_error}")
 
+    print(f"Sweeping Z ODMRs took {time.time() - t0:.0f}s")
     return avg_contrasts, avg_snrs, evaluated_powers, power_sweep_results
 
 
