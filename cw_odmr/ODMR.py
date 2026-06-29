@@ -179,7 +179,7 @@ def main():
     # --------------------------------------------------------------------------------------------
 
     # sweep frequency
-    f_center = 2.88e9
+    f_center = 2.87e9
     span = 0.1e9
     N = 101
     # bias field
@@ -187,7 +187,7 @@ def main():
     # RF power
     amp_dbm = -10.0
     # num of averaging
-    n_iter = 1 # used to be 20
+    n_iter = 5 # used to be 20
     
         # Mode 
     # --------------------------------------------------------------------------------------------
@@ -204,7 +204,7 @@ def main():
 
     mode = ODMRMode.FM
     #FM modulation param
-    mod_rate   = 2e3 #2e3  
+    mod_rate   = 13e3 #2e3
     mod_dev  = 5.6e6
 
     # mode = ODMRMode.LSR
@@ -239,6 +239,7 @@ def main():
         sg.write("MODL 0") 
         cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=False)
         
+
 
     # ---- Save data ----
 

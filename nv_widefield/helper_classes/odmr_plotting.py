@@ -10,7 +10,7 @@ def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
     plt.figure(figsize=(8, 5))
     plt.plot(freqs / 1e9, kcps, "-o", markersize=2)
     plt.xlabel("Frequency (GHz)")
-    plt.ylabel("kcps")
+    plt.ylabel("brightness/s")
     # plt.ylim(7.4e11,7.45e11)
     plt.title("ODMR")
     plt.grid(True)

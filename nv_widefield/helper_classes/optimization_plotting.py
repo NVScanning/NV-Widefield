@@ -17,7 +17,7 @@ def plot_binned_snr_contr(binned_contrast_avg,ubinned_contrast_avg, binned_snr_a
     fig, ax1 = plt.subplots()
 
     color = 'tab:red'
-    ax1.set_xlabel('binning axis size(pixels)')
+    ax1.set_xlabel('log num bins')
     ax1.set_ylabel('Average SNR', color=color)
     ax1.errorbar(bins, binned_snr_avg, yerr=ubinned_snr_avg, markersize=3, capsize=5, color=color)
     ax1.tick_params(axis='y', labelcolor=color)
@@ -29,6 +29,9 @@ def plot_binned_snr_contr(binned_contrast_avg,ubinned_contrast_avg, binned_snr_a
     ax2.errorbar(bins, np.array(binned_contrast_avg)*100, yerr=np.array(ubinned_contrast_avg)*100, markersize=3, capsize=5, color=color)
     ax2.tick_params(axis='y', labelcolor=color)
 
+    plt.xscale('log')
+    plt.xticks(bins)
+
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
     plt.grid(True)
     plt.show()
@@ -38,7 +41,7 @@ def plot_exposure_snr_contr(contr_avg, ucontr_avg, snr_avg, usnr_avg, n_windows:
     fig, ax1 = plt.subplots()
 
     color = 'tab:red'
-    ax1.set_xlabel('exposure time (num windows per point)')
+    ax1.set_xlabel('log num windows')
     ax1.set_ylabel('Average SNR', color=color)
     ax1.errorbar(windows, snr_avg, yerr=usnr_avg, markersize=3, capsize=5, color=color)
     ax1.tick_params(axis='y', labelcolor=color)
@@ -49,6 +52,9 @@ def plot_exposure_snr_contr(contr_avg, ucontr_avg, snr_avg, usnr_avg, n_windows:
     ax2.set_ylabel('Average contrast(%)', color=color)  # we already handled the x-label with ax1
     ax2.errorbar(windows, np.array(contr_avg) * 100, yerr=np.array(ucontr_avg) * 100, markersize=3, capsize=5, color=color)
     ax2.tick_params(axis='y', labelcolor=color)
+
+    plt.xscale('log')
+    plt.xticks(windows)
 
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
     plt.grid(True)

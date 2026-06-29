@@ -31,9 +31,9 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-06-16" # YYYY-MM-DD
-time = "13-50-11"   # hh-mm_ss
-max_peaks = 2
+date = "2026-06-26" # YYYY-MM-DD
+time = "16-02-09"   # hh-mm_ss
+max_peaks = 4
 
 
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
@@ -325,7 +325,7 @@ elif match[0].startswith("widefield"):
                 B_Z_saved = B_Z_overall[y_ind, x_ind]
                 counts = counts_2D[x_ind,y_ind]
                 popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
-                print(f"B_Z was saved in the file as {B_Z_saved:.3}")
+                # print(f"B_Z was saved in the file as {B_Z_saved:.3}")
                 Lfit.print_dip_params(popt)
                 # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
                 # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)

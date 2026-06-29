@@ -50,6 +50,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     # oPlot.plot_odmr(freqs*10**9, filtered_vals) # print the filtered values to know what kind of prominence to expect
     peaks, props = find_peaks(-filtered_vals, prominence=0.003*max_val, distance=max(1,0.005//df))
 
+    # TODO: use percent difference between max and min values measured to determine the prominence to look for
     # print(f"\nFind_peaks found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
 
     if max_peaks is not None and len(peaks) > max_peaks:
@@ -110,7 +111,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     # return np.array(init_params), peaks
 
     try:
-        results_half = peak_widths(-vals, peaks, rel_height=0.5)
+        results_half = peak_widths(-vals, peaks, rel_height=0.5) # this could break for peaks I create manually
         widths = results_half[0]
     except Exception:
         # Fallback if peak_widths fails on highly overlapping, noisy regions
@@ -196,6 +197,10 @@ def print_contrast_snr(contrasts, snrs, dip_Freqs):
     for (freq, snr_val, contr_val) in zip(dip_Freqs, snrs, contrasts):
         print(f"At frequency {freq:.3f} GHz: Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
     print(f"SNR avg: {np.mean(snrs):.3}, contrast avg: {np.mean(contrasts)*100:.3}%")
+def print_contrast_snr_FWHM(contrasts, snrs, FWHM, dip_Freqs):
+    for (freq, snr_val, contr_val) in zip(dip_Freqs, snrs, contrasts):
+        print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1e3:.31f} MHz, Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
+    print(f"SNR avg: {np.mean(snrs):.3f}, contrast avg: {np.mean(contrasts)*100:.3}%")
 
 def print_dip_params(popt):
     # Prints FWHM, contrast, and frequency delta
@@ -204,7 +209,7 @@ def print_dip_params(popt):
     # Print summary lines
     for (C, FWHM, freq) in zip(contrasts, FWHMs, dip_Freqs):
         # this tells us about T2 time (dephasing rate)
-        print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1e3:.3} MHz, Contrast = {C * 100:.3f}%")
+        print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1e3:.1f} MHz, Contrast = {C * 100:.3f}%")
     for i in range(len(dip_Freqs)-1):
         # this tells us abt magnetic field
         print(f"Frequency delta is {((dip_Freqs[i+1]-dip_Freqs[i])*1000):.3}MHz, equivalent to {(dip_Freqs[i+1]-dip_Freqs[i])/(2*cs.gamma_e):.3}T")

@@ -14,6 +14,9 @@ objective_magnification = 50
 
 background_rate = 0 # 5600 000 / 128^2  # total brightness divided by num physical pixels divided by exposure time
 # ^ This num ends up being like 341.8 counts/s on each pixel
+# There is a clear pattern in the dark currents, so maybe record a picture one time and save it
+# as a 2D array, then index into it with the relevant ROI and subtract from each image directly here
+
 
 def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=5):
 

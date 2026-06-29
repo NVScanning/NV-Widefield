@@ -23,12 +23,9 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
     point_duration_s = cam.exposure_time * n_windows
     print(f"measuring ODMR with {n_iter} iterations and {n_windows} windows, estimate time to completion ~{n_iter*2 * 1.1 * (len(freqs) + 1) * (dwell + point_duration_s + 0.01*n_windows) + 50:.0f}s")
 
-    seen=0
     image = pci.read_image(cam,1) # Throw out first image, it's often too bright
     # Note: one row of pixels is ~30% brighter than the rest, can't figure out why though
 
-    num_printouts = 5
-    printout_factor = len(freqs)*n_iter*2 // num_printouts
     brightnesses = np.zeros((n_iter*2, image.shape[0], image.shape[1], freqs.size)) # should be n_iter*2 when reversing as well
 
     prev_path = oPlot.get_newfile_dir("temp_", print_saving=False)
@@ -36,27 +33,6 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
         f.write("temp file so no errors come up when deleting")
 
     for i in range(n_iter):
-        # print("Iteration " + str(i))
-        # for j,f in enumerate(freqs):
-        #     if (seen % printout_factor == 0):
-        #         print(f"at t={time.time()-time0:.0f}s, iteration {i} and freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
-        #     sg.write(f"FREQ {float(f)}")
-        #     time.sleep(dwell)
-        #     image = pci.read_image(cam,n_windows)
-        #     brightnesses[i,:,:,j]=image / point_duration_s/1000
-        #     # pci.plot_image(image)
-        #     seen+=1
-        # for j,f in enumerate(freqs[::-1]):
-        #     if (seen % printout_factor == 0):
-        #         # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-        #         print(f"at t={time.time()-time0:.0f}s, iteration {i} and freq {str(f / 10 ** 9)}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
-        #     sg.write(f"FREQ {float(f)}")
-        #     time.sleep(dwell)
-        #     image = pci.read_image(cam,n_windows)
-        #     # pci.plot_image(image)
-        #     brightnesses[n_iter+i,:,:,j]=image / point_duration_s/1000
-        #     seen+=1
-
         brightnesses[i] = pci.sweep_freqs(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
         brightnesses[n_iter + i] = pci.sweep_freqs(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
         prev_path = oPlot.overwrite_2D_odmr_measurement(np.arange(image.shape[0]), np.arange(image.shape[1]), freqs, np.sum(brightnesses,axis=0)/(i*2 + 2), prev_path, print_saving=False)
