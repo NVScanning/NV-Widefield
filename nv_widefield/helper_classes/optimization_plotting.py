@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+"""
+Similar to ODMR plotting, but for some odd debug files I use
+"""
+
 
 def plot_Z_dep_graph(z_range: np.ndarray, kcps: np.ndarray):
     plt.figure(figsize=(8, 5))

@@ -15,9 +15,9 @@ import helper_classes.odmr_plotting as oPlot
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
 """
-measure ODMRs at a variety of RF powers
+measure ODMRs at a variety of RF powers, then plot SNR, contrast as a fn of applied power
 
-Much of this code was combined from previously written code by Gemini, then edited
+Much of this code was combined from previously written code for varying Z
 """
 
 amp_name = ""

@@ -5,6 +5,14 @@ import matplotlib.pyplot as plt
 import datetime
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
+"""
+Code to plot compiled measurements taken for the Fraunhofer collaboration with the OLED-illuminated NV
+
+This formatting is quite specific to how I(Mark) took notes in .txt files on the week of June 15, 2026
+
+"""
+
+
 def parse_metadata_file(filepath):
     """Parses timestamps and numerical values from the text configuration log for multiple sweeps."""
     with open(filepath, 'r') as f:

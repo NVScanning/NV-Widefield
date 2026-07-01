@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 """
 Debug file, ignore method names
 
-Measure difference between counts at different RF frequencies
+Measure difference between counts at different RF frequencies, had one-time use but feels bad to delete the code
 """
 
 

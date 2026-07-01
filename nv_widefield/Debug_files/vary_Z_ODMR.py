@@ -19,7 +19,7 @@ import pco
 
 
 """
-measure ODMRs at a variety of Z values
+measure ODMRs at a variety of Z values, then plot contrast and SNR as a fn of Z
 
 Much of this code was combined from previously written code by Gemini, then edited
 """
@@ -50,38 +50,28 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 def main():
     binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
-    # focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-    # focus_point_centre_x, focus_point_centre_y = 930,770 # in pixels, center point of the laser point
     focus_point_size = 300  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 880,1045 # in pixels, center point of the laser point
+    focus_point_centre_x, focus_point_centre_y = 880,1070 # in pixels, center point of the laser point
 
-    n_windows_per_point = 4
-    amp_dbm = -30  # RF Generator Amplitude
+    n_windows_per_point = 1
+    amp_dbm = -10  # RF Generator Amplitude
     freq_dwell = 0.000  # Frequency switch recovery interval
     z_dwell = 0.1
-    n_iter = 1 # Iterations at each z-step
+    n_iter = 3 # Iterations at each z-step
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.1e9  # Hz
-    N_freqs = 51  # Total frequency resolution steps
+    span = 0.2e9  # Hz
+    N_freqs = 101  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    # z_center = 3.1625  # Target focus center
-    # z_span = 0.005  # Distance range over sweep
-    # N_z_steps = 5  # Total step divisions to evaluate
-    z_center = 6.075 # Target focus center
-    z_span = 0.01 # Distance range over sweep
+    z_center = 3.755 # Target focus center
+    z_span = 0.02 # Distance range over sweep
     N_z_steps = 5  # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
     _, _, z_range = cs.calc_sweep_range(z_center, z_span, N_z_steps)
-    # z_range = [3.211, 3.227, 3.248] # to manually measure a few set points
-    # z_range = [3.042, 3.06, 3.09] # to manually measure a few set points
-    # z_range = [3.054, 3.072, 3.095] # to manually measure a few set points
-    # z_range = [2.85, 2.9, 2.95, 3.3, 3.35, 3.4, 3.45]
-    # z_range = [3.733, 3.753, 3.76]
     N_z_steps = len(z_range)
 
     # -------------------------------------------------------------

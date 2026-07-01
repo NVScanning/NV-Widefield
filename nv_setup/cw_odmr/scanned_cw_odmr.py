@@ -44,6 +44,8 @@ This uses a single point sensor (SPCM), and scans over x-y, measuring an ODMR at
 Each point's ODMR is converted to magnetic field by fitting lorentzians, which is then
 displayed as an image
 the x-y and frequency arrays, as well as every odmr scan and the final magnetic field is saved
+
+This was used to help develop the code that analyzes an image together as a stepping stone
 """
 
 #TODO: modify code to be able to sweep z as well, and I simply choose the axes I want to sweep through

@@ -19,9 +19,9 @@ import pco
 
 
 """
-measure ODMRs at a variety of Y values
+measure ODMRs at a variety of Y values, then plotting snr, contrast, and FWHM as a fn of Y
 
-Much of this code was combined from previously written code by Gemini, then edited
+Much of this code was combined from previously written code for varying Z
 """
 
 

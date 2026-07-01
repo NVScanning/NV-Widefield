@@ -11,7 +11,8 @@ import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
 """
 Use every pixel read from the camera as it's own sensor in its own independent ODMR
-structure + analysis(lorentzian fitting + conversion to B) is quite similar to scanned_cw_odmr
+structure + analysis(lorentzian fitting + conversion to B) is quite similar to scanned_cw_odmr,
+called from nv_setup.cw_odmr.Lfit
 """
 
 #   Potential features:

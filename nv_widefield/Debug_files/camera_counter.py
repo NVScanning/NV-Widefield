@@ -9,7 +9,13 @@ import helper_classes.pco_cam_interface as pci
 
 
 """
-Get the images repeatedly, and plot the peak, total, and laplacian variance over time
+Repeatedly take images from the camera and repeatedly (~1Hz) plot a few params from then:
+1. bin them together to one "brightness"
+2. find peak pixel value
+3. take variance of the laplacian, helpful for on-sensor focus 
+    ^ not very useful once I realized on-sensor focus is irrelevant for ODMR contrast
+    in favour of on-diamond focus, which can only (afaik) be determined by measuring ODMR contrast
+    therefore this plotting has been removed
 """
 
 num_points = 9000

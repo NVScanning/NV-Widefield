@@ -5,6 +5,11 @@ from typing import Any
 import datetime
 import os
 
+"""
+Lots of plotting code gets used in various placed, but is all quite similar, so has been
+compiled into one file to always use when plotting
+"""
+
 def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
     # freqs in Hz
     plt.figure(figsize=(8, 5))

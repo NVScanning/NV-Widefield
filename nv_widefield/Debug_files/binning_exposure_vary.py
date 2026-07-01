@@ -24,11 +24,11 @@ from uncertainties import ufloat
 This file compares binning and exposure time's effect on contrast and SNR for ODMR dips
 
 binning can be done two ways: on-camera and post-processed
-on-camera is limited to 1x1, 2x2, 4x4, but has the benefit of reducing required data transfer
-and (albeit minimial) reduction in processing
-post-processed can (in theory) be any number (by deleting leftovers), but here I
-limit it to powers of 2. It's done by summing the pixel signals from the nxn area, and managing the new array 
-as a separate measurement for 2D odmr analysis
+on-camera is limited to 1x1, 2x2, 4x4, but has the benefit of reducing required data transfer, 
+reduction in processing time, and improved SNR at the cost of reducing spacial resolution
+post-processed binning can (in theory) be any number (by deleting leftovers), but here I
+limit it to powers of 2. It's done by summing the pixel signals from the nxn area, and managing
+the new array  as a separate measurement for 2D odmr analysis
 """
 ####  GLOBAL PARAMS
 
