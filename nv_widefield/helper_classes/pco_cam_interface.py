@@ -5,6 +5,12 @@ import pco
 from pco import Camera, camera_exception
 import connection_setup as cs
 
+import helper_classes.Log as Log
+"""
+Main interface for using the PCO camera, many functions are defined for repeated usage 
+such as setting up the camera or running a frequency sweep
+"""
+
 # Constants
 camera_resolution = 2048 # pixels, range from 1 tpo 2048 inclusive
 extra_row_size = 8
@@ -18,7 +24,7 @@ background_rate = 0 # 5600 000 / 128^2  # total brightness divided by num physic
 # as a 2D array, then index into it with the relevant ROI and subtract from each image directly here
 
 
-def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=5):
+def auto_expose(cam:Camera, target_intensity=0.9, tolerance=0.05, max_iter=5):
 
     target = max_pixel_val * target_intensity # highest individual pixel brightness we want to allow
     original_exposure = cam.exposure_time
@@ -46,7 +52,8 @@ def auto_expose(cam, target_intensity=0.9, tolerance=0.05, max_iter=5):
 
     return
 
-def set_cam_settings(cam, exposure_time, roi=None, binning=(1, 1)):
+def set_cam_settings(cam:Camera, exposure_time, roi=None, binning=(1, 1)):
+    cam.delay_time = 0
     if roi is not None:
         cam.configuration = {
             'exposure time': exposure_time,  # in seconds
@@ -57,11 +64,21 @@ def set_cam_settings(cam, exposure_time, roi=None, binning=(1, 1)):
     else:
         cam.configuration = {
             'exposure time': exposure_time,  # in seconds
-            'trigger': 'auto sequence',
+            'trigger': 'auto sequence'
         }
 
-def read_image(cam,n_windows):
+def read_image(cam:Camera,n_windows):
+    Log.log("setting camera record")
     cam.record(mode="sequence", number_of_images=n_windows)
+    # ^ line takes a long time, im guessing its a blocking wait
+    # Even though exposure time is 100ms, it takes 210-230ms, whereas cam.image_average() returns immediately
+    # This time is constant regardless of image size, so it's likely not a data transfer issue
+    # With a 10ms exposure time, it takes 120-130ms, so it seems there's a ~110ms wait for some reason
+    # With a 500ms exposure time, it takes ~610-620ms, supporting the above constant wait
+    # TODO: figure out why tf this constant delay exists
+    # maybe solution is to use a different recording mode, which isn't blocking, doesn't require resetting after each picture
+    # it'll be something like a sequence of images for the whole freq sweep, but that I time properly in time with frequency changes
+    # Log.log("getting average image value")
     image = cam.image_average()
     if (image.shape[0] < 2048-extra_row_size):
         image = image[0:image.shape[0]-extra_row_size,:] # cut off 8 pixels from top of y
@@ -194,15 +211,22 @@ def bin_counts(counts_2D, binning_num, x_space, y_space):
 def sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> tuple[list[int]]:
     point_duration_s = cam.exposure_time * n_windows
     brightness = []
+    _ = read_image(cam, n_windows) # ignore first image
     for j, f in enumerate(freqs):
+        # Log.log("at freq " + str(f) + "updating progress")
         cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
         # if (seen % printout_factor == 0):
         #     print(f"at iteration {i} and freq {(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
+        # Log.log("setting new freq on signal gen")
         sg.write(f"FREQ {float(f)}")
+        # Log.log("sleeping " + str(dwell) + "s")
         time.sleep(dwell)
+        Log.log("reading image")
         image = read_image(cam, n_windows)
+        Log.log("binning image")
         all_counts = bin_image(image)
         # pci.plot_image(image)
+        # Log.log("saving binned value")
         brightness.append(all_counts / point_duration_s)
     return brightness
 
@@ -212,12 +236,17 @@ def sweep_freqs(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> tuple[li
     image = read_image(cam,1) # Throw out first image, it's often too bright
     brightnesses = np.zeros((image.shape[0], image.shape[1], freqs.size)) # should be n_iter*2 when reversing as well
     for j, f in enumerate(freqs):
+        # Log.log("at freq " + str(np.round(f/10**9,2)) + " updating progress")
         cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
         # if (seen % printout_factor == 0):
         #     print(f"at iteration {i} and freq {(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
+        # Log.log("setting new freq on signal gen")
         sg.write(f"FREQ {float(f)}")
+        # Log.log("sleeping " + str(dwell) + "s")
         time.sleep(dwell)
+        Log.log("reading image")
         image = read_image(cam, n_windows)
+        Log.log("saving image in array")
         # pci.plot_image(image)
         brightnesses[:,:,j] =(image / point_duration_s)
     return brightnesses
