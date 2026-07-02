@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import numpy.typing as npt
 import matplotlib.pyplot as plt
 import pco
 from pco import Camera, camera_exception
@@ -208,15 +209,13 @@ def bin_counts(counts_2D, binning_num, x_space, y_space):
 
 
 
-def sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> tuple[list[int]]:
+def sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> npt.NDArray[np.float64]:
     point_duration_s = cam.exposure_time * n_windows
-    brightness = []
+    brightness = np.zeros((freqs.size))
     _ = read_image(cam, n_windows) # ignore first image
     for j, f in enumerate(freqs):
-        # Log.log("at freq " + str(f) + "updating progress")
+        # Log.log("at freq " + str(np.round(f/10**9,2)) + "GHz, updating progress")
         cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
-        # if (seen % printout_factor == 0):
-        #     print(f"at iteration {i} and freq {(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
         # Log.log("setting new freq on signal gen")
         sg.write(f"FREQ {float(f)}")
         # Log.log("sleeping " + str(dwell) + "s")
@@ -227,19 +226,17 @@ def sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> t
         all_counts = bin_image(image)
         # pci.plot_image(image)
         # Log.log("saving binned value")
-        brightness.append(all_counts / point_duration_s)
+        brightness[j]=(all_counts / point_duration_s)
     return brightness
 
 
-def sweep_freqs(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> tuple[list[int]]:
+def sweep_freqs(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> npt.NDArray[np.float64]:
     point_duration_s = cam.exposure_time * n_windows
     image = read_image(cam,1) # Throw out first image, it's often too bright
     brightnesses = np.zeros((image.shape[0], image.shape[1], freqs.size)) # should be n_iter*2 when reversing as well
     for j, f in enumerate(freqs):
-        # Log.log("at freq " + str(np.round(f/10**9,2)) + " updating progress")
+        # Log.log("at freq " + str(np.round(f/10**9,2)) + "GHz, updating progress")
         cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
-        # if (seen % printout_factor == 0):
-        #     print(f"at iteration {i} and freq {(f / 10 ** 9):.2f}GHz; {seen/(printout_factor*num_printouts)*100:.0f}% done")
         # Log.log("setting new freq on signal gen")
         sg.write(f"FREQ {float(f)}")
         # Log.log("sleeping " + str(dwell) + "s")
@@ -251,3 +248,89 @@ def sweep_freqs(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> tuple[li
         brightnesses[:,:,j] =(image / point_duration_s)
     return brightnesses
 
+
+def sweep_freqs_binned_fifo(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> npt.NDArray[np.float64]:
+    point_duration_s = cam.exposure_time * n_windows
+    brightness = np.zeros((freqs.size))
+    cam.record(mode="fifo", number_of_images=n_windows*10)
+    # required the camera to have already started a recording of the correct length
+    # maybe use fifo recording_mode? also use soft trigger mode?
+    for j, f in enumerate(freqs):
+        Log.log("at freq " + str(np.round(f/10**9,2)) + "GHz, updating progress")
+        # cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
+
+        # Log.log("setting new freq on signal gen")
+        sg.write(f"FREQ {float(f)}")
+        # Log.log("sleeping " + str(dwell) + "s")
+        time.sleep(dwell)
+        all_counts=0
+        for i in range(n_windows):
+            Log.log("sending software trigger")
+            cam.send_software_trigger() # this doesn't exist apparently, even tho this website seems convinced it does: https://pylablib.readthedocs.io/en/latest/.apidoc/pylablib.devices.PCO.html#pylablib.devices.PCO.SC2.PCOSC2Camera.send_software_trigger
+            Log.log("reading image")
+            image, dict = cam.image(image_index=0) # if fifo, then start index always 0
+            if (image.shape[0] < 2048-extra_row_size):
+                image = image[0:image.shape[0]-extra_row_size,:] # cut off 8 pixels from top of y
+            if np.amax(image) > 0.95*max_pixel_val:
+                # overexposed
+                print("Image is likely overexposed, highest pixel val",np.amax(image))
+            Log.log("binning image")
+            all_counts += bin_image(image)
+        # pci.plot_image(image)
+        # Log.log("saving binned value")
+        brightness[j]=(all_counts / point_duration_s)
+    cam.stop()
+    return brightness
+
+
+# Another method would be to use ring buffer constantly recording, and simply collect images
+# after having set the frequency and waiting for a new image, so no trigger is required
+# TODO: check how long it takes for the cam.image() method to return, this should only be data transfer time (no blocking)
+
+def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> npt.NDArray[np.float64]:
+    point_duration_s = cam.exposure_time * n_windows
+    brightness = np.zeros((freqs.size))
+    cam.record(mode="ring buffer", number_of_images=n_windows*10)
+    # required the camera to have already started a recording of the correct length
+    # maybe use fifo recording_mode? also use soft trigger mode?
+    # TODO: skip over first image
+    cam.wait_for_new_image()
+    image, dict = cam.image(image_index=-1)
+    for j, f in enumerate(freqs):
+        Log.log("at freq " + str(np.round(f/10**9,2)) + "GHz, updating progress")
+        cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
+
+        # Log.log("setting new freq on signal gen")
+        curr_img_num = cam.recorded_image_count # should I isntead use  PCO_RECORDER_LATEST_IMAGE ??
+        # supposedly this value will wrap around so I shouldn't get an index-out-of-bounds error when using it to get img
+        sg.write(f"FREQ {float(f)}")
+        # Log.log("sleeping " + str(dwell) + "s")
+        time.sleep(dwell)
+        all_counts=0
+        for i in range(n_windows):
+            if cam.recorded_image_count == curr_img_num:
+                Log.log("waiting for new img")
+                cam.wait_for_new_image()
+                Log.log("finished waiting for new img")
+            curr_img_num = cam.recorded_image_count
+            # there's a smarter way to do this, where if theres multiple new images waiting I request them all at once
+            # problem with the above is that i'd have to be very careful not to accidentally read old images as new ones
+            # The above is rare to happen though, cuz the couple lines of code execute quite quickly compared to exposure time (unless its ~1ms)
+            Log.log("reading image")
+            image, dict = cam.image(image_index=-1) # changed to always get the newest image
+            # curr_img_num+=1
+            if (image.shape[0] < 2048-extra_row_size):
+                image = image[0:image.shape[0]-extra_row_size,:] # cut off 8 pixels from top of y
+            if np.amax(image) > 0.95*max_pixel_val:
+                # overexposed
+                print("Image is likely overexposed, highest pixel val",np.amax(image))
+            Log.log("binning image")
+            all_counts += bin_image(image)
+        # pci.plot_image(image)
+        # Log.log("saving binned value")
+        brightness[j]=(all_counts / point_duration_s)
+    cam.stop()
+    return brightness
+
+# TODO: upgrade the freq sweep so that I don't have to relaunch the recording each iteration,
+#  will save 10s of ms/iter so not super urgent

@@ -39,8 +39,10 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
         # brightness = []
         time.sleep(dwell)
 
-        brightnesses[i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
-        brightnesses[n_iter + i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
+        brightnesses[i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
+        brightnesses[n_iter + i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
+        # brightnesses[i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
+        # brightnesses[n_iter + i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
     sys.stdout.write(f"\r\033[KODMR finished, took {time.time() - t0:.0f}s\n")  # Clear progress bar
     sys.stdout.flush()
 
@@ -53,7 +55,7 @@ def main():
     focus_point_size = 300  # in physical (unbinned) pixels, diameter of circle of laser point
     focus_point_centre_x, focus_point_centre_y = 880,1070 # in pixels, center point of the laser point
 
-    n_windows_per_point = 1
+    n_windows_per_point = 2
     amp_dbm = -10  # RF Generator Amplitude
     freq_dwell = 0.000  # Frequency switch recovery interval
     z_dwell = 0.1
@@ -61,18 +63,20 @@ def main():
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.2e9  # Hz
-    N_freqs = 101  # Total frequency resolution steps
+    span = 0.1e9  # Hz
+    N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.755 # Target focus center
-    z_span = 0.02 # Distance range over sweep
-    N_z_steps = 5  # Total step divisions to evaluate
+    z_center = 3.745 # Target focus center
+    z_span = 0.05 # Distance range over sweep
+    N_z_steps = 6     # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
-    _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
-    _, _, z_range = cs.calc_sweep_range(z_center, z_span, N_z_steps)
+    f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
+    z_start, z_end, z_range = cs.calc_sweep_range(z_center, z_span, N_z_steps)
     N_z_steps = len(z_range)
+    print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, "GHz")
+    print("Z range from ", z_start, " to ", z_end, "m")
 
     # -------------------------------------------------------------
     # HARDWARE INITIALIZATION
@@ -96,7 +100,7 @@ def main():
     time.sleep(2)  # extra time for the first point
 
     avg_contrasts, avg_snrs, z_positions, z_sweep_results = (
-        pci.run_odmr_measurement((roi, binning_amount, 0.05), amp_dbm, measure_ODMRs,
+        pci.run_odmr_measurement((roi, binning_amount, 0.02), amp_dbm, measure_ODMRs,
                                  (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range)))
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
@@ -179,7 +183,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
                   z_range: ndarray[tuple[Any, ...], dtype[float64]]) -> tuple[
     list[float], list[float], list[float], dict[float, float]]:
     point_duration_s = cam.exposure_time * n_windows
-    print(f"beggining measurements, estimate time to completion: {len(z_range) * (n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell + 0.1) + z_dwell) + 50:.0f}s")
+    print(f"beggining measurements, estimate time to completion: {len(z_range) * (n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell) + z_dwell):.0f}s")
 
     # Setup data store dictionary: {z_position: odmr_counts_array}
     z_sweep_results = {}
@@ -196,8 +200,8 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
         print(f"\n[{idx + 1}/{len(z_range)}] Moving to z={z_pos:.5f}mm")
         z_motor.move_to(z_pos)
         time.sleep(z_dwell)  # Allow structural mechanical settle time
-        img = pci.read_image(cam, 1)
-        pci.plot_image(img, title=f"Camera image at z={z_pos:.5f}")  # if roi fills, then plot full image
+        # img = pci.read_image(cam, 1)
+        # pci.plot_image(img, title=f"Camera image at z={z_pos:.5f}")  # if roi fills, then plot full image
 
         # Run binned measurement
         counts = measure_binned_odmr_at_z(
