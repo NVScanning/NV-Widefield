@@ -67,9 +67,9 @@ def main():
     N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.745 # Target focus center
-    z_span = 0.05 # Distance range over sweep
-    N_z_steps = 6     # Total step divisions to evaluate
+    z_center = 3.76 # Target focus center
+    z_span = 0.02 # Distance range over sweep
+    N_z_steps = 5     # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
@@ -183,7 +183,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
                   z_range: ndarray[tuple[Any, ...], dtype[float64]]) -> tuple[
     list[float], list[float], list[float], dict[float, float]]:
     point_duration_s = cam.exposure_time * n_windows
-    print(f"beggining measurements, estimate time to completion: {len(z_range) * (n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell) + z_dwell):.0f}s")
+    print(f"beggining measurements, estimate time to completion: {len(z_range) * ((n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell) + 0.02) + z_dwell):.0f}s")
 
     # Setup data store dictionary: {z_position: odmr_counts_array}
     z_sweep_results = {}

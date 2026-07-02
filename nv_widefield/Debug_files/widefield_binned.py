@@ -32,7 +32,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
     point_duration_s = cam.exposure_time * n_windows
     # below is off by a factor of ~2??
     print(f"measuring binned ODMR with {n_iter} iterations (of up and down sweep), estimate time to completion"
-          f" ~{n_iter*2 * (len(freqs) + 1) * (dwell + point_duration_s):.0f}s")
+          f" ~{n_iter*2 * ((len(freqs) + 1) * (dwell + point_duration_s) + 0.02):.0f}s")
     # seen=0
 
     # num_printouts = 5
