@@ -191,15 +191,15 @@ def get_dip_params(popt):
         contrasts.append(C_frac)
         FWHMs.append(FWHM)
         dip_Freqs.append(f0)
-    return contrasts, FWHMs, dip_Freqs
+    return contrasts, FWHMs, dip_Freqs # %, GHz, GHz
 
 def print_contrast_snr(contrasts, snrs, dip_Freqs):
     for (freq, snr_val, contr_val) in zip(dip_Freqs, snrs, contrasts):
         print(f"At frequency {freq:.3f} GHz: Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
     print(f"SNR avg: {np.mean(snrs):.3}, contrast avg: {np.mean(contrasts)*100:.3}%")
-def print_contrast_snr_FWHM(contrasts, snrs, FWHM, dip_Freqs):
-    for (freq, snr_val, contr_val) in zip(dip_Freqs, snrs, contrasts):
-        print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1e3:.31f} MHz, Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
+def print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs):
+    for (freq, snr_val, contr_val, FWHM) in zip(dip_Freqs, snrs, contrasts, FWHMs):
+        print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1000:.1f} MHz, Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
     print(f"SNR avg: {np.mean(snrs):.3f}, contrast avg: {np.mean(contrasts)*100:.3}%")
 
 def print_dip_params(popt):
