@@ -93,3 +93,20 @@ def plot_exposure_snr_contr_bin(contr_avg, snr_avg, n_windows: int, n_bins: int)
     # Automatically optimize spacing between subplots to avoid overlapping labels
     plt.tight_layout()
     plt.show()
+
+
+def plot_z_SNR_contr(avg_contrasts, avg_snrs, z_positions):
+    fig, ax1 = plt.subplots(figsize=(8, 5), layout='constrained')
+    ax2 = ax1.twinx()
+    ax1.set_xlabel("Z Position [mm]", fontsize=12)
+    ax1.set_ylabel("Average SNR", color="tab:blue", fontsize=12)
+    ax2.set_ylabel("Average Contrast [%]", color="tab:orange", fontsize=12)
+
+    p1 = ax1.plot(z_positions, avg_snrs, 'o-', color="tab:blue", linewidth=2, label="SNR")
+    p2 = ax2.plot(z_positions, avg_contrasts, 's-', color="tab:orange", linewidth=2, label="Contrast")
+
+    ax1.tick_params(axis='y', labelcolor="tab:blue")
+    ax2.tick_params(axis='y', labelcolor="tab:orange")
+    plt.title("SNR&contrast dependency on z position", fontsize=14)
+    ax1.grid(True, linestyle="--", alpha=0.5)
+    plt.show()

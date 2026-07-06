@@ -14,6 +14,7 @@ sys.path.append(os.path.abspath(".."))
 import connection_setup as cs
 import helper_classes.pco_cam_interface as pci
 import helper_classes.odmr_plotting as oPlot
+import helper_classes.optimization_plotting as optPlot
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 import pco
 
@@ -55,7 +56,7 @@ def main():
     focus_point_size = 300  # in physical (unbinned) pixels, diameter of circle of laser point
     focus_point_centre_x, focus_point_centre_y = 880,1070 # in pixels, center point of the laser point
 
-    n_windows_per_point = 2
+    n_windows_per_point = 5
     amp_dbm = -10  # RF Generator Amplitude
     freq_dwell = 0.000  # Frequency switch recovery interval
     z_dwell = 0.1
@@ -67,7 +68,7 @@ def main():
     N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.76 # Target focus center
+    z_center = 3.75 # Target focus center
     z_span = 0.02 # Distance range over sweep
     N_z_steps = 5     # Total step divisions to evaluate
 
@@ -75,8 +76,8 @@ def main():
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
     z_start, z_end, z_range = cs.calc_sweep_range(z_center, z_span, N_z_steps)
     N_z_steps = len(z_range)
-    print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, "GHz")
-    print("Z range from ", z_start, " to ", z_end, "m")
+    print(f"Frequency range from {f_start/1e9:.3f} to {f_end/1e9:.3f}GHz")
+    print(f"Z range from {z_start:.4f} to {z_end:.4f}mm")
 
     # -------------------------------------------------------------
     # HARDWARE INITIALIZATION
@@ -105,7 +106,7 @@ def main():
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
 
-    plot_SNR_contr(avg_contrasts, avg_snrs, z_positions)
+    optPlot.plot_z_SNR_contr(avg_contrasts, avg_snrs, z_positions)
 
     move_to_user_input(z_motor, z_prev_position)
 
@@ -160,21 +161,6 @@ def plot_odmrs(N_z_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], 
     plt.show()
 
 
-def plot_SNR_contr(avg_contrasts, avg_snrs, z_positions):
-    fig, ax1 = plt.subplots(figsize=(8, 5), layout='constrained')
-    ax2 = ax1.twinx()
-    ax1.set_xlabel("Z Position [mm]", fontsize=12)
-    ax1.set_ylabel("Average SNR", color="tab:blue", fontsize=12)
-    ax2.set_ylabel("Average Contrast [%]", color="tab:orange", fontsize=12)
-
-    p1 = ax1.plot(z_positions, avg_snrs, 'o-', color="tab:blue", linewidth=2, label="SNR")
-    p2 = ax2.plot(z_positions, avg_contrasts, 's-', color="tab:orange", linewidth=2, label="Contrast")
-
-    ax1.tick_params(axis='y', labelcolor="tab:blue")
-    ax2.tick_params(axis='y', labelcolor="tab:orange")
-    plt.title("SNR&contrast dependency on z position", fontsize=14)
-    ax1.grid(True, linestyle="--", alpha=0.5)
-    plt.show()
 
 
 def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,

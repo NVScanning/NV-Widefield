@@ -30,8 +30,7 @@ roi = None
 
 def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarray:
     point_duration_s = cam.exposure_time * n_windows
-    # below is off by a factor of ~2??
-    print(f"measuring binned ODMR with {n_iter} iterations (of up and down sweep), estimate time to completion"
+    print(f"measuring binned ODMR with {n_iter} iterations, estimate time to completion"
           f" ~{n_iter*2 * ((len(freqs) + 1) * (dwell + point_duration_s) + 0.02):.0f}s")
     # seen=0
 
@@ -84,7 +83,7 @@ def main():
 
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
-    print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
+    print(f"Frequency range from {f_start/1e9:.3f} to {f_end/1e9:.3f}GHz")
 
     counts = pci.run_odmr_measurement((roi, binning_amount, 0.020), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 

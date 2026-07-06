@@ -87,7 +87,7 @@ def print_odmr_progress(idx, total_points, i, f):
     bar_length = 20
     filled_length = int(bar_length * idx + 1) // (total_points)
     bar = '█' * filled_length + '-' * (bar_length - filled_length)
-    sys.stdout.write(f"\r\033[K[{bar}] {percent}% | Iteration {i/2:.1f} | Freq: {f/10**9:.3f} GHz")
+    sys.stdout.write(f"\r\033[K[{bar}] {percent}% | Iteration {i/2:.1f} | Freq: {f/10**9:.4f} GHz")
     sys.stdout.flush()
 
 
