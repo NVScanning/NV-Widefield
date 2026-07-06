@@ -94,6 +94,30 @@ def plot_exposure_snr_contr_bin(contr_avg, snr_avg, n_windows: int, n_bins: int)
     plt.tight_layout()
     plt.show()
 
+def plot_exposure_snr_contr_windows(contr_avg, snr_avg, n_windows: int):
+    windows = np.power(2, range(n_windows))
+
+    fig, ax1 = plt.subplots()
+
+    color = 'tab:red'
+    ax1.set_xlabel('num windows, keeping total exposure time constant')
+    ax1.set_ylabel('Average SNR', color=color)
+    ax1.plot(windows, snr_avg, markersize=3, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+
+    ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
+
+    color = 'tab:blue'
+    ax2.set_ylabel('Average contrast(%)', color=color)  # we already handled the x-label with ax1
+    ax2.plot(windows, np.array(contr_avg) * 100, markersize=3, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+
+    # plt.xscale('log')
+    plt.xticks(windows)
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    plt.grid(True)
+    plt.show()
 
 def plot_z_SNR_contr(avg_contrasts, avg_snrs, z_positions):
     fig, ax1 = plt.subplots(figsize=(8, 5), layout='constrained')

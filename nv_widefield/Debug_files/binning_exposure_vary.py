@@ -13,6 +13,7 @@ sys.path.append(os.path.abspath(".."))
 import nv_setup.connection_setup as cs
 import helper_classes.pco_cam_interface as pci
 import widefield_odmr as wODMR
+import widefield_binned as wbODMR
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 import helper_classes.odmr_plotting as oPlot
 import helper_classes.optimization_plotting as optPlot
@@ -33,15 +34,15 @@ the new array  as a separate measurement for 2D odmr analysis
 ####  GLOBAL PARAMS
 
 
-binning_amount = 1  # built-int pco camera binning, can only be 1,2,4
-focus_point_centre_x, focus_point_centre_y = 950, 740 # in pixels, center point of the laser point
+binning_amount = 4  # built-int pco camera binning, can only be 1,2,4
+focus_point_centre_x, focus_point_centre_y = 880, 1070 # in pixels, center point of the laser point
 amp_dbm = -10  # anything bigger than -10 does nothing (Hayden)
-dwell = 0.001  # seconds - time between setting a frequency on fn generator and reading value
-n_iter = 1
+dwell = 0.000  # seconds - time between setting a frequency on fn generator and reading value
+n_iter = 3
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
 span = 0.1e9  # Hz, range of frequencies to sample
-N = 101  # num points in the frequency space to sample
+N = 51  # num points in the frequency space to sample
 max_peaks = 2 # TODO: make it able to detect the 4 peaks
 
 def find_best_z(cam, motor, z_range, dwell, point_duration_s, n_windows):
@@ -255,6 +256,43 @@ def vary_exposure_binning():
     optPlot.plot_exposure_snr_contr_bin(contr_avg, snr_avg, n_windows, n_bins)
 
 
+def vary_num_windows():
+    # Total exposure time stays constant, only change the number of windows
+    # params
+    n_windows = 7 # range exposure time from 2^(0,1,... n_windows-1)
+    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+    binning_amount = 4
+
+
+
+    roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
+    # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
+    print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
+    # cam, sg = pci.connect_cam_RF(roi, binning_amount, 0.1)
+    # exposure_time = 0.1 # force 100ms exposure
+    # cam.exposure_time = exposure_time
+    f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
+    print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
+
+    snr_avg = np.zeros((n_windows))
+    contr_avg = np.zeros((n_windows))
+    for window_exp in range(n_windows):
+        n_windows_per_point = 2**window_exp
+        # point_duration_s = cam.exposure_time * n_windows_per_point
+
+        # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+        # time.sleep(0.1) # why sleep for a whole second? (previous was 1)
+        counts = pci.run_odmr_measurement((roi, binning_amount, 0.001*2**(n_windows-window_exp)), amp_dbm, wbODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+
+        snrs, contrasts = Lfit.ODMR_to_SNR_contr(counts, freqs, max_peaks)
+
+        snr_avg[window_exp] = np.mean(snrs)
+        contr_avg[window_exp] = np.mean(contrasts)
+
+
+    optPlot.plot_exposure_snr_contr_windows(contr_avg, snr_avg, n_windows)
+
+
 
 def main():
     # do things, perhaps only one at a time or all at once idk:
@@ -270,13 +308,16 @@ def main():
     # optimize_z()
 
     # 2:
-    vary_binning()
+    # vary_binning()
 
     # 3:
     # vary_exposure_time()
 
     # 4:
     # vary_exposure_binning()
+
+    # 5:
+    vary_num_windows()
 
 
 if __name__ == "__main__":

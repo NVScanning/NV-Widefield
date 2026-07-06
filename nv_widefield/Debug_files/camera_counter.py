@@ -18,7 +18,7 @@ Repeatedly take images from the camera and repeatedly (~1Hz) plot a few params f
     therefore this plotting has been removed
 """
 
-num_points = 9000
+num_points = 500
 roi = None
 
 t0 = time.time()
@@ -28,13 +28,24 @@ peak_brightness = []
 laplacian_variance = []
 
 def get_new_data(cam,n_windows,point_duration_s):
-    image = pci.read_image(cam, n_windows)
-    # pci.plot_image(image)
-    laplacian = ndimage.laplace(image.astype(float))
-    lScore = laplacian.var()
-    all_counts = pci.bin_image(image)
+    # image = pci.read_image(cam, n_windows)
+    # cam.wait_for_new_image() # wait for new image, to be sure recorded ones are it's only for this frequency
+    # image, dict = cam.image(image_index=-1) # changed to always get the newest image
+    cam.wait_for_new_image()
+    curr_img_num = cam.recorded_image_count
+    image = pci.get_image_sub_bkg(cam)
+    images = np.zeros((image.shape[0], image.shape[1], n_windows))
+    for i in range(n_windows):
+        if cam.recorded_image_count == curr_img_num:
+            cam.wait_for_new_image()
+        curr_img_num = cam.recorded_image_count
+        images[:,:,i] = pci.get_image_sub_bkg(cam)
 
-    total_brightness.append(all_counts / point_duration_s / 1000)
+    laplacian = ndimage.laplace(images.sum(axis=(0,1)).astype(float))
+    lScore = laplacian.var()
+    all_counts = images.sum()
+
+    total_brightness.append(all_counts / point_duration_s)
     peak_brightness.append(np.max(image)) # not divided by exposure time or 1000
     laplacian_variance.append(lScore)
     timestamps.append(time.time() - t0)
@@ -83,16 +94,16 @@ def plot_graphs():
 def main():
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 2048  # in pixels, approximate width of image taken, must be >=32 after binning
-    focus_point_centre_x, focus_point_centre_y = 1024,1024  # in pixels, center of the laser point
+    focus_point_size = 600  # in pixels, approximate width of image taken, must be >=32 after binning
+    focus_point_centre_x, focus_point_centre_y = 880,1070 # in pixels, center of the laser point
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
-    roi = (1,1,2048,2048)
+    # roi = (1,1,2048,2048)
     if roi is not None:
         print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
     else:
         print("Using previous roi")
 
-    cam = pci.connect_cam(roi, binning_amount, 0.001)
+    cam = pci.connect_cam(roi, binning_amount, 0.002)
 
 
     point_duration_s = cam.exposure_time * n_windows_per_point
@@ -100,13 +111,18 @@ def main():
     # time.sleep(0.1)
 
     try:
+        cam.record(mode="ring buffer", number_of_images=n_windows_per_point * 10)
+        cam.wait_for_new_image()
+        imgnum=0
         while(True):
             # for i in range(100):
             #     get_new_data(cam,n_windows_per_point,point_duration_s)
             get_new_data(cam,n_windows_per_point,point_duration_s)
-            plot_graphs()
+            if imgnum%100==0:
+                plot_graphs()
+            imgnum += 1
     finally:
-        # cam.stop()
+        cam.stop()
         cam.close()
 
 
