@@ -259,7 +259,7 @@ def vary_exposure_binning():
 def vary_num_windows():
     # Total exposure time stays constant, only change the number of windows
     # params
-    n_windows = 7 # range exposure time from 2^(0,1,... n_windows-1)
+    n_windows = 8 # range exposure time from 2^(0,1,... n_windows-1)
     focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
     binning_amount = 4
 
@@ -274,6 +274,7 @@ def vary_num_windows():
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
 
+    windows_sweep_results = {}
     snr_avg = np.zeros((n_windows))
     contr_avg = np.zeros((n_windows))
     for window_exp in range(n_windows):
@@ -283,6 +284,7 @@ def vary_num_windows():
         # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
         # time.sleep(0.1) # why sleep for a whole second? (previous was 1)
         counts = pci.run_odmr_measurement((roi, binning_amount, 0.001*2**(n_windows-window_exp)), amp_dbm, wbODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+        windows_sweep_results[n_windows_per_point] = counts
 
         snrs, contrasts = Lfit.ODMR_to_SNR_contr(counts, freqs, max_peaks)
 
@@ -291,6 +293,8 @@ def vary_num_windows():
 
 
     optPlot.plot_exposure_snr_contr_windows(contr_avg, snr_avg, n_windows)
+    oPlot.plot_windows_odmrs(n_windows, freqs, windows_sweep_results)
+
 
 
 

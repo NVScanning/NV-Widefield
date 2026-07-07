@@ -10,6 +10,8 @@ Lots of plotting code gets used in various placed, but is all quite similar, so 
 compiled into one file to always use when plotting
 """
 
+
+
 def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
     # freqs in Hz
     plt.figure(figsize=(8, 5))
@@ -114,3 +116,24 @@ def get_newfile_dir(prefix, print_saving=True):
     if print_saving:
         print(f"Saving as: {prefix}cw_odmr_{timestamp}.npz in directory: {directory}")
     return save_path
+
+def plot_windows_odmrs(N_windows_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], windows_sweep_results):
+    plt.figure(figsize=(10, 6))
+    colors = plt.cm.plasma(np.linspace(0, 0.85, N_windows_steps))
+
+    for idx, (n_win, counts) in enumerate(windows_sweep_results.items()):
+        plt.plot(
+            freqs / 1e9,
+            counts/max(counts), # Removed normalization to plot raw absolute counts/intensities
+            label=f"Windows = {n_win}, Mean = {np.mean(counts):.1e}",
+            color=colors[idx],
+            linewidth=2
+        )
+
+    plt.xlabel("Frequency [GHz]", fontsize=12)
+    plt.ylabel("Binned Brightness (Raw Counts)", fontsize=12)
+    plt.title("Unnormalized ODMR Comparison for Varying Number of Windows", fontsize=14)
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.legend(loc="best", frameon=True, shadow=True)
+    plt.tight_layout()
+    plt.show()

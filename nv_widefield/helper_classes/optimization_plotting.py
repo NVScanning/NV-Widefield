@@ -112,7 +112,7 @@ def plot_exposure_snr_contr_windows(contr_avg, snr_avg, n_windows: int):
     ax2.plot(windows, np.array(contr_avg) * 100, markersize=3, color=color)
     ax2.tick_params(axis='y', labelcolor=color)
 
-    # plt.xscale('log')
+    plt.xscale('log')
     plt.xticks(windows)
 
     fig.tight_layout()  # otherwise the right y-label is slightly clipped
