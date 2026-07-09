@@ -264,7 +264,6 @@ def vary_num_windows():
     binning_amount = 4
 
 
-
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
