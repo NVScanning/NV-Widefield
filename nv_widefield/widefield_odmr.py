@@ -27,6 +27,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
     image = pci.read_image(cam,1) # Throw out first image, it's often too bright
     # Note: one row of pixels is ~30% brighter than the rest, can't figure out why though
 
+    t0 = time.time()
     brightnesses = np.zeros((n_iter*2, image.shape[0], image.shape[1], freqs.size)) # should be n_iter*2 when reversing as well
 
     prev_path = oPlot.get_newfile_dir("temp_", print_saving=False)
@@ -38,7 +39,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
         brightnesses[n_iter + i] = pci.sweep_freqs(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
         prev_path = oPlot.overwrite_2D_odmr_measurement(np.arange(image.shape[0]), np.arange(image.shape[1]), freqs, np.sum(brightnesses,axis=0)/(i*2 + 2), prev_path, print_saving=False)
 
-    sys.stdout.write(f"\r\033[KODMR finished\n") # Clear progress bar
+    sys.stdout.write(f"\r\033[KODMR finished, took {time.time()-t0:.0f}s\n") # Clear progress bar
     sys.stdout.flush()
     return np.sum(brightnesses,axis=0)/(n_iter*2)
 
@@ -46,18 +47,18 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
 def main():
     # params
     camera_binning = 4 # built-int pco camera binning, can only be 1,2,4
-    post_processing_binning = 4
-    focus_point_size = 400  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 850,1000  # in pixels, center of the laser point
+    post_processing_binning = 8
+    focus_point_size = 288  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 830,1070  # in pixels, center of the laser point
     # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
-    n_windows_per_point = 1 # n readouts to increase certainty without overexposing
-    amp_dbm = -20 # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
+    n_windows_per_point = 10 # n readouts to increase certainty without overexposing
+    amp_dbm = -10 # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
     dwell =  0.0 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 10 # integer >=1
+    n_iter = 100 # integer >=1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.3e9 # Hz, range of frequencies to sample
-    N = 151 # num points in the frequency space to sample
+    span = 0.4e9 # Hz, range of frequencies to sample
+    N = 201 # num points in the frequency space to sample
 
     max_peaks = 4
 
@@ -69,21 +70,23 @@ def main():
     print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
     # point_duration_s = cam.exposure_time * n_windows_per_point
 
-    counts_2D = pci.run_odmr_measurement((roi, camera_binning), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts_2D = pci.run_odmr_measurement((roi, camera_binning, 0.100), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
+    print("Sweeping done")
+    if post_processing_binning > 1:
+        print(f"now binning {post_processing_binning}x{post_processing_binning} area and converting odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)/post_processing_binning**2}s")
+        binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, post_processing_binning, x_space, y_space)
+        B_Z_binned, _ = Lfit.counts_to_B_Z(x_binned, y_binned, binned_counts, freqs, max_peaks=max_peaks)
+        print("Conversion done, saving and plotting")
+        oPlot.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_binned, binned_counts)
+        oPlot.plot_magnet_image(x_binned, y_binned, B_Z_binned)
 
-    print(f"Sweep done, now converting odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)}s")
+    print(f"now converting raw odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)}s")
     B_Z_overall, _ = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs, max_peaks=max_peaks)
     print("Conversion done, saving and plotting")
     oPlot.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
-    oPlot.plot_dFreq_image(x_space, y_space, B_Z_overall)
+    oPlot.plot_magnet_image(x_space, y_space, B_Z_overall)
 
-    print(f"now binning {post_processing_binning}x{post_processing_binning} area and converting odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)}s")
-    binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, post_processing_binning, x_space, y_space)
-    B_Z_binned, _ = Lfit.counts_to_B_Z(x_binned, y_binned, binned_counts, freqs, max_peaks=max_peaks)
-    print("Conversion done, saving and plotting")
-    oPlot.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_binned, binned_counts)
-    oPlot.plot_dFreq_image(x_binned, y_binned, B_Z_binned)
 
 
 
