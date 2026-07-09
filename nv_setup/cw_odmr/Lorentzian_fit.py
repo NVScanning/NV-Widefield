@@ -1,9 +1,11 @@
 import numpy as np
 import scipy.ndimage as ndi
+from numpy import dtype, float64, ndarray
 from scipy.optimize import curve_fit
 import connection_setup as cs
 from scipy.signal import find_peaks, peak_widths
 import sys
+import time
 
 import helper_classes.odmr_plotting as oPlot
 import helper_classes.pco_cam_interface as pci
@@ -303,12 +305,13 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
 
     # TODO: convert this fitting to be on the GPU with JAXFit
     # TODO: find a way to have a background term that's shared between nearby pixels
+    # TODO: if fitting problem, then save NaN rather than 0
     B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
     problem_points = []
 
-
-    num_printouts = 10
-    printout_factor = len(x_points) * len(y_points) // num_printouts
+    t0 = time.time()
+    # num_printouts = 10
+    # printout_factor = len(x_points) * len(y_points) // num_printouts
 
     for x_ind in range(len(x_points)):
         for y_ind in range(len(y_points)):
@@ -323,7 +326,7 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
                 # had problem fitting
                 problem_points.append((x_ind, y_ind))
 
-    sys.stdout.write(f"\r\033[KConverting to B_Z finished\n")  # Clear progress bar
+    sys.stdout.write(f"\r\033[KConverting to B_Z finished, took {time.time()-t0}s\n")  # Clear progress bar
     sys.stdout.flush()
     return B_Z_overall, problem_points
 
@@ -371,21 +374,26 @@ def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
     all_contrasts = np.zeros((x_points.shape[0], y_points.shape[0], max_peaks))
     for x in range(x_points.shape[0]):
         for y in range(y_points.shape[0]):
-            popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts_2D[x, y, :], max_peaks)
-            contrasts, _, _ = get_dip_params(popt)
-            try:
-                snrs = get_SNRs(baseline, counts_2D[x, y, :], freqs / 10 ** 9, popt)
-                # print_SNR(snrs, dip_Freqs)
-            except Exception as e:
-                print("getting SNRs returned an error", e)
-                snrs = np.zeros(max_peaks)
-                # print("Fitted dip frequencies at ", dip_Freqs, "GHz, with FWHMs ", FWHMs)
-                # oPlot.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
-
+            snrs, contrasts = ODMR_to_SNR_contr(counts_2D[x, y, :], freqs, max_peaks)
             all_snrs[x, y, :] = snrs
             all_contrasts[x, y, :] = contrasts
 
     return all_snrs, all_contrasts
+
+
+def ODMR_to_SNR_contr(counts, freqs, max_peaks):
+    popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks)
+    contrasts, _, _ = get_dip_params(popt)
+    try:
+        snrs = get_SNRs(baseline, counts, freqs / 10 ** 9, popt)
+        # print_SNR(snrs, dip_Freqs)
+    except Exception as e:
+        print("getting SNRs returned an error", e)
+        snrs = np.zeros(max_peaks)
+        # print("Fitted dip frequencies at ", dip_Freqs, "GHz, with FWHMs ", FWHMs)
+        # oPlot.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+
+    return snrs, contrasts
 
 
 def counts_to_SNR_contrast_init_params(x_points, y_points, counts_2D, freqs, max_peaks=4, binning_num=1):
