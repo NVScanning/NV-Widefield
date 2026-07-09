@@ -49,6 +49,7 @@ def enable_sg386(sg, amp_dbm: float = -10.0, enable: bool = True):
 def connect_motor(motor_id: int):
     motor = find_motor(motor_id)
     prev_position = motor.position
+    motor.set_velocity_parameters(0, 0.5, 0.5) # reduce acceleration and max velocity
 
     motor.move_home(True)
     time.sleep(1) # Takes some time for the motor to perform the homing
