@@ -23,7 +23,38 @@ def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
     plt.grid(True)
     plt.show()
 
+def plot_odmr_fft(plot_freqs, plot_mag):
+
+    # 1. Plot as a function of modulation frequency (cycles / GHz)
+    plt.figure(figsize=(6, 5))
+    # plt.subplot(1, 2, 1)
+    plt.plot(plot_freqs * 10**9, plot_mag, marker='.', color='tab:red')
+    plt.xlabel("Modulation Frequency [cycles / GHz]", fontsize=12)
+    plt.ylabel("FFT Magnitude", fontsize=12)
+    plt.title("Fourier Transform of ODMR", fontsize=13, fontweight='bold')
+    plt.grid(True, linestyle="--", alpha=0.5)
+
+    # # 2. Plot as a function of physical Period (GHz)
+    # # Period = 1 / modulation_frequency
+    # periods = 1.0 / plot_freqs
+    #
+    # plt.subplot(1, 2, 2)
+    # plt.plot(periods * 1000, plot_mag, marker='.', color='tab:purple') # Convert GHz to MHz
+    # plt.xlabel("Ripple Period [MHz]", fontsize=12)
+    # plt.ylabel("FFT Magnitude", fontsize=12)
+    # plt.title("Extracted Ripple Period", fontsize=13, fontweight='bold')
+    # plt.xlim(0, 200) # Narrow down to isolate your expected ~70 MHz standing wave
+    # plt.grid(True, linestyle="--", alpha=0.5)
+
+    plt.tight_layout()
+    plt.show()
+
+
 def plot_magnet_image(x_points, y_points, B_Z_overall):
+
+    # TODO: use RWB colourmap
+    # TODO: plot NaN's as black
+
     plt.figure(figsize=(10, 6))
     # shading='auto' handles the coordinate mapping automatically
     mesh = plt.pcolormesh(x_points, y_points, B_Z_overall, shading='nearest', cmap='inferno')

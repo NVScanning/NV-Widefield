@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.fft
 import matplotlib.pyplot as plt
 import os
 from os import listdir
@@ -31,9 +32,9 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-06-26" # YYYY-MM-DD
-time = "16-02-09"   # hh-mm_ss
-max_peaks = 4
+date = "2026-07-09" # YYYY-MM-DD
+time = "03-20-03"   # hh-mm_ss
+max_peaks = 2
 
 
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
@@ -237,6 +238,8 @@ elif match[0].startswith("widefield"):
     print("Type 'reanalyze' to re-analyze image from saved odmrs")
     print("Type 'reanalyze bin _' to re-analyze image from saved odmrs with initial params derived from a binned version of the image")
     print("Type 'bin _' to re-analyze a binned version of the image (must be an even divisor of the image dimensions)")
+    print("Type 'FFT x,y' to look at the fourier transform of an ODMR at pixel x,y")
+    print("Type 'image' to sum over all the frequencies and get the brightness image ")
     print("=" * 40)
 
     while True:
@@ -245,7 +248,41 @@ elif match[0].startswith("widefield"):
         if user_input.lower() == "exit":
             print("Exiting interaction loop.")
             break
-        if user_input.lower().startswith("reanalyze bin"):
+        elif user_input.lower().startswith("image"):
+            image = counts_2D.sum(axis=2)
+
+            pci.plot_image(image, x_points, y_points,"Brightness from summing over all frequencies")
+        elif user_input.lower().startswith("fft"):
+            try:
+                # Parse the input string into integers
+                x_str, y_str = user_input[4:].split(",")
+                x_ind = int(x_str.strip())
+                y_ind = int(y_str.strip())
+
+                # Boundary validation
+                if (not ((0 <= x_ind < len(x_points))
+                    and (0 <= y_ind < len(y_points)))):
+                    print(f"Indices out of bounds! Keep X within [0, {len(x_points) - 1}] "
+                          f"and Y within [0, {len(y_points) - 1}].")
+                    continue
+
+                df = abs(freqs[1] - freqs[0])
+                fft = scipy.fft.fft(counts_2D[x_ind,y_ind])
+                fft_freqs = scipy.fft.fftfreq(len(freqs), d=df)
+                fft_shifted = scipy.fft.fftshift(fft)
+                freqs_shifted = scipy.fft.fftshift(fft_freqs)
+
+                magnitude = np.abs(fft_shifted)
+                pos_mask = freqs_shifted > 0
+                plot_freqs = freqs_shifted[pos_mask]
+                plot_mag = magnitude[pos_mask]
+
+                oPlot.plot_odmr_fft(plot_freqs, plot_mag)
+
+
+            except ValueError as e:
+                print("threw error", e)
+        elif user_input.lower().startswith("reanalyze bin"):
             try:
                 numbers = re.findall(r'\d+', user_input)
                 numbers = [int(num) for num in numbers]
@@ -277,7 +314,7 @@ elif match[0].startswith("widefield"):
             except Exception as e:
                 print("Trying to parse fit with binningl caused an error:", e)
                 break
-        if user_input.lower() == "reanalyze":
+        elif user_input.lower() == "reanalyze":
             print("Reanalyzing, will write new file")
 
             B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=max_peaks)
@@ -287,7 +324,7 @@ elif match[0].startswith("widefield"):
             oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
             oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
-        if user_input.lower().startswith("bin"):
+        elif user_input.lower().startswith("bin"):
             try:
                 numbers = re.findall(r'\d+', user_input)
                 numbers = [int(num) for num in numbers]
@@ -329,6 +366,8 @@ elif match[0].startswith("widefield"):
                 Lfit.print_dip_params(popt)
                 # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
                 # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
+
+                oPlot.plot_odmr(freqs, counts)
                 oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
             except ValueError:
                 print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4').")
