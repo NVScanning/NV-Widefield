@@ -18,7 +18,7 @@ Repeatedly take images from the camera and repeatedly (~1Hz) plot a few params f
     therefore this plotting has been removed
 """
 
-num_points = 500
+num_points = 5000
 roi = None
 
 t0 = time.time()
@@ -58,7 +58,7 @@ def plot_graphs():
 
     ax1.set_xlabel("time [s]")
     ax1.set_ylabel("total brightness [sum vals/s]")
-    ax2.set_ylabel("peak brightness [pixel val]")
+    # ax2.set_ylabel("peak brightness [pixel val]")
     # ax3.set_ylabel("laplacian variance [unitless?]")
 
     # right, left, top, bottom
@@ -69,19 +69,19 @@ def plot_graphs():
 
     if len(timestamps)>num_points:
         # p3 = ax3.plot(timestamps[-num_points:], laplacian_variance[-num_points:],color=color3)
-        p2 = ax2.plot(timestamps[-num_points:], peak_brightness[-num_points:],color=color2)
-        p1 = ax1.plot(timestamps[-num_points:], total_brightness[-num_points:],color=color1)
+        # p2 = ax2.plot(timestamps[-num_points:], peak_brightness[-num_points:],color=color2, markersize=5)
+        p1 = ax1.plot(timestamps[-num_points:], total_brightness[-num_points:],color=color1,markersize=5)
     else :
         # p3 = ax3.plot(timestamps, laplacian_variance,color=color3)
-        p2 = ax2.plot(timestamps, peak_brightness,color=color2)
-        p1 = ax1.plot(timestamps, total_brightness,color=color1)
+        # p2 = ax2.plot(timestamps, peak_brightness,color=color2, markersize=5)
+        p1 = ax1.plot(timestamps, total_brightness,color=color1, markersize=5)
 
     ax1.yaxis.label.set_color(p1[0].get_color())
-    ax2.yaxis.label.set_color(p2[0].get_color())
+    # ax2.yaxis.label.set_color(p2[0].get_color())
     # ax3.yaxis.label.set_color(p3[0].get_color())
 
     ax1.tick_params(axis='y', colors=p1[0].get_color())
-    ax2.tick_params(axis='y', colors=p2[0].get_color())
+    # ax2.tick_params(axis='y', colors=p2[0].get_color())
     # ax3.tick_params(axis='y', colors=p3[0].get_color())
 
     plt.show()
@@ -95,15 +95,15 @@ def main():
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 600  # in pixels, approximate width of image taken, must be >=32 after binning
-    focus_point_centre_x, focus_point_centre_y = 880,1070 # in pixels, center of the laser point
+    focus_point_centre_x, focus_point_centre_y = 800,1070 # in pixels, center of the laser point
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
-    # roi = (1,1,2048,2048)
+    # roi = (1,1,2048//binning_amount,2048//binning_amount)
     if roi is not None:
         print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
     else:
         print("Using previous roi")
 
-    cam = pci.connect_cam(roi, binning_amount, 0.002)
+    cam = pci.connect_cam(roi, binning_amount, 0.10)
 
 
     point_duration_s = cam.exposure_time * n_windows_per_point
@@ -118,7 +118,7 @@ def main():
             # for i in range(100):
             #     get_new_data(cam,n_windows_per_point,point_duration_s)
             get_new_data(cam,n_windows_per_point,point_duration_s)
-            if imgnum%100==0:
+            if imgnum%30==0:
                 plot_graphs()
             imgnum += 1
     finally:
