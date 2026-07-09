@@ -23,12 +23,27 @@ dark_frame_path = "C:\\Users\\NVCFM\\Desktop\\NV-widefield Experiment\\nv_widefi
 master_dark_frame: npt.NDArray[np.float64] | None
 master_roi: tuple[int, int, int, int] | None
 master_bin: int | None
+master_dark_frame = None
+master_roi = None
+master_bin = None
 
 # background_rate = 0 # 5600 000 / 128^2  # total brightness divided by num physical pixels divided by exposure time
 # # ^ This num ends up being like 341.8 counts/s on each pixel
 # # There is a clear pattern in the dark currents, so maybe record a picture one time and save it
 # # as a 2D array, then index into it with the relevant ROI and subtract from each image directly here
 
+def get_image_sub_bkg(cam):
+    image, dict = cam.image(image_index=-1)  # changed to always get the newest image
+    if master_dark_frame is not None:
+        image = image - cam.exposure_time * master_dark_frame[
+            (master_roi[1] - 1) // master_bin:master_roi[3] // master_bin, (master_roi[0] - 1) // master_bin:
+                                                                           master_roi[2] // master_bin]
+    if (image.shape[0] < 2048 - extra_row_size):
+        image = image[0:image.shape[0] - extra_row_size, :]  # cut off 8 pixels from top of y
+    if np.amax(image) > 0.95*max_pixel_val:
+        # overexposed
+        print("Image is likely overexposed, highest pixel val",np.amax(image))
+    return image
 
 def auto_expose(cam:Camera, target_intensity=0.9, tolerance=0.05, max_iter=5):
 
@@ -59,6 +74,24 @@ def auto_expose(cam:Camera, target_intensity=0.9, tolerance=0.05, max_iter=5):
     return
 
 def set_cam_settings(cam:Camera, exposure_time, roi=None, binning=(1, 1)):
+    global master_dark_frame
+    global master_roi
+    global master_bin
+    if os.path.exists(dark_frame_path):
+        master_dark_frame = np.load(dark_frame_path)
+        binning_amount = binning[0]
+        master_bin = binning_amount
+        if roi is None:
+            master_roi = (1,1,camera_resolution//binning_amount,camera_resolution//binning_amount)
+        else:
+            master_roi = ((roi[0]-1)*binning_amount + 1,(roi[1]-1)*binning_amount + 1,roi[2]*binning_amount,roi[3]*binning_amount)
+        print("Loaded master dark background successfully.")
+    else:
+        master_dark_frame = None
+        master_roi = None
+        master_bin = None
+        print("Warning: No master dark frame found. Subtraction disabled.")
+
     cam.delay_time = 0
     if roi is not None:
         cam.configuration = {
@@ -85,13 +118,14 @@ def read_image(cam:Camera,n_windows):
     # maybe solution is to use a different recording mode, which isn't blocking, doesn't require resetting after each picture
     # it'll be something like a sequence of images for the whole freq sweep, but that I time properly in time with frequency changes
     # Log.log("getting average image value")
-    image = cam.image_average()
-    if master_dark_frame is not None and master_roi is not None and master_bin is not None:
-        # print(f"Looking to subtract darkframe with roi of {(master_roi[0]-1)//master_bin+1},{(master_roi[1]-1)//master_bin+1},{master_roi[2]//master_bin},{master_roi[3]//master_bin}")
-        image = image - cam.exposure_time * master_dark_frame[(master_roi[1]-1)//master_bin:master_roi[3]//master_bin,(master_roi[0]-1)//master_bin:master_roi[2]//master_bin]
 
-    if (image.shape[0] < 2048-extra_row_size):
-        image = image[0:image.shape[0]-extra_row_size,:] # cut off 8 pixels from top of y
+    image = cam.image_average()
+    if master_dark_frame is not None:
+        image = image - cam.exposure_time * master_dark_frame[
+            (master_roi[1] - 1) // master_bin:master_roi[3] // master_bin, (master_roi[0] - 1) // master_bin:
+                                                                           master_roi[2] // master_bin]
+    if (image.shape[0] < 2048 - extra_row_size):
+        image = image[0:image.shape[0] - extra_row_size, :]  # cut off 8 pixels from top of y
     if np.amax(image) > 0.95*max_pixel_val:
         # overexposed
         print("Image is likely overexposed, highest pixel val",np.amax(image))
@@ -131,19 +165,6 @@ def connect_cam_RF(roi: tuple[int, int, int, int] | None,binning_amount, forced_
 
 
 def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount=1, forced_exposure = None) -> Camera:
-    if os.path.exists(dark_frame_path):
-        global master_dark_frame
-        global master_roi
-        global master_bin
-        master_dark_frame = np.load(dark_frame_path)
-        master_bin = binning_amount
-        if roi is None:
-            master_roi = (1,1,camera_resolution//binning_amount,camera_resolution//binning_amount)
-        else:
-            master_roi = ((roi[0]-1)*binning_amount + 1,(roi[1]-1)*binning_amount + 1,roi[2]*binning_amount,roi[3]*binning_amount)
-        print("Loaded master dark background successfully.")
-    else:
-        print("Warning: No master dark frame found. Subtraction disabled.")
 
     # connect to cam
     cam = pco.Camera()
@@ -313,7 +334,9 @@ def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iterati
     brightness = np.zeros((freqs.size))
     cam.record(mode="ring buffer", number_of_images=n_windows*10)
     cam.wait_for_new_image()
-    image, dict = cam.image(image_index=-1)
+    image, dict = cam.image(image_index=-1) # Ignore first image
+    cam.wait_for_new_image()
+    image, dict = cam.image(image_index=-1) # Ignore second image
     for j, f in enumerate(freqs):
         Log.log("at freq " + str(np.round(f/10**9,2)) + "GHz, updating progress")
         cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
@@ -337,14 +360,17 @@ def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iterati
             # problem with the above is that i'd have to be very careful not to accidentally read old images as new ones
             # The above is rare to happen though, cuz the couple lines of code execute quite quickly compared to exposure time (unless its ~1ms)
             Log.log("reading image")
-            image, dict = cam.image(image_index=-1) # changed to always get the newest image
-            image = image - cam.exposure_time * master_dark_frame[(master_roi[1]-1)//master_bin:master_roi[3]//master_bin,(master_roi[0]-1)//master_bin:master_roi[2]//master_bin]
-            # curr_img_num+=1
-            if (image.shape[0] < 2048-extra_row_size):
-                image = image[0:image.shape[0]-extra_row_size,:] # cut off 8 pixels from top of y
-            if np.amax(image) > 0.95*max_pixel_val:
-                # overexposed
-                print("Image is likely overexposed, highest pixel val",np.amax(image))
+            # image, dict = cam.image(image_index=-1) # changed to always get the newest image
+            # if master_dark_frame is not None:
+            #     image = image - cam.exposure_time * master_dark_frame[(master_roi[1]-1)//master_bin:master_roi[3]//master_bin,(master_roi[0]-1)//master_bin:master_roi[2]//master_bin]
+            #
+            # # curr_img_num+=1
+            # if (image.shape[0] < 2048-extra_row_size):
+            #     image = image[0:image.shape[0]-extra_row_size,:] # cut off 8 pixels from top of y
+            # if np.amax(image) > 0.95*max_pixel_val:
+            #     # overexposed
+            #     print("Image is likely overexposed, highest pixel val",np.amax(image))
+            image = get_image_sub_bkg(cam)
             Log.log("binning image")
             all_counts += bin_image(image)
         # pci.plot_image(image)
@@ -382,16 +408,18 @@ def sweep_freqs_binned_recorded(cam, sg, dwell, freqs, n_windows, n_iter, iterat
             # problem with the above is that i'd have to be very careful not to accidentally read old images as new ones
             # The above is rare to happen though, cuz the couple lines of code execute quite quickly compared to exposure time (unless its ~1ms)
             Log.log("reading image")
-            image, dict = cam.image(image_index=-1) # changed to always get the newest image
-            image = image - cam.exposure_time * master_dark_frame[
-                (master_roi[1] - 1) // master_bin:master_roi[3] // master_bin, (master_roi[0] - 1) // master_bin:
-                                                                               master_roi[2] // master_bin]
-            # curr_img_num+=1
-            if (image.shape[0] < 2048-extra_row_size):
-                image = image[0:image.shape[0]-extra_row_size,:] # cut off 8 pixels from top of y
-            if np.amax(image) > 0.95*max_pixel_val:
-                # overexposed
-                print("Image is likely overexposed, highest pixel val",np.amax(image))
+            image = get_image_sub_bkg(cam)
+            # image, dict = cam.image(image_index=-1) # changed to always get the newest image
+            # if master_dark_frame is not None:
+            #     image = image - cam.exposure_time * master_dark_frame[
+            #         (master_roi[1] - 1) // master_bin:master_roi[3] // master_bin, (master_roi[0] - 1) // master_bin:
+            #                                                                        master_roi[2] // master_bin]
+            # # curr_img_num+=1
+            # if (image.shape[0] < 2048-extra_row_size):
+            #     image = image[0:image.shape[0]-extra_row_size,:] # cut off 8 pixels from top of y
+            # if np.amax(image) > 0.95*max_pixel_val:
+            #     # overexposed
+            #     print("Image is likely overexposed, highest pixel val",np.amax(image))
             Log.log("binning image")
             all_counts += bin_image(image)
         # pci.plot_image(image)
