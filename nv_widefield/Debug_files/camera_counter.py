@@ -18,7 +18,7 @@ Repeatedly take images from the camera and repeatedly (~1Hz) plot a few params f
     therefore this plotting has been removed
 """
 
-num_points = 5000
+num_points = 6000
 roi = None
 
 t0 = time.time()
@@ -52,6 +52,7 @@ def get_new_data(cam,n_windows,point_duration_s):
 
 def plot_graphs():
     fig, ax1 = plt.subplots(figsize=(8, 5), layout='constrained')  # (width, height) in inches
+    plt.title("Camera Counter")
 
     ax2 = ax1.twinx()
     # ax3 = ax1.twinx()
@@ -92,10 +93,10 @@ def plot_graphs():
     plt.close(fig)
 
 def main():
-    n_windows_per_point = 1 # n readouts to increase certainty without overexposing
+    n_windows_per_point = 20 # n readouts to increase certainty without overexposing
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 600  # in pixels, approximate width of image taken, must be >=32 after binning
-    focus_point_centre_x, focus_point_centre_y = 800,1070 # in pixels, center of the laser point
+    focus_point_centre_x, focus_point_centre_y = 800,1280 # in pixels, center of the laser point
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi = (1,1,2048//binning_amount,2048//binning_amount)
     if roi is not None:
@@ -103,7 +104,7 @@ def main():
     else:
         print("Using previous roi")
 
-    cam = pci.connect_cam(roi, binning_amount, 0.10)
+    cam = pci.connect_cam(roi, binning_amount, 0.05)
 
 
     point_duration_s = cam.exposure_time * n_windows_per_point
@@ -118,9 +119,9 @@ def main():
             # for i in range(100):
             #     get_new_data(cam,n_windows_per_point,point_duration_s)
             get_new_data(cam,n_windows_per_point,point_duration_s)
-            if imgnum%30==0:
-                plot_graphs()
             imgnum += 1
+            if imgnum%4==0:
+                plot_graphs()
     finally:
         cam.stop()
         cam.close()

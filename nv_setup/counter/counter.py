@@ -19,10 +19,11 @@ Used for optical alignment of laser path as well as of the NV itself
 # Parameters
 # -------------------------
 single_integration_time_ns = int(50 * u.us)   # 50 us time-tagging window
-n_windows_per_point = 2000                    # 2000 * 50 us = 100 ms per plotted point
-num_mins = 2
-num_points = 300*num_mins # 300 points is ~ 1 minute with 0.1 pause
+n_windows_per_point = 20000                    # 20000 * 50 us = 1000 ms per plotted point
+num_mins = 100
+num_points = int(250*num_mins) # 300 points is ~ 1 minute with 0.1 pause
 save_fig = False
+
 
 # -------------------------
 # QUA program
@@ -68,6 +69,8 @@ t_list, kcps_list = [], []
 fig = plt.figure()
 interrupt_on_close(fig, job)
 
+imgnum = 0
+prev_imgnum = 0
 
 while res_handles.is_processing():
 
@@ -95,18 +98,27 @@ while res_handles.is_processing():
             quit()
 
 
-
-    new_counts = counts_handle.fetch_all() 
+    prev_len = len(t_list)
+    new_counts = counts_handle.fetch_all()
     kcps_list.append((new_counts["value"] / point_duration_s) /1000 )
     t_list.append(new_counts["timestamp"] / u.s)  # Convert timestamps to seconds
+    num_new = len(t_list) - prev_len
 
-    plt.cla()
-    plt.xlabel("time [s]")
-    plt.ylabel("counts [kcps]")
-    # plt.ylim(17500,17600) # for debugging, remove
-    plt.title("SPCM Counter")
-    plt.plot(t_list[-num_points:], kcps_list[-num_points:]) if len(t_list) > num_points else plt.plot(t_list, kcps_list)
-    plt.pause(0.1)
+    imgnum += num_new
+
+
+    if (imgnum - prev_imgnum) > 250:
+    # if True:
+        plt.cla()
+        plt.xlabel("time [s]")
+        plt.ylabel("counts [kcps]")
+        # plt.ylim(17500,17600) # for debugging, remove
+        plt.title("SPCM Counter")
+        plt.plot(t_list[-num_points:], kcps_list[-num_points:]) if len(t_list) > num_points else plt.plot(t_list,
+                                                                                                          kcps_list)
+        plt.pause(0.1)
+        prev_imgnum = imgnum
+
 
 print(f"Average: {np.average(kcps_list)}")
 print(f"Error bar: {np.std(kcps_list)}")

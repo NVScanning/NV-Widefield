@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(".."))
 import helper_classes.pco_cam_interface as pci
 import scipy.fft
 import nv_widefield.helper_classes.odmr_plotting as oPlot
+import connection_setup as cs
 
 
 """
@@ -27,7 +28,8 @@ t0 = time.time()
 timestamps = []
 brightnesses = []
 
-pixels = [(35,35),(35,10),(10,35)]
+# pixels = [(35,35),(35,3),(3,35)]
+pixels = []
 
 def get_new_data(cam,n_windows,point_duration_s):
 
@@ -45,7 +47,7 @@ def get_new_data(cam,n_windows,point_duration_s):
     new_frame_3d = np.expand_dims(images.sum(axis=2) / point_duration_s, axis=2)
 
     # Append along the third (time/step) dimension
-    brightnesses = np.concatenate((brightnesses, new_frame_3d / point_duration_s), axis=2)
+    brightnesses = np.concatenate((brightnesses, new_frame_3d), axis=2)
     # brightnesses = images
     timestamps.append(time.time() - t0)
 
@@ -92,7 +94,28 @@ def main():
     else:
         print("Using previous roi")
 
-    cam = pci.connect_cam(roi, binning_amount, 0.02)
+    pixels.append((focus_point_size//binning_amount//2, focus_point_size//binning_amount//2))
+    pixels.append((focus_point_size//binning_amount//2, 3))
+    pixels.append((3, focus_point_size//binning_amount//2))
+
+    cam = pci.connect_cam(roi, binning_amount, 0.2)
+
+    # image = pci.read_image(cam, n_windows_per_point)
+    #
+    # mesh = plt.pcolormesh(x_space, y_space, image, shading='nearest', cmap='gray'
+    #                       )  # use bone, gray, inferno, nihfire, viridis
+    #
+    # # color1, color2, color3 = plt.cm.viridis([0, .5, .9])
+    # # plt.scatter(*pixels[2], color=color3,  label="left middle", s=100, zorder=5)
+    # # plt.scatter(*pixels[1], color=color2,  label="lower middle", s=100, zorder=5)
+    # # plt.scatter(*pixels[0], color=color1,  label="centre", s=100, zorder=5)
+    # plt.colorbar(mesh, label='637nm brightness (arb units)')
+    # plt.gca().invert_yaxis()
+    # plt.xlabel('x space (pixels)')
+    # plt.ylabel('y space (pixels)')
+    # plt.title('camera image')
+    # plt.legend()
+    # plt.show()
 
 
     point_duration_s = cam.exposure_time * n_windows_per_point
@@ -100,6 +123,9 @@ def main():
     # time.sleep(0.1)
     global brightnesses
     brightnesses = np.empty((len(x_space), len(y_space),0))
+    sg = cs.connect_sg386(cs.sg_resource)
+    cs.enable_sg386(sg, amp_dbm=-10, enable=True)
+    sg.write(f"FREQ {2.855*10**9}")
 
     try:
         cam.record(mode="ring buffer", number_of_images=n_windows_per_point * 10)
@@ -107,9 +133,16 @@ def main():
         imgnum=0
         for _ in range(num_points):
             get_new_data(cam,n_windows_per_point,point_duration_s)
-            if imgnum%30==0:
+            if imgnum%10==0:
                 plot_graphs()
             imgnum += 1
+            # if imgnum == 50:
+            #     print("Turning on RF at 2.855GHz")
+            #     cs.enable_sg386(sg, amp_dbm=-10, enable=True)
+            #     sg.write(f"FREQ {2.855*10**9}")
+            # if imgnum == 200:
+            #     print("Turning off RF")
+            #     cs.enable_sg386(sg, amp_dbm=-10, enable=False)
     # except Exception as e:
     #     print("threw error: ", e)
     finally:
