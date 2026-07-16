@@ -1,3 +1,5 @@
+from json.decoder import NaN
+
 import numpy as np
 import scipy.ndimage as ndi
 from numpy import dtype, float64, ndarray
@@ -45,12 +47,12 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     max_val = max(vals)
     df = abs(freqs[1]-freqs[0])
     # peaks, props = find_peaks(-vals,prominence=0.002*max_val, distance=max(1,0.005//(freqs[1]-freqs[0])))
-    # peaks, props = find_peaks(-vals, prominence=0.0002*max_val, distance=max(1,0.01//df))
+    peaks, props = find_peaks(-vals, prominence=0.0002*max_val, distance=max(1,0.005//df))
     # peaks, props = find_peaks(-vals, prominence=0.005*max_val, distance=max(1,0.005//df))
 
-    filtered_vals = ndi.gaussian_filter(vals, sigma=1.5)
+    # filtered_vals = ndi.gaussian_filter(vals, sigma=1.5)
     # oPlot.plot_odmr(freqs*10**9, filtered_vals) # print the filtered values to know what kind of prominence to expect
-    peaks, props = find_peaks(-filtered_vals, prominence=0.003*max_val, distance=max(1,0.005//df))
+    # peaks, props = find_peaks(-filtered_vals, prominence=0.0003*max_val, distance=max(1,0.005//df))
 
     # TODO: use percent difference between max and min values measured to determine the prominence to look for
     # print(f"\nFind_peaks found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
@@ -197,11 +199,11 @@ def get_dip_params(popt):
 
 def print_contrast_snr(contrasts, snrs, dip_Freqs):
     for (freq, snr_val, contr_val) in zip(dip_Freqs, snrs, contrasts):
-        print(f"At frequency {freq:.3f} GHz: Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
+        print(f"At frequency {freq:.4f} GHz: Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
     print(f"SNR avg: {np.mean(snrs):.3}, contrast avg: {np.mean(contrasts)*100:.3}%")
 def print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs):
     for (freq, snr_val, contr_val, FWHM) in zip(dip_Freqs, snrs, contrasts, FWHMs):
-        print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1000:.1f} MHz, Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
+        print(f"At frequency {freq:.4f} GHz: FWHM = {FWHM * 1000:.1f} MHz, Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
     print(f"SNR avg: {np.mean(snrs):.3f}, contrast avg: {np.mean(contrasts)*100:.3}%")
 
 def print_dip_params(popt):
@@ -211,7 +213,7 @@ def print_dip_params(popt):
     # Print summary lines
     for (C, FWHM, freq) in zip(contrasts, FWHMs, dip_Freqs):
         # this tells us about T2 time (dephasing rate)
-        print(f"At frequency {freq:.3f} GHz: FWHM = {FWHM * 1e3:.1f} MHz, Contrast = {C * 100:.3f}%")
+        print(f"At frequency {freq:.4f} GHz: FWHM = {FWHM * 1e3:.1f} MHz, Contrast = {C * 100:.3f}%")
     for i in range(len(dip_Freqs)-1):
         # this tells us abt magnetic field
         print(f"Frequency delta is {((dip_Freqs[i+1]-dip_Freqs[i])*1000):.3}MHz, equivalent to {(dip_Freqs[i+1]-dip_Freqs[i])/(2*cs.gamma_e):.3}T")
@@ -249,7 +251,7 @@ def print_SNR(snrs, freqs):
 
     snr = np.mean(snrs)
     for (freq, snr_val) in zip(freqs, snrs):
-        print(f"At frequency {freq:.3f} GHz: snr = {snr_val:.3}")
+        print(f"At frequency {freq:.4f} GHz: snr = {snr_val:.3}")
 
     print(f"SNR avg: {snr:.3}")
 
@@ -320,13 +322,15 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
             #     # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
             #     print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
             delta_freq = odmr_to_delta_freq(counts_2D[x_ind,y_ind], freqs, max_peaks=max_peaks)
-            B_Z = delta_freq / (2*cs.gamma_e) # in T
-            B_Z_overall[x_ind,y_ind]=B_Z
             if delta_freq == 0:
                 # had problem fitting
                 problem_points.append((x_ind, y_ind))
+                B_Z_overall[x_ind,y_ind]=NaN
+            else:
+                B_Z = delta_freq / (2 * cs.gamma_e)  # in T
+                B_Z_overall[x_ind,y_ind]=B_Z
 
-    sys.stdout.write(f"\r\033[KConverting to B_Z finished, took {time.time()-t0}s\n")  # Clear progress bar
+    sys.stdout.write(f"\r\033[KConverting to B_Z finished, took {time.time()-t0:.0f}s\n")  # Clear progress bar
     sys.stdout.flush()
     return B_Z_overall, problem_points
 
