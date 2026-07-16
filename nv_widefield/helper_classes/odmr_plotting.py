@@ -55,9 +55,9 @@ def plot_magnet_image(x_points, y_points, B_Z_overall):
     # TODO: use RWB colourmap
     # TODO: plot NaN's as black
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(8, 6))
     # shading='auto' handles the coordinate mapping automatically
-    mesh = plt.pcolormesh(x_points, y_points, B_Z_overall, shading='nearest', cmap='inferno')
+    mesh = plt.pcolormesh(x_points, y_points, B_Z_overall, shading='nearest', cmap='bwr')
 
     plt.colorbar(mesh, label='B_Z (T)')
     plt.xlabel('x space (mm)')
@@ -69,7 +69,7 @@ def plot_magnet_image(x_points, y_points, B_Z_overall):
 def plot_dFreq_image(x_points, y_points, freq_deltas):
     plt.figure(figsize=(10, 6))
     # shading='auto' handles the coordinate mapping automatically
-    mesh = plt.pcolormesh(x_points, y_points, freq_deltas, shading='nearest', cmap='inferno')
+    mesh = plt.pcolormesh(x_points, y_points, freq_deltas, shading='nearest', cmap='bwr')
 
     plt.colorbar(mesh, label='freq delta [GHz]')
     plt.xlabel('x space (mm)')
