@@ -36,14 +36,10 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
     brightnesses = np.zeros((n_iter * 2, freqs.size))
 
     for i in range(n_iter):
-        # Forward Frequency Sweep
-        # brightness = []
         time.sleep(dwell)
 
         brightnesses[i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
         brightnesses[n_iter + i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
-        # brightnesses[i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
-        # brightnesses[n_iter + i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
     sys.stdout.write(f"\r\033[KODMR finished, took {time.time() - t0:.0f}s\n")  # Clear progress bar
     sys.stdout.flush()
 
@@ -52,25 +48,25 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 
 def main():
-    binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
-    focus_point_size = 300  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 880,1070 # in pixels, center point of the laser point
+    binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
+    focus_point_size = 600  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 1080,1000 # in pixels, center point of the laser point
 
-    n_windows_per_point = 5
+    n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
-    freq_dwell = 0.000  # Frequency switch recovery interval
-    z_dwell = 0.1
-    n_iter = 3 # Iterations at each z-step
+    freq_dwell = 0.001  # Frequency switch recovery interval
+    z_dwell = 1
+    n_iter = 5 # Iterations at each z-step
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.1e9  # Hz
-    N_freqs = 51  # Total frequency resolution steps
+    span = 0.4e9  # Hz
+    N_freqs = 75  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 3.75 # Target focus center
-    z_span = 0.02 # Distance range over sweep
-    N_z_steps = 5     # Total step divisions to evaluate
+    z_center = 5.6 # Target focus center
+    z_span = 0.1 # Distance range over sweep
+    N_z_steps = 11     # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
@@ -101,7 +97,7 @@ def main():
     time.sleep(2)  # extra time for the first point
 
     avg_contrasts, avg_snrs, z_positions, z_sweep_results = (
-        pci.run_odmr_measurement((roi, binning_amount, 0.02), amp_dbm, measure_ODMRs,
+        pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, measure_ODMRs,
                                  (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range)))
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
@@ -186,6 +182,8 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
         print(f"\n[{idx + 1}/{len(z_range)}] Moving to z={z_pos:.5f}mm")
         z_motor.move_to(z_pos)
         time.sleep(z_dwell)  # Allow structural mechanical settle time
+
+
         # img = pci.read_image(cam, 1)
         # pci.plot_image(img, title=f"Camera image at z={z_pos:.5f}")  # if roi fills, then plot full image
 
