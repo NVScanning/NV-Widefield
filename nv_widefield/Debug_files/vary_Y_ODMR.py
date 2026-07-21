@@ -68,7 +68,7 @@ def main():
 
     n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
-    freq_dwell = 0.001  # Frequency switch recovery interval
+    freq_dwell = 0.01  # Frequency switch recovery interval
     y_dwell = 0.1
     n_iter = 1 # Iterations at each z-step
 

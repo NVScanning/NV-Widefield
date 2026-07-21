@@ -37,7 +37,7 @@ the new array  as a separate measurement for 2D odmr analysis
 binning_amount = 4  # built-int pco camera binning, can only be 1,2,4
 focus_point_centre_x, focus_point_centre_y = 880, 1070 # in pixels, center point of the laser point
 amp_dbm = -10  # anything bigger than -10 does nothing (Hayden)
-dwell = 0.000  # seconds - time between setting a frequency on fn generator and reading value
+dwell = 0.01  # seconds - time between setting a frequency on fn generator and reading value
 n_iter = 3
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz

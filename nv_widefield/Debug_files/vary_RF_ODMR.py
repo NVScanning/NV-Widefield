@@ -51,7 +51,7 @@ def main():
     focus_point_centre_x, focus_point_centre_y = 880,1045
 
     n_windows_per_point = 1
-    freq_dwell = 0.000
+    freq_dwell = 0.01
     power_dwell = 0.01  # Settle interval following an amplitude step update
     n_iter = 1
 

@@ -37,7 +37,7 @@ def main():
     focus_point_centre_x, focus_point_centre_y = 880, 1070
 
     n_windows_per_point = 1
-    freq_dwell = 0.000
+    freq_dwell = 0.01
     settle_dwell = 0.00  # Settle interval following a camera ROI re-allocation step
     n_iter = 15
 

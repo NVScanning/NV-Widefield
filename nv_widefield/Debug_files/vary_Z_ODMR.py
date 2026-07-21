@@ -49,22 +49,25 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 def main():
     binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
-    focus_point_size = 600  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1080,1000 # in pixels, center point of the laser point
+    focus_point_size = 200  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 1100,990 # in pixels, center point of the laser point
 
     n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
-    freq_dwell = 0.001  # Frequency switch recovery interval
+    freq_dwell = 0.01  # Frequency switch recovery interval
     z_dwell = 1
-    n_iter = 5 # Iterations at each z-step
+    n_iter = 3 # Iterations at each z-step
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.4e9  # Hz
-    N_freqs = 75  # Total frequency resolution steps
+    span = 0.2e9  # Hz
+    N_freqs = 101  # Total frequency resolution steps
+    # f_center = 5.3e9  # Hz
+    # span = 0.4e9  # Hz
+    # N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 5.6 # Target focus center
+    z_center = 5.97 # Target focus center
     z_span = 0.1 # Distance range over sweep
     N_z_steps = 11     # Total step divisions to evaluate
 
@@ -72,7 +75,7 @@ def main():
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
     z_start, z_end, z_range = cs.calc_sweep_range(z_center, z_span, N_z_steps)
     N_z_steps = len(z_range)
-    print(f"Frequency range from {f_start/1e9:.3f} to {f_end/1e9:.3f}GHz")
+    # print(f"Frequency range from {f_start/1e9:.3f} to {f_end/1e9:.3f}GHz")
     print(f"Z range from {z_start:.4f} to {z_end:.4f}mm")
 
     # -------------------------------------------------------------
@@ -97,7 +100,7 @@ def main():
     time.sleep(2)  # extra time for the first point
 
     avg_contrasts, avg_snrs, z_positions, z_sweep_results = (
-        pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, measure_ODMRs,
+        pci.run_odmr_measurement((roi, binning_amount,0.02), amp_dbm, measure_ODMRs,
                                  (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range)))
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
@@ -165,8 +168,10 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
                   z_range: ndarray[tuple[Any, ...], dtype[float64]]) -> tuple[
     list[float], list[float], list[float], dict[float, float]]:
     point_duration_s = cam.exposure_time * n_windows
-    print(f"beggining measurements, estimate time to completion: {len(z_range) * ((n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell) + 0.02) + z_dwell):.0f}s")
+    print(f"beggining measurements, estimate time to completion: "
+          f"{len(z_range) * ((n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell) + 0.02) + z_dwell) + (len(freqs) + 1)*(point_duration_s + freq_dwell) +0.02:.0f}s")
 
+    t0 = time.time()
     # Setup data store dictionary: {z_position: odmr_counts_array}
     z_sweep_results = {}
 
@@ -175,7 +180,14 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
     avg_snrs = []
     avg_contrasts = []
 
-    t0 = time.time()
+    # Throw out first scan, it's always fucked
+    z_motor.move_to(z_range[0])
+    time.sleep(z_dwell)  # Allow structural mechanical settle time
+    pci.sweep_freqs_binned_ringBuf(cam, sg, freq_dwell, freqs, min(2, n_windows), 1, 0)
+    # pci.sweep_freqs_binned_ringBuf(cam, sg, freq_dwell, freqs[::-1], n_windows, 2,  1)[::-1]
+    sys.stdout.write(f"\r\033[KFirst throwaway scan complete\n")  # Clear progress bar
+    sys.stdout.flush()
+
 
     # try:
     for idx, z_pos in enumerate(z_range):
