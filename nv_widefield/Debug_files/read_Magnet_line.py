@@ -11,37 +11,55 @@ import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
 
 # Parameters
-date = "2026-07-16"
-time = "15-48-13"
-target_x_idx = 9  # The specific spatial x-index to extract across all y's
-max_peaks = 1
+# date = "2026-07-17"
+# # time = "14-10-59" # high field single dip with weird trends in middle pixels
+# # time = "15-16-49" #
+# # time = "15-23-28" # super noisy low brightness measurement of zero-field
+# # time = "15-40-31" #
+# time = "16-50-33"
 
-y_diff_start_idx = 0
-y_diff_end_idx = 17
+date = "2026-07-20"
+time = "15-01-14"
+target_idx = 9  # The specific spatial x-index to extract across all y's
+slice_axis = "y"        # Choose "x" or "y" to slice along that axis
+                        # slicing along x, means y is constant (horizontal line)
+max_peaks = 2
+plot_fits = True
 
+diff_start_idx = 0
+diff_end_idx = 17
 
-def plot_odmr_differences(freqs, y_points, counts_2D, target_x_idx, start_idx, end_idx):
+offset = 0.001
+
+def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
     """
     Normalizes ODMR traces in a specified y-index range, computes consecutive
     differences (y_{i+1} - y_i), and plots the residuals.
     """
-    selected_y = y_points[start_idx:end_idx]
-    # print("Looking at differences between following Y:", selected_y)
+    # print("Looking at differences between following Y:", selected_axis)
+    selected_axis = axis_points[diff_start_idx:diff_end_idx]
+
 
     # Extract and normalize traces in the specified range
     normalized_traces = []
-    for y_idx in range(start_idx, end_idx):
-        raw_counts = counts_2D[target_x_idx, y_idx, :]
-        # normalized_traces.append(raw_counts / np.max(raw_counts))
-        normalized_traces.append(raw_counts)
+    for idx in range(start_idx, end_idx):
+        if slice_axis == "x":
+            raw_counts = counts_2D[target_x_idx, idx, :]
+        else:
+            raw_counts = counts_2D[idx, target_x_idx, :]
+        normalized_traces.append(raw_counts / np.max(raw_counts))
+        # normalized_traces.append(raw_counts)
 
     plt.figure(figsize=(10, 6), layout="constrained")
-    colors = plt.cm.viridis(np.linspace(0, 0.9, len(selected_y) - 1))
+    colors = plt.cm.viridis(np.linspace(0, 0.9, len(selected_axis) - 1))
 
     # Calculate and plot consecutive trace differences
     for i in range(len(normalized_traces) - 1):
         diff = normalized_traces[i + 1] - normalized_traces[i]
-        label_text = f"Δ (y={selected_y[i + 1]:.4f} - y={selected_y[i]:.4f})"
+        if slice_axis == "x":
+            label_text = f"Δ (x={selected_axis[i + 1]:.4f} - x={selected_axis[i]:.4f})"
+        else:
+            label_text = f"Δ (y={selected_axis[i + 1]:.4f} - y={selected_axis[i]:.4f})"
 
         plt.plot(
             freqs / 1e9,
@@ -55,36 +73,49 @@ def plot_odmr_differences(freqs, y_points, counts_2D, target_x_idx, start_idx, e
     plt.axhline(0, color="black", linestyle="--", alpha=0.5)
     plt.xlabel("Frequency [GHz]", fontsize=12)
     plt.ylabel("Difference in Normalized Counts (arb units)", fontsize=12)
-    plt.title(f"Consecutive ODMR Differences (y-indices {start_idx} to {end_idx})", fontsize=13)
-    plt.legend(loc="best", frameon=True, ncol=2, fontsize=8)
+    if slice_axis == "x":
+        plt.title(f"Consecutive ODMR Differences (x-indices {start_idx} to {end_idx})", fontsize=13)
+    else:
+        plt.title(f"Consecutive ODMR Differences (y-indices {start_idx} to {end_idx})", fontsize=13)
+
+    # plt.legend(loc="best", frameon=True, ncol=2, fontsize=8)
     plt.grid(True, linestyle=":", alpha=0.5)
     plt.show()
 
-def plot_dip_vs_y(y_positions, centers, fixed_x_val):
+def plot_dip_vs_axis(y_positions, centers, fixed_pos_val):
     """
     Plots the extracted Lorentzian center frequency against spatial y coordinates.
     """
     plt.figure(figsize=(8, 5), layout="constrained")
     plt.plot(y_positions, centers, 'o-', color='crimson', markersize=6, linewidth=1.5, label='Fitted $f_0$')
 
-    plt.xlabel("y space (mm)", fontsize=11)
+    if slice_axis == "x":
+        plt.xlabel("x space (mm)", fontsize=11)
+        plt.title(f"Dip Center Frequency $f_0$ vs. x (Fixed y = {fixed_pos_val:.4f} mm)", fontsize=12)
+    else:
+        plt.xlabel("y space (mm)", fontsize=11)
+        plt.title(f"Dip Center Frequency $f_0$ vs. y (Fixed x = {fixed_pos_val:.4f} mm)", fontsize=12)
+
     plt.ylabel("Lorentzian Dip Center [GHz]", fontsize=11)
-    plt.title(f"Dip Center Frequency $f_0$ vs. y (Fixed x = {fixed_x_val:.4f} mm)", fontsize=12)
     plt.grid(True, linestyle=":", alpha=0.6)
     plt.legend(loc="best")
     plt.show()
 
-def plot_odmrs(freqs, z_sweep_results, fixed_x_val):
-    N_y_steps = len(z_sweep_results)
+def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
+    N_steps = len(sweep_results)
     plt.figure(figsize=(10, 6), layout="constrained")
 
-    fitted_y_positions = []
+    fitted_axis_positions = []
     dip_centers_ghz = []
 
     # Use plasma colormap matching previous scripts
-    colors = plt.cm.plasma(np.linspace(0, 0.85, N_y_steps))
+    colors = plt.cm.plasma(np.linspace(0, 0.85, N_steps))
 
-    for idx, (y_pos, counts) in enumerate(z_sweep_results.items()):
+    for idx, (axis_pos, counts) in enumerate(sweep_results.items()):
+
+        if idx < start_idx or idx > end_idx:
+            # print(f"skipping over index={idx}")
+            continue
         # max_counts = np.max(counts)
         # normalized_counts = counts / max_counts if max_counts > 0 else counts
 
@@ -94,60 +125,65 @@ def plot_odmrs(freqs, z_sweep_results, fixed_x_val):
 
         plt.plot(
             freqs / 1e9,
-            counts / max(counts) + 0.002*idx,
-            label=f"y = {y_pos:.4f} mm",
+            counts / max(counts) + offset*idx,
+            label=f"y = {axis_pos:.4f} mm",
             color=colors[idx],
             linewidth=1.5,
             alpha=0.85
         )
 
-        try:
-            # Fit the ODMR trace and retrieve fit parameters along with the model curve
-            # If your Lfit signature differs, adjust this call accordingly
-            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
-            contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
-            snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
+        if plot_fits:
+            try:
+                # Fit the ODMR trace and retrieve fit parameters along with the model curve
+                # If your Lfit signature differs, adjust this call accordingly
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+                contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+                snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
 
-            # Plot the fitted curve on top of the raw data with matching offset
-            plt.plot(
-                freqs / 1e9,
-                fitted_norm + 0.002*idx,
-                color=colors[idx],
-                linestyle="-",
-                linewidth=2.0,
-                alpha=0.9
-            )
+                # Plot the fitted curve on top of the raw data with matching offset
+                plt.plot(
+                    freqs / 1e9,
+                    fitted_norm + offset*idx,
+                    color=colors[idx],
+                    linestyle="-",
+                    linewidth=2.0,
+                    alpha=0.9
+                )
 
-            # Calculate center frequency and dip minimum point coordinate
-            center_freq_ghz = dip_Freqs[0]
-            dip_minimum_val = np.min(fitted_norm) + 0.002*idx
+                # Calculate center frequency and dip minimum point coordinate
+                center_freq_ghz = dip_Freqs[0]
+                dip_minimum_val = np.min(fitted_norm) + offset*idx
 
-            # Overlay a red dot at the fitted minimum of the dip
-            plt.plot(
-                center_freq_ghz,
-                dip_minimum_val,
-                marker="o",
-                color="red",
-                markersize=6,
-                markeredgecolor="black",
-                markeredgewidth=0.5,
-                zorder=12
-            )
+                # Overlay a red dot at the fitted minimum of the dip
+                plt.plot(
+                    center_freq_ghz,
+                    dip_minimum_val,
+                    marker="o",
+                    color="red",
+                    markersize=6,
+                    markeredgecolor="black",
+                    markeredgewidth=0.5,
+                    zorder=12
+                )
 
-            # # Print parameters to standard output for this specific spatial point
-            # print(f"--- Fit Results for y = {y_pos:.4f} mm ---")
-            # Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
-            fitted_y_positions.append(y_pos)
-            dip_centers_ghz.append(dip_Freqs[0])
+                # # Print parameters to standard output for this specific spatial point
+                # print(f"--- Fit Results for y = {axis_pos:.4f} mm ---")
+                # Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
+                fitted_axis_positions.append(axis_pos)
+                dip_centers_ghz.append(dip_Freqs[0])
 
-        except Exception as fit_error:
-            # Catch fitting failures gracefully to avoid halting the full spatial sweep
-            print(f"[Warning] Fit failed for y = {y_pos:.4f} mm: {fit_error}")
+            except Exception as fit_error:
+                # Catch fitting failures gracefully to avoid halting the full spatial sweep
+                print(f"[Warning] Fit failed for y = {axis_pos:.4f} mm: {fit_error}")
 
     plt.xlabel("Frequency [GHz]", fontsize=12)
     plt.ylabel("Normalized Brightness (arb units/s)", fontsize=12)
-    plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_x_val:.4f} mm)", fontsize=13)
-    # plt.xlim(3.25,3.33)
+
+    if slice_axis == "x":
+        plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val:.4f} mm)", fontsize=13)
+    else:
+        plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val:.4f} mm)", fontsize=13)
+    plt.xlim(2.68,2.79)
     # plt.ylim(0.997, 1 + len(z_sweep_results.items())*0.0002)
     # plt.grid(True, linestyle="--", alpha=0.5)
 
@@ -157,19 +193,25 @@ def plot_odmrs(freqs, z_sweep_results, fixed_x_val):
 
     plt.show()
     if len(dip_centers_ghz) > 0:
-        plot_dip_vs_y(fitted_y_positions, dip_centers_ghz, fixed_x_val)
+        plot_dip_vs_axis(fitted_axis_positions, dip_centers_ghz, fixed_axis_val)
 
 
-def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_x_idx):
+def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
     """
     Plots the 2D magnetic field distribution and overlays a vertical line
     at the spatial x-coordinate corresponding to target_x_idx.
     """
     # Safeguard x-bounds and retrieve physical value
-    if target_x_idx >= len(x_space) or target_x_idx < 0:
-        raise IndexError(f"Target index {target_x_idx} is out of bounds for x_space of size {len(x_space)}")
+    space_to_check = x_space if slice_axis == "x" else y_space
+    if target_axis_idx >= len(space_to_check) or target_axis_idx < 0:
+        raise IndexError(f"Target index {target_axis_idx} is out of bounds for the selected space slice.")
 
-    slice_x_coord = x_space[target_x_idx]
+    slice_x_coord = space_to_check[target_axis_idx]
+
+    # if target_x_idx >= len(x_space) or target_x_idx < 0:
+    #     raise IndexError(f"Target index {target_x_idx} is out of bounds for x_space of size {len(x_space)}")
+
+    slice_x_coord = x_space[target_axis_idx]
 
     # Establish robust colormap scaling (1st to 99th percentile) to handle hot pixels
     # vmin = np.percentile(B_field_2D, 1)
@@ -183,14 +225,33 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_x_idx):
 
     # Plot high-contrast indicators for the sliced region
     # axvline spans the full height of the axes
-    plt.axvline(
-        x=slice_x_coord,
-        color='black',
-        linestyle=':',
-        linewidth=5.0,
-        label=f"Slice line (x = {slice_x_coord:.4f} mm)",
-        zorder=10
-    )
+    if slice_axis == "x":
+        plt.axhline(
+            y=slice_x_coord,
+            color='black',
+            linestyle=':',
+            linewidth=5.0,
+            label=f"Slice line (y = {slice_x_coord:.4f} mm)",
+            zorder=10
+        )
+    else:
+        plt.axvline(
+            x=slice_x_coord,
+            color='black',
+            linestyle=':',
+            linewidth=5.0,
+            label=f"Slice line (x = {slice_x_coord:.4f} mm)",
+            zorder=10
+        )
+
+    # plt.axvline(
+    #     x=slice_x_coord,
+    #     color='black',
+    #     linestyle=':',
+    #     linewidth=5.0,
+    #     label=f"Slice line (x = {slice_x_coord:.4f} mm)",
+    #     zorder=10
+    # )
 
     # # Optional: Highlight the terminals of the vertical scan
     # plt.scatter(
@@ -204,10 +265,13 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_x_idx):
 
     # plt.gca().invert_yaxis()  # Maintain spatial match to physical sensor layout
 
-    plt.colorbar(mesh, label='B_Z (T)')
+    plt.colorbar(mesh, label=r'$\partial$ B (T)')
     plt.xlabel('x space (mm)')
     plt.ylabel('y space (mm)')
-    plt.title(f'2D Magnet Image with Slice Overlay (x_ind={target_x_idx})')
+    if slice_axis == "x":
+        plt.title(f'2D Magnet Image with Slice Overlay (y_ind={target_axis_idx})')
+    else:
+        plt.title(f'2D Magnet Image with Slice Overlay (x_ind={target_axis_idx})')
 
     plt.legend(loc='upper right', framealpha=0.9)
 
@@ -230,34 +294,46 @@ def main():
     B_Z_overall = data["magnet"]
     counts_2D = data["odmrs"]  # Expected shape: (X_pixels, Y_pixels, Freq_points)
 
+    primary_points = x_points if slice_axis == "x" else y_points
+    secondary_points = y_points if slice_axis == "x" else x_points
+
     # Check bounds of target x-slice
-    if target_x_idx >= len(x_points) or target_x_idx < 0:
-        raise IndexError(f"Specified x index {target_x_idx} is out of bounds for x space of size {len(x_points)}")
+    # if target_x_idx >= len(x_points) or target_x_idx < 0:
+    #     raise IndexError(f"Specified x index {target_x_idx} is out of bounds for x space of size {len(x_points)}")
+    if target_idx >= len(primary_points) or target_idx < 0:
+        raise IndexError(f"Specified index {target_idx} is out of bounds for the selection.")
 
     # Extract the coordinate value
-    actual_x_val = x_points[target_x_idx]
-    print(f"Slicing spatial data along x_index={target_x_idx} (x={actual_x_val:.4f} mm)")
+    actual_x_val = x_points[target_idx]
+    print(f"Slicing spatial data along x_index={target_idx} (x={actual_x_val:.4f} mm)")
 
     # Slice out all Y-scans for the single specified X-coordinate
     # Structure: { y_coordinate_val: 1D array of counts across frequencies }
     slice_results = {}
-    for y_idx, y_val in enumerate(y_points):
-        # Slice format extracts [X_fixed, Y_current, all_frequencies]
-        slice_results[y_val] = counts_2D[target_x_idx, y_idx, :]
+    # for y_idx, y_val in enumerate(y_points):
+    #     # Slice format extracts [X_fixed, Y_current, all_frequencies]
+    #     slice_results[y_val] = counts_2D[target_idx, y_idx, :]
+    for secondary_idx, secondary_val in enumerate(secondary_points):
+        if slice_axis == "x":
+            slice_results[secondary_val] = counts_2D[target_idx, secondary_idx, :]
+        else:
+            slice_results[secondary_val] = counts_2D[secondary_idx, target_idx, :]
 
     # Run the plot routine
     # oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
-    plot_magnet_with_slice(x_points, y_points, B_Z_overall, target_x_idx)
-    plot_odmrs(freqs, slice_results, actual_x_val)
+    plot_magnet_with_slice(x_points, y_points, B_Z_overall, target_idx)
+    plot_odmrs(freqs, slice_results, actual_x_val,
+               diff_start_idx,
+               diff_end_idx)
 
-    plot_odmr_differences(
-        freqs,
-        y_points,
-        counts_2D,
-        target_x_idx,
-        y_diff_start_idx,
-        y_diff_end_idx
-    )
+    # plot_odmr_differences(
+    #     freqs,
+    #     y_points,
+    #     counts_2D,
+    #     target_idx,
+    #     diff_start_idx,
+    #     diff_end_idx
+    # )
 
 if __name__ == "__main__":
     main()
