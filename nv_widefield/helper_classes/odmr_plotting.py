@@ -12,14 +12,19 @@ compiled into one file to always use when plotting
 
 
 
-def plot_odmr(freqs: np.ndarray, kcps: np.ndarray):
+def plot_odmr(freqs: np.ndarray, kcps: np.ndarray, title=None):
     # freqs in Hz
     plt.figure(figsize=(8, 5))
     plt.plot(freqs / 1e9, kcps, "-o", markersize=2)
     plt.xlabel("Frequency (GHz)")
     plt.ylabel("brightness/s")
     # plt.ylim(7.4e11,7.45e11)
-    plt.title("ODMR")
+    # plt.xlim(3, 3.05)
+    # plt.ylim(3.59e9, 3.655e9)
+    if title is not None:
+        plt.title(title)
+    else:
+        plt.title("ODMR")
     plt.grid(True)
     plt.show()
 
@@ -59,7 +64,7 @@ def plot_magnet_image(x_points, y_points, B_Z_overall):
     # shading='auto' handles the coordinate mapping automatically
     mesh = plt.pcolormesh(x_points, y_points, B_Z_overall, shading='nearest', cmap='bwr')
 
-    plt.colorbar(mesh, label='B_Z (T)')
+    plt.colorbar(mesh, label=r'$\partial$ B (T)')
     plt.xlabel('x space (mm)')
     plt.ylabel('y space (mm)')
     plt.title('Magnetic Field Heatmap')
@@ -90,16 +95,16 @@ def plot_fitted_data(freqs, I_norm, fit_norm):
     ax.plot(freqs, I_norm, '-o', ms=2, color='k')
     ax.plot(freqs, fit_norm, '-', lw=2, color='C0', alpha=0.6, label='Lorentzian fit')
 
-    ax.axvline(
-        x=2.87,
-        color='red',
-        linestyle='--',
-        linewidth=1.2,
-        alpha=0.7,
-        label='2.87 GHz'
-    )
+    # ax.axvline(
+    #     x=2.87,
+    #     color='red',
+    #     linestyle='--',
+    #     linewidth=1.2,
+    #     alpha=0.7,
+    #     label='2.87 GHz'
+    # )
 
-    ax.set_title("ODMR")
+    ax.set_title("normalized ODMR and best-fit multi-lorentzian")
     ax.set_xlabel("Frequency (GHz)")
     ax.set_ylabel("Normalized Intensity")
     ax.legend(loc='upper left')
