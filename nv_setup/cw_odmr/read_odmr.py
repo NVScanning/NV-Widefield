@@ -32,9 +32,10 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-07-16" # YYYY-MM-DD
-time = "15-48-13"   # hh-mm_ss
-max_peaks = 1
+date = "2026-07-21" # YYYY-MM-DD
+time = "09-36-47"   # hh-mm_ss
+# time = "14-41-05"
+max_peaks = 4
 
 
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
@@ -63,19 +64,6 @@ if match[0].startswith("cw_odmr"):
         freqs, counts = data["x"], data["y"]
         oPlot.plot_odmr(freqs, counts)
 
-        # p0 = np.array([-3e4, 2.86, 0.02, -3e4, 2.88, 0.02, (3.8765e7-2.82e5), 1e5])
-        # # popt, pcov, peaks = Lfit.fit_odmr_multi_lorentzian(freqs / 10 ** 9, counts, max_peaks=max_peaks, default_fit=(p0, [22, 29]))
-        # popt = p0
-        # fitted_counts = Lfit.multi_lorentzian(freqs / 10 ** 9, *popt)
-        #
-        # # ---- Baseline from fit (off-resonance level) ----
-        # c0, c1 = popt[-2], popt[-1]
-        # baseline = c0 + c1 * freqs / 10 ** 9
-        #
-        # # ---- Normalized intensity (baseline = 1) ----
-        # # if there's a linear term in the counts, then this also removes that
-        # counts_norm = counts / baseline
-        # fitted_norm = fitted_counts / baseline
         popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
 
         Lfit.print_dip_params(popt)
@@ -367,7 +355,11 @@ elif match[0].startswith("widefield"):
                 # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
                 # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
 
-                oPlot.plot_odmr(freqs, counts)
+                # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+                # snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
+                # Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
+
+                oPlot.plot_odmr(freqs, counts, "raw ODMR data")
                 oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
             except ValueError:
                 print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4').")
