@@ -27,12 +27,14 @@ master_dark_frame = None
 master_roi = None
 master_bin = None
 
-# background_rate = 0 # 5600 000 / 128^2  # total brightness divided by num physical pixels divided by exposure time
-# # ^ This num ends up being like 341.8 counts/s on each pixel
-# # There is a clear pattern in the dark currents, so maybe record a picture one time and save it
-# # as a 2D array, then index into it with the relevant ROI and subtract from each image directly here
+# There is a clear pattern in the dark currents, so maybe record a picture one time and save it
+# as a 2D array, then index into it with the relevant ROI and subtract from each image directly here
+# Since there is a constant shot noise + linear dark current, perhaps take images at a variety of exposure
+# times and interpolate between them based on the current set exposure time
 
 def get_image_sub_bkg(cam):
+    # Generally used when recording with some buffer (rather than sequence)
+    # because in sequence there is a built-in averaging function
     image, dict = cam.image(image_index=-1)  # changed to always get the newest image
     if master_dark_frame is not None:
         image = image - cam.exposure_time * master_dark_frame[
@@ -109,15 +111,8 @@ def set_cam_settings(cam:Camera, exposure_time, roi=None, binning=(1, 1)):
 def read_image(cam:Camera,n_windows):
     Log.log("setting camera record")
     cam.record(mode="sequence", number_of_images=n_windows)
-    # ^ line takes a long time, im guessing its a blocking wait
-    # Even though exposure time is 100ms, it takes 210-230ms, whereas cam.image_average() returns immediately
-    # This time is constant regardless of image size, so it's likely not a data transfer issue
-    # With a 10ms exposure time, it takes 120-130ms, so it seems there's a ~110ms wait for some reason
-    # With a 500ms exposure time, it takes ~610-620ms, supporting the above constant wait
-    # TODO: figure out why tf this constant delay exists
-    # maybe solution is to use a different recording mode, which isn't blocking, doesn't require resetting after each picture
-    # it'll be something like a sequence of images for the whole freq sweep, but that I time properly in time with frequency changes
-    # Log.log("getting average image value")
+    # Starting a new recording for each image wastes ~100ms per image, so using a ringbuf with a single
+    # recording for the whole exposure is better
 
     image = cam.image_average()
     if master_dark_frame is not None:
@@ -139,7 +134,7 @@ def plot_image(image, x_points=None, y_points=None, title = ""):
         y_points = np.arange(image.shape[0])
     plt.figure(figsize=(8, 6))
     mesh = plt.pcolormesh(x_points, y_points, image, shading='nearest', cmap='gray', vmin=0) # use bone, gray, inferno, nihfire, viridis
-    plt.colorbar(mesh, label='637nm brightness (arb units)')
+    plt.colorbar(mesh, label='fluorescence brightness (arb units)')
     # plt.gca().invert_yaxis()
     plt.xlabel('x space (pixels)')
     plt.ylabel('y space (pixels)')
@@ -186,6 +181,11 @@ def connect_cam(roi: tuple[int, int, int, int] | None,binning_amount=1, forced_e
 
 
 def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, int], float, float]:
+    # converts the position and width of intended image from center+width to roi that the camera can understand
+    # Also adds a row to the bottom of the image, which gets removed when reading, since it has additional brightness
+    # for unknown reasons
+    # Also calculates the arrays for the x and y axis in mm for scaling images
+
     focus_point_size, focus_point_centre_x, focus_point_centre_y = pos_data
     if focus_point_size/binning_amount < 32:
         raise camera_exception.CameraException("Focus point size too small must be >=32 after binning")
@@ -227,6 +227,7 @@ def run_odmr_measurement(cam_rf_params, amp_dbm, fn, odmr_params):
 
 
 def bin_counts(counts_2D, binning_num, x_space, y_space):
+    # Bins together a binning_num x binning_num region of pixels and adjusts the x,y spacial arrays accordingly
     # counts_2D has shape (x_width, y_with, freqs_len)
     # x,y width are (generally) equal and a multiple of binning_amount
     if len(x_space) == 0 or len(y_space) == 0:
