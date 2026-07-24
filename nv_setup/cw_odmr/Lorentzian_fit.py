@@ -30,7 +30,7 @@ def multi_lorentzian(f, *params):
         c0: baseline offset
         c1: baseline slope  (c0 + c1 * f)
     """
-    n_peaks = (len(params) - 2) // 3  
+    n_peaks = (len(params) - 2) // 3
     c0 = params[-2]
     c1 = params[-1]
 
@@ -143,7 +143,8 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     # freqs in GHz
     df = abs(freqs[1]-freqs[0])
 
-    filtering_sigma = 1
+    filtering_sigma = 0.0015/df # this is num samples, not freq space, use 1MHz/df
+    # print("filtering_sigma", filtering_sigma)
 
 
     filtered_vals = ndi.gaussian_filter(vals, sigma=filtering_sigma)
@@ -155,28 +156,30 @@ def guess_initial_params(freqs, vals, max_peaks=None):
 
     d1 = np.gradient(filtered_vals, df)
     # print(d1)
-    # oPlot.plot_odmr(freqs*10**9, d1) # print the 1st derivative values to know what kind of prominence to expect
+    # oPlot.plot_odmr(freqs*10**9, d1) # plot the 1st derivative values to know what kind of prominence to expect
     filtered_d1 = ndi.gaussian_filter(d1, sigma=filtering_sigma)
     # oPlot.plot_odmr(freqs*10**9, filtered_d1, "gaussian filtered ODMR derivative") # print the 2nd derivative values to know what kind of prominence to expect
     d2 = np.gradient(filtered_d1, df) # why a negative sign?
-    # oPlot.plot_odmr(freqs*10**9, d2) # print the 2nd derivative values to know what kind of prominence to expect
+    # oPlot.plot_odmr(freqs*10**9, d2) # plot the 2nd derivative values to know what kind of prominence to expect
 
     filtered_d2 = ndi.gaussian_filter(d2, sigma=filtering_sigma)
     # oPlot.plot_odmr(freqs*10**9, filtered_d2, "gaussian filtered ODMR 2nd derivative") # print the 2nd derivative values to know what kind of prominence to expect
     max_d2 = max(d2)
-    max_prominence = (max_d2-min(d2)) # use maybe 1/5-1/10th of this has the minimal prominence
+    # max_prominence = (max_d2-min(d2)) # use maybe 1/5-1/10th of this has the minimal prominence
+    max_prominence = max_d2
+    # print(f"using {max_prominence/max_d2*100*0.12}% prominence for find_peaks of the second derivative")
 
     noise_std = np.std(d2[:edge_pts] - filtered_d2[:edge_pts])
     min_distance_pts = max(1, int(0.005 / df))  # ~4 MHz minimum peak separation
     peaks_d2, props_d2 = find_peaks(
         filtered_d2,
         # prominence=max(0.1*max_prominence, 1.5 * noise_std),
-        prominence=0.2*max_prominence,
+        prominence=0.12*max_prominence,
         distance=min_distance_pts
     )
 
     peaks, props = peaks_d2, props_d2
-    print(f"\nFind_peaks on second derivative found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
+    # print(f"\nFind_peaks on second derivative found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
 
 
 
@@ -247,8 +250,8 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
     upper = []
     for i in range(n_peaks):
         A0, f0, g0 = p0[3*i:3*i+3]
-        lower += [-abs(A0*1.5), f0 - 0.005, 0.001]
-        upper += [-abs(A0*0.5), f0 + 0.005, 3 * g0] # max HWHF is 40MHz
+        lower += [-abs(A0*2), f0 - 0.005, 0.001]
+        upper += [-abs(A0*0.5), f0 + 0.005, 2 * g0] # max HWHF is 40MHz
 
     # lower += [R_vals.min() - 1, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
     # upper += [R_vals.max()*1.1,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
@@ -422,14 +425,14 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
             # if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
             #     # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
             #     print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
-            delta_freq = odmr_to_delta_freq(counts_2D[x_ind,y_ind], freqs, max_peaks=max_peaks)
+            delta_freq = odmr_to_delta_freq(counts_2D[x_ind, y_ind], freqs, max_peaks=max_peaks)
             if delta_freq == 0:
                 # had problem fitting
                 problem_points.append((x_ind, y_ind))
-                B_Z_overall[x_ind,y_ind]=np.nan
+                B_Z_overall[x_ind, y_ind] = np.nan
             else:
                 B_Z = delta_freq / (2 * cs.gamma_e)  # in T
-                B_Z_overall[x_ind,y_ind]=B_Z
+                B_Z_overall[x_ind, y_ind] = B_Z
 
     sys.stdout.write(f"\r\033[KConverting to B_Z finished, took {time.time()-t0:.0f}s\n")  # Clear progress bar
     sys.stdout.flush()
