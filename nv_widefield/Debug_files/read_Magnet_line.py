@@ -18,18 +18,18 @@ import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 # # time = "15-40-31" #
 # time = "16-50-33"
 
-date = "2026-07-20"
-time = "15-01-14"
-target_idx = 9  # The specific spatial x-index to extract across all y's
+date = "2026-07-22"
+time = "15-22-30"
+target_idx = 15  # The specific spatial x-index to extract across all y's
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-max_peaks = 2
-plot_fits = True
+max_peaks = 6
+plot_fits = False
 
 diff_start_idx = 0
-diff_end_idx = 17
+diff_end_idx = 31
 
-offset = 0.001
+offset = 0.003
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
     """
@@ -102,7 +102,8 @@ def plot_dip_vs_axis(y_positions, centers, fixed_pos_val):
     plt.show()
 
 def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
-    N_steps = len(sweep_results)
+    N_steps = len(sweep_results)//2
+    print("There should be ", N_steps, "ODMRS plotted")
     plt.figure(figsize=(10, 6), layout="constrained")
 
     fitted_axis_positions = []
@@ -110,6 +111,8 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
 
     # Use plasma colormap matching previous scripts
     colors = plt.cm.plasma(np.linspace(0, 0.85, N_steps))
+
+
 
     for idx, (axis_pos, counts) in enumerate(sweep_results.items()):
 
@@ -131,6 +134,26 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
             linewidth=1.5,
             alpha=0.85
         )
+
+        if idx == 1:
+            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+            contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+            plt.axvline(
+                x=dip_Freqs[0], # change index to choose which dip to plot a vline for
+                color='red',
+                linestyle='--',
+                linewidth=1.2,
+                alpha=0.7,
+                label='2.87 GHz'
+            )
+            plt.axvline(
+                x=dip_Freqs[-1], # change index to choose which dip to plot a vline for
+                color='red',
+                linestyle='--',
+                linewidth=1.2,
+                alpha=0.7,
+                label='2.87 GHz'
+            )
 
         if plot_fits:
             try:
@@ -183,7 +206,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
         plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val:.4f} mm)", fontsize=13)
     else:
         plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val:.4f} mm)", fontsize=13)
-    plt.xlim(2.68,2.79)
+    # plt.xlim(2.68,2.79)
     # plt.ylim(0.997, 1 + len(z_sweep_results.items())*0.0002)
     # plt.grid(True, linestyle="--", alpha=0.5)
 
@@ -202,16 +225,16 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
     at the spatial x-coordinate corresponding to target_x_idx.
     """
     # Safeguard x-bounds and retrieve physical value
-    space_to_check = x_space if slice_axis == "x" else y_space
+    space_to_check = y_space if slice_axis == "x" else x_space
     if target_axis_idx >= len(space_to_check) or target_axis_idx < 0:
         raise IndexError(f"Target index {target_axis_idx} is out of bounds for the selected space slice.")
 
-    slice_x_coord = space_to_check[target_axis_idx]
+    slice_axis_coord = space_to_check[target_axis_idx]
 
     # if target_x_idx >= len(x_space) or target_x_idx < 0:
     #     raise IndexError(f"Target index {target_x_idx} is out of bounds for x_space of size {len(x_space)}")
 
-    slice_x_coord = x_space[target_axis_idx]
+    # slice_axis_coord = space_to_check[target_axis_idx]
 
     # Establish robust colormap scaling (1st to 99th percentile) to handle hot pixels
     # vmin = np.percentile(B_field_2D, 1)
@@ -227,35 +250,35 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
     # axvline spans the full height of the axes
     if slice_axis == "x":
         plt.axhline(
-            y=slice_x_coord,
+            y=slice_axis_coord,
             color='black',
             linestyle=':',
             linewidth=5.0,
-            label=f"Slice line (y = {slice_x_coord:.4f} mm)",
+            label=f"Slice line (y = {slice_axis_coord:.4f} mm)",
             zorder=10
         )
     else:
         plt.axvline(
-            x=slice_x_coord,
+            x=slice_axis_coord,
             color='black',
             linestyle=':',
             linewidth=5.0,
-            label=f"Slice line (x = {slice_x_coord:.4f} mm)",
+            label=f"Slice line (x = {slice_axis_coord:.4f} mm)",
             zorder=10
         )
 
     # plt.axvline(
-    #     x=slice_x_coord,
+    #     x=slice_axis_coord,
     #     color='black',
     #     linestyle=':',
     #     linewidth=5.0,
-    #     label=f"Slice line (x = {slice_x_coord:.4f} mm)",
+    #     label=f"Slice line (x = {slice_axis_coord:.4f} mm)",
     #     zorder=10
     # )
 
     # # Optional: Highlight the terminals of the vertical scan
     # plt.scatter(
-    #     [slice_x_coord, slice_x_coord],
+    #     [slice_axis_coord, slice_axis_coord],
     #     [y_space[0], y_space[-1]],
     #     color='cyan',
     #     edgecolors='black',
