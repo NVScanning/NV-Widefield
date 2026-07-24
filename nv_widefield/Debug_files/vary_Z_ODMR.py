@@ -27,7 +27,7 @@ Much of this code was combined from previously written code by Gemini, then edit
 
 
 roi = None
-
+max_peaks = 4
 
 def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
     """Executes a dual-directional frequency sweep and returns a 1D binned array, of the brightness per second"""
@@ -50,7 +50,7 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 def main():
     binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
     focus_point_size = 200  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1100,990 # in pixels, center point of the laser point
+    focus_point_centre_x, focus_point_centre_y = 1110,1010 # in pixels, center point of the laser point
 
     n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
@@ -67,9 +67,9 @@ def main():
     # N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 5.97 # Target focus center
-    z_span = 0.1 # Distance range over sweep
-    N_z_steps = 11     # Total step divisions to evaluate
+    z_center = 6.04 # Target focus center
+    z_span = 0.06 # Distance range over sweep
+    N_z_steps = 7     # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
@@ -100,7 +100,7 @@ def main():
     time.sleep(2)  # extra time for the first point
 
     avg_contrasts, avg_snrs, z_positions, z_sweep_results = (
-        pci.run_odmr_measurement((roi, binning_amount,0.02), amp_dbm, measure_ODMRs,
+        pci.run_odmr_measurement((roi, binning_amount,0.005), amp_dbm, measure_ODMRs,
                                  (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range)))
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
@@ -169,7 +169,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
     list[float], list[float], list[float], dict[float, float]]:
     point_duration_s = cam.exposure_time * n_windows
     print(f"beggining measurements, estimate time to completion: "
-          f"{len(z_range) * ((n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell) + 0.02) + z_dwell) + (len(freqs) + 1)*(point_duration_s + freq_dwell) +0.02:.0f}s")
+          f"{len(z_range) * ((n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell) + 0.02) + z_dwell) + (len(freqs) + 1)*(point_duration_s + freq_dwell) +0.02 + z_dwell * 3:.0f}s")
 
     t0 = time.time()
     # Setup data store dictionary: {z_position: odmr_counts_array}
@@ -182,7 +182,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
 
     # Throw out first scan, it's always fucked
     z_motor.move_to(z_range[0])
-    time.sleep(z_dwell)  # Allow structural mechanical settle time
+    time.sleep(z_dwell*3)  # Allow structural mechanical settle time
     pci.sweep_freqs_binned_ringBuf(cam, sg, freq_dwell, freqs, min(2, n_windows), 1, 0)
     # pci.sweep_freqs_binned_ringBuf(cam, sg, freq_dwell, freqs[::-1], n_windows, 2,  1)[::-1]
     sys.stdout.write(f"\r\033[KFirst throwaway scan complete\n")  # Clear progress bar
@@ -208,7 +208,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
 
         # Run Lorentzian curve fitting on current data
         try:
-            popt, pcov, _, _, baseline = Lfit.analyze_data(freqs, counts, max_peaks=2)
+            popt, pcov, _, _, baseline = Lfit.analyze_data(freqs, counts, max_peaks=max_peaks)
 
             # Fetch parameters using localized logic definitions
             contrasts, _, _ = Lfit.get_dip_params(popt)

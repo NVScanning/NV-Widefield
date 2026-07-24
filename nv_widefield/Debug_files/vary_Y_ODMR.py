@@ -26,10 +26,13 @@ Much of this code was combined from previously written code for varying Z
 
 
 roi = None
-max_peaks = 6
+max_peaks = 4
+I_applied = 1
 
-new_Measurement = True
-old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_00-32-38.txt"
+new_Measurement = False
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_00-32-38.txt" # overnight with 1A
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_09-46-58.txt" # 0.7A
+old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_10-39-51.txt" # larger stepsize 1A
 
 
 def wire_b_field(y, y0, B_offset, I=1.0):
@@ -51,34 +54,7 @@ def wire_b_field(y, y0, B_offset, I=1.0):
     return (mu_0 * I) / (2 * np.pi * r_meters) + B_offset
 
 def measure_binned_odmr_at_y(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
-    """Executes a dual-directional frequency sweep and returns a 1D binned array, of the kilo brightness per second"""
-    # brightnesses = np.zeros((n_iter * 2, freqs.size))
-    #
-    # for i in range(n_iter):
-    #     # Forward Frequency Sweep
-    #     brightness = []
-    #     time.sleep(dwell)
-    #     image = pci.read_image(cam, n_windows) # take a first image you ignore, maybe it removes the slightly higher num from first measurement
-    #     for f in freqs:
-    #         sg.write(f"FREQ {float(f)}")
-    #         time.sleep(dwell)
-    #         image = pci.read_image(cam, n_windows)
-    #         all_counts = pci.bin_image(image)
-    #         brightness.append(all_counts / point_duration_s / 1000.0)
-    #     brightnesses[i] = brightness
-    #
-    #     brightness = []
-    #     time.sleep(dwell)
-    #     image = pci.read_image(cam, n_windows) # take a first image you ignore
-    #     for f in freqs[::-1]:
-    #         sg.write(f"FREQ {float(f)}")
-    #         time.sleep(dwell)
-    #         image = pci.read_image(cam, n_windows)
-    #         all_counts = pci.bin_image(image)
-    #         brightness.append(all_counts / point_duration_s / 1000.0)
-    #     brightnesses[n_iter + i] = brightness[::-1]
-    #
-    # return np.sum(brightnesses, axis=0) / (n_iter * 2)
+    """Executes a dual-directional frequency sweep and returns a 1D binned array, of the brightness per second"""
     t0 = time.time()
     brightnesses = np.zeros((n_iter * 2, freqs.size))
 
@@ -92,86 +68,6 @@ def measure_binned_odmr_at_y(cam, sg, freqs, dwell, point_duration_s, n_windows,
     sys.stdout.flush()
 
     return np.sum(brightnesses, axis=0) / (n_iter * 2)
-
-
-def main():
-    if new_Measurement:
-        binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
-        # focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-        # focus_point_centre_x, focus_point_centre_y = 930,770 # in pixels, center point of the laser point
-        focus_point_size = 128  # in physical (unbinned) pixels, diameter of circle of laser point
-        focus_point_centre_x, focus_point_centre_y = 1110,1050 # in pixels, center point of the laser point
-
-        n_windows_per_point = 10
-        amp_dbm = -10  # RF Generator Amplitude
-        freq_dwell = 0.01  # Frequency switch recovery interval
-        y_dwell = 1
-        n_iter = 2 # Iterations at each z-step
-
-        # Frequency Sweep Space Configuration
-        f_center = 2.87e9  # Hz
-        span = 0.25e9  # Hz
-        N_freqs = 501  # Total frequency resolution steps
-
-        # Y-Axis Step Parameters
-        # y_center = 3.1625  # Target focus center
-        # y_span = 0.005  # Distance range over sweep
-        # N_y_steps = 5  # Total step divisions to evaluate
-        # y_center = 4.22  # Target focus center
-        # y_span = 0.15 # Distance range over sweep
-        y_start = 3.93
-        N_y_steps = 20  # Total step divisions to evaluate
-        y_stepsize = 0.01 # 20um stepsize
-
-        # Calculate operational sweep coordinates
-        _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
-        # _, _, y_range = cs.calc_sweep_range(y_center, y_span, N_y_steps)
-        # y_range = np.arange(y_start, y_start+(N_y_steps-1) * y_stepsize, y_stepsize)
-        y_range = [3.92, 3.93, 3.94, 3.95, 4.05,4.06,4.07,4.08,4.09,4.10,4.11,4.12,4.13]
-        N_y_steps = len(y_range)
-        # print("going to check Y:", y_range)
-
-        # -------------------------------------------------------------
-        # HARDWARE INITIALIZATION
-        # -------------------------------------------------------------
-        y_motor, y_prev_position = cs.connect_motor(cs.y_mID)
-        roi, _, _ = pci.get_spacial_params(binning_amount, (focus_point_size, focus_point_centre_x, focus_point_centre_y)) # Comment out to use previous image
-        # roi = (1,1,pci.camera_resolution//binning_amount,pci.camera_resolution//binning_amount)
-        if roi is not None:
-            print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
-        else:
-            print("Using cam's previous roi and binning settings")
-
-        y_motor.move_to(y_start)
-        time.sleep(5)
-
-
-        # with pco.Camera() as cam:
-        #     pci.set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))
-        #     pci.auto_expose(cam, target_intensity=0.3)  # sets cameras exposure time
-
-        # cam, sg = pci.connect_cam_RF(roi, binning_amount)
-        # point_duration_s = cam.exposure_time * n_windows_per_point
-
-
-        # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
-        print(f"Staging motor to just below initial y-coordinate: {y_range[0]-0.003:.4f}mm...")
-        y_motor.move_to(y_range[0]-0.003) # Move to a bit below the first measurement, so always on same side of backlash
-        time.sleep(2)  # extra time for the first point
-
-        avg_contrasts, avg_snrs, avg_FWHMs, y_positions, y_sweep_results = (
-            pci.run_odmr_measurement((roi, binning_amount, 0.002), amp_dbm, measure_ODMRs,
-                                     (freq_dwell, freqs, n_iter, n_windows_per_point, y_dwell, y_motor, y_range)))
-    else:
-        N_y_steps, freqs, y_sweep_results = read_txt(old_Measurement_Path)
-    plot_odmrs(N_y_steps, freqs, y_sweep_results)
-
-
-    plot_B_Y_dep(freqs, y_sweep_results)
-
-    # plot_SNR_contr(avg_contrasts, avg_snrs, avg_FWHMs, y_positions)
-
-    # move_to_user_input(y_motor, y_prev_position)
 
 
 def read_txt(txt_path):
@@ -236,14 +132,18 @@ def plot_B_Y_dep(freqs, y_sweep_results):
     fitted_Ys = []
 
     for idx, (y_pos, counts) in enumerate(y_sweep_results.items()):
-        if idx < 5:
-            max_peaks = 6
-        else:
-            max_peaks = 4
-        # elif idx > 13:
+        # if idx < 5:
         #     max_peaks = 4
-        # else:
+        # elif idx < 2:
+        #     max_peaks = 5
+        # if idx > 10 or idx < 6:
         #     continue
+        # elif idx < 6:
+        #     max_peaks = 6
+        # elif idx == 5:
+        #     max_peaks = 5
+        # else:
+        #     max_peaks = 6
         delta_freq = Lfit.odmr_to_delta_freq(counts, freqs, max_peaks=max_peaks)
         if delta_freq == 0:
             print(f"Couldn't fit ODMR at y = {y_pos:.4f} mm")
@@ -269,7 +169,7 @@ def plot_B_Y_dep(freqs, y_sweep_results):
             p0 = [initial_y0, initial_B_offset]
 
             popt, pcov = curve_fit(
-                lambda y, y0, B_off: wire_b_field(y, y0, B_off, I=1.0),
+                lambda y, y0, B_off: wire_b_field(y, y0, B_off, I=I_applied),
                 fitted_Ys,
                 B_vals,
                 p0=p0
@@ -280,7 +180,7 @@ def plot_B_Y_dep(freqs, y_sweep_results):
 
             # Generate fine evaluation grid for smooth line plot
             y_fine = np.linspace(np.min(fitted_Ys), np.max(fitted_Ys), 200)
-            B_fit = wire_b_field(y_fine, fit_y0, fit_B_off, I=1.0)
+            B_fit = wire_b_field(y_fine, fit_y0, fit_B_off, I=I_applied)
 
             # Convert extracted standoff distance (y0) to mm display
             print(f"--- Wire Distance Fit Results ---")
@@ -293,7 +193,7 @@ def plot_B_Y_dep(freqs, y_sweep_results):
                 '--',
                 color='navy',
                 linewidth=2.0,
-                label=f'1/r Fit ($y_0$ = {fit_y0:.3f} mm)'
+                label=f'1/r Fit: $(mu_0{I_applied})/(2pi (y-{fit_y0:.2f})) + {fit_B_off:.3e}T$)'
             )
 
         except Exception as fit_err:
@@ -441,6 +341,88 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
             print(f"Data fit sequence rejected at y={y_pos:.4f} mm: {fit_error}")
 
     return avg_contrasts, avg_snrs, avg_FWHMs, y_positions, y_sweep_results
+
+
+
+def main():
+    if new_Measurement:
+        binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
+        # focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+        # focus_point_centre_x, focus_point_centre_y = 930,770 # in pixels, center point of the laser point
+        focus_point_size = 128  # in physical (unbinned) pixels, diameter of circle of laser point
+        focus_point_centre_x, focus_point_centre_y = 1110,1050 # in pixels, center point of the laser point
+
+        n_windows_per_point = 10
+        amp_dbm = -10  # RF Generator Amplitude
+        freq_dwell = 0.01  # Frequency switch recovery interval
+        y_dwell = 1
+        n_iter = 2 # Iterations at each z-step
+
+        # Frequency Sweep Space Configuration
+        f_center = 2.87e9  # Hz
+        span = 0.25e9  # Hz
+        N_freqs = 501  # Total frequency resolution steps
+
+        # Y-Axis Step Parameters
+        # y_center = 3.1625  # Target focus center
+        # y_span = 0.005  # Distance range over sweep
+        # N_y_steps = 5  # Total step divisions to evaluate
+        # y_center = 4.22  # Target focus center
+        # y_span = 0.15 # Distance range over sweep
+        y_start = 3.92
+        N_y_steps = 10  # Total step divisions to evaluate
+        y_stepsize = 0.02 #
+
+        # Calculate operational sweep coordinates
+        _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
+        # _, _, y_range = cs.calc_sweep_range(y_center, y_span, N_y_steps)
+        y_range = np.arange(y_start, y_start+(N_y_steps-1) * y_stepsize, y_stepsize)
+        # y_range = [3.92, 3.93, 3.94, 3.95, 4.05,4.06,4.07,4.08,4.09,4.10,4.11,4.12,4.13]
+        N_y_steps = len(y_range)
+        # print("going to check Y:", y_range)
+
+        # -------------------------------------------------------------
+        # HARDWARE INITIALIZATION
+        # -------------------------------------------------------------
+        y_motor, y_prev_position = cs.connect_motor(cs.y_mID)
+        roi, _, _ = pci.get_spacial_params(binning_amount, (focus_point_size, focus_point_centre_x, focus_point_centre_y)) # Comment out to use previous image
+        # roi = (1,1,pci.camera_resolution//binning_amount,pci.camera_resolution//binning_amount)
+        if roi is not None:
+            print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
+        else:
+            print("Using cam's previous roi and binning settings")
+
+        y_motor.move_to(y_start)
+        time.sleep(5)
+
+
+        # with pco.Camera() as cam:
+        #     pci.set_cam_settings(cam, 10e-3/binning_amount**2, roi=roi, binning=(binning_amount, binning_amount))
+        #     pci.auto_expose(cam, target_intensity=0.3)  # sets cameras exposure time
+
+        # cam, sg = pci.connect_cam_RF(roi, binning_amount)
+        # point_duration_s = cam.exposure_time * n_windows_per_point
+
+
+        # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
+        print(f"Staging motor to just below initial y-coordinate: {y_range[0]-0.003:.4f}mm...")
+        y_motor.move_to(y_range[0]-0.003) # Move to a bit below the first measurement, so always on same side of backlash
+        time.sleep(2)  # extra time for the first point
+
+        avg_contrasts, avg_snrs, avg_FWHMs, y_positions, y_sweep_results = (
+            pci.run_odmr_measurement((roi, binning_amount, 0.002), amp_dbm, measure_ODMRs,
+                                     (freq_dwell, freqs, n_iter, n_windows_per_point, y_dwell, y_motor, y_range)))
+
+        plot_odmrs(N_y_steps, freqs, y_sweep_results)
+
+        plot_B_Y_dep(freqs, y_sweep_results)
+        # plot_SNR_contr(avg_contrasts, avg_snrs, avg_FWHMs, y_positions)
+        move_to_user_input(y_motor, y_prev_position)
+    else:
+        N_y_steps, freqs, y_sweep_results = read_txt(old_Measurement_Path)
+        plot_odmrs(N_y_steps, freqs, y_sweep_results)
+
+        plot_B_Y_dep(freqs, y_sweep_results)
 
 
 if __name__ == "__main__":

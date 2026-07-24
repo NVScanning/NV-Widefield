@@ -32,10 +32,9 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-07-21" # YYYY-MM-DD
-time = "09-36-47"   # hh-mm_ss
-# time = "14-41-05"
-max_peaks = 4
+date = "2026-07-23" # YYYY-MM-DD
+time = "10-36-21"   # hh-mm_ss
+max_peaks = 6
 
 
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
@@ -66,12 +65,13 @@ if match[0].startswith("cw_odmr"):
 
         popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
 
-        Lfit.print_dip_params(popt)
+        # Lfit.print_dip_params(popt)
         snrs = Lfit.get_SNRs(baseline, counts, freqs/10**9, popt)
 
-        _, _, dip_Freqs = Lfit.get_dip_params(popt)
+        contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
 
-        Lfit.print_SNR(snrs, dip_Freqs)
+        # Lfit.print_SNR(snrs, dip_Freqs)
+        Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
         oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
     else :
         data = np.load(filepath + ".npy")

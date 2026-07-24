@@ -86,7 +86,7 @@ def plot_dFreq_image(x_points, y_points, freq_deltas):
 def plot_fitted_data(freqs, I_norm, fit_norm):
     # Expects frequencies in GHz
     fig = plt.figure(figsize=(8, 5))
-    gs = fig.add_gridspec(1, 2, width_ratios=[4, 1])
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 0])
 
     ax = fig.add_subplot(gs[0, 0])
     ax_info = fig.add_subplot(gs[0, 1])

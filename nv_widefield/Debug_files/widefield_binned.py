@@ -30,7 +30,7 @@ roi = None
 
 def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarray:
     point_duration_s = cam.exposure_time * n_windows
-    print(f"measuring binned ODMR with {n_iter} iterations, estimate time to completion"
+    print(f"measuring binned ODMR with {n_iter} iteration(s), estimate time to completion"
           f" ~{(n_iter)*2 * ((len(freqs) + 1) * (dwell + point_duration_s) + 0.02):.0f}s")
     # seen=0
 
@@ -69,8 +69,8 @@ def main():
 
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 200  # in pixels, approximate width of image taken, must be >=32 after binning
-    focus_point_centre_x, focus_point_centre_y = 1100,990  # in pixels, center of the laser point
+    focus_point_size = 256  # in pixels, approximate width of image taken, must be >=32 after binning
+    focus_point_centre_x, focus_point_centre_y = 1110,1030  # in pixels, center of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
@@ -78,14 +78,17 @@ def main():
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
     dwell =  0.01 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 3
+    n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.2e9 # Hz, range of frequencies to sample
-    N = 201 # num points in the frequency space to sample
+    span = 0.25e9 # Hz, range of frequencies to sample
+    N = 251 # num points in the frequency space to sample
     # f_center = 5.3e9 # Hz, generally near 2.87GHz
     # span = 0.3e9 # Hz, range of frequencies to sample
     # N = 101 # num points in the frequency space to sample
+    # f_center = 2.92e9 # Hz, generally near 2.87GHz
+    # span = 0.1e9 # Hz, range of frequencies to sample
+    # N = 201 # num points in the frequency space to sample
 
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution//binning_amount,pci.camera_resolution//binning_amount)
@@ -95,13 +98,13 @@ def main():
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
     # print(f"Frequency range from {f_start/1e9:.3f} to {f_end/1e9:.3f}GHz")
 
-    counts = pci.run_odmr_measurement((roi, binning_amount), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts = pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     oPlot.plot_odmr(freqs, counts)
 
     oPlot.save_point_odmr_measurement(counts, freqs)
 
-    max_peaks = 2
+    max_peaks = 4
     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
     # Lfit.print_dip_params(popt)
     contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)

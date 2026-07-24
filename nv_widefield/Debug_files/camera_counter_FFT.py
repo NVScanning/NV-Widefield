@@ -109,7 +109,7 @@ def main():
     # # plt.scatter(*pixels[2], color=color3,  label="left middle", s=100, zorder=5)
     # # plt.scatter(*pixels[1], color=color2,  label="lower middle", s=100, zorder=5)
     # # plt.scatter(*pixels[0], color=color1,  label="centre", s=100, zorder=5)
-    # plt.colorbar(mesh, label='637nm brightness (arb units)')
+    # plt.colorbar(mesh, label='fluorescence brightness (arb units)')
     # plt.gca().invert_yaxis()
     # plt.xlabel('x space (pixels)')
     # plt.ylabel('y space (pixels)')
