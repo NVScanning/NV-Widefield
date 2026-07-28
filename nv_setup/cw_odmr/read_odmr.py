@@ -32,9 +32,9 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-07-23" # YYYY-MM-DD
-time = "10-36-21"   # hh-mm_ss
-max_peaks = 6
+date = "2026-07-28" # YYYY-MM-DD
+time = "16-50-31"   # hh-mm_ss
+max_peaks = 3
 
 
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
@@ -153,7 +153,7 @@ elif match[0].startswith("scanned"):
                       f"and Y within [0, {len(y_points) - 1}].")
                 continue
 
-            counts = counts_2D[x_ind,y_ind]
+            counts = counts_2D[y_ind,x_ind]
             popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
             Lfit.print_dip_params(popt)
             # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
@@ -255,7 +255,7 @@ elif match[0].startswith("widefield"):
                     continue
 
                 df = abs(freqs[1] - freqs[0])
-                fft = scipy.fft.fft(counts_2D[x_ind,y_ind])
+                fft = scipy.fft.fft(counts_2D[y_ind,x_ind])
                 fft_freqs = scipy.fft.fftfreq(len(freqs), d=df)
                 fft_shifted = scipy.fft.fftshift(fft)
                 freqs_shifted = scipy.fft.fftshift(fft_freqs)
@@ -348,7 +348,7 @@ elif match[0].startswith("widefield"):
                     continue
 
                 B_Z_saved = B_Z_overall[y_ind, x_ind]
-                counts = counts_2D[x_ind,y_ind]
+                counts = counts_2D[y_ind, x_ind]
                 popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
                 # print(f"B_Z was saved in the file as {B_Z_saved:.3}")
                 # Lfit.print_dip_params(popt)
