@@ -143,7 +143,7 @@ def vary_binning():
 
     # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
     # time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-    counts_2D = pci.run_odmr_measurement((roi, binning_amount, 0.01),amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts_2D, _ = pci.run_odmr_measurement((roi, binning_amount, 0.01),amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     print("")
 
@@ -201,7 +201,7 @@ def vary_exposure_time():
 
         # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
         # time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-        counts_2D = pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+        counts_2D, _ = pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
         print(f"\nAnalyzing SNR&contrast from ODMR for {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200:.0f}s")
         snrs, contrasts = Lfit.counts_to_SNR_contrast(x_space, y_space, counts_2D, freqs, max_peaks)
@@ -245,7 +245,7 @@ def vary_exposure_binning():
 
         # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
         # time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-        counts_2D = pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+        counts_2D, _ = pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
         binned_contrast_avg, binned_snr_avg, _, _ = bin_full_measurement(counts_2D, freqs,
                                                                             n_bins, x_space, y_space)

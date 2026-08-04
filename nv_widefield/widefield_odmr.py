@@ -46,15 +46,15 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
 
     sys.stdout.write(f"\r\033[KODMR finished, took {time.time()-t0:.0f}s\n") # Clear progress bar
     sys.stdout.flush()
-    return np.sum(brightnesses,axis=0)/(n_iter*2)
+    return np.sum(brightnesses,axis=0)/(n_iter*2), prev_path
 
 
 def main():
     # params
     camera_binning = 1 # built-int pco camera binning, can only be 1,2,4
-    post_processing_binning = 8
-    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1110,1030  # in pixels, center of the laser point
+    post_processing_binning = 16
+    focus_point_size = 280  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 1070,1200  # in pixels, center of the laser point
     # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
     n_windows_per_point = 3 # n readouts to increase certainty without overexposing
     amp_dbm = -10 # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
@@ -62,8 +62,8 @@ def main():
     n_iter = 3 # integer >=1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.25e9 # Hz, range of frequencies to sample
-    N = 1001 # num points in the frequency space to sample
+    span = 0.6e9 # Hz, range of frequencies to sample
+    N = 601 # num points in the frequency space to sample
 
     max_peaks = 6
 
@@ -72,13 +72,16 @@ def main():
     print(f"Using the following roi: {roi} and binning a {camera_binning}x{camera_binning} region")
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
+    # freqs = np.linspace(f_center, f_center + span, N) # only measure half the range for less wasted measurement time
+    # f_start = f_center
+    # f_end = f_center + span
     # print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
     # point_duration_s = cam.exposure_time * n_windows_per_point
 
     if len(x_space) % post_processing_binning != 0:
         raise ValueError("postprocessing binning is not a divisor of the focus point size after camera binning")
 
-    counts_2D = pci.run_odmr_measurement((roi, camera_binning), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, 0.1), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     print("Sweeping done")
     if post_processing_binning > 1:
