@@ -19,6 +19,7 @@ extra_row_size = 8
 max_pixel_val = 65535 # 2^16-1
 min_roi_dims = 32
 objective_magnification = 50
+expansion_ratio = 35/100 # ratio of focal lengths in beam expander lens pair f2/f1
 dark_frame_path = "C:\\Users\\NVCFM\\Desktop\\NV-widefield Experiment\\nv_widefield\\helper_classes\\master_dark.npy"
 master_dark_frame: npt.NDArray[np.float64] | None
 master_roi: tuple[int, int, int, int] | None
@@ -196,9 +197,10 @@ def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, i
     fpcy = focus_point_centre_y // 16 * 16 // binning_amount
     x_points = np.arange(fpcx - fps // 2 + 1, fpcx + fps // 2 + 1)
     y_points = np.arange(fpcy - fps // 2 + 1, fpcy + fps // 2 + 1)
-    # Approximately 130nm per physical pixel (6.5um pixel width, and 50x objective)
-    x_space = x_points * 6.5/objective_magnification / 10 ** 3 * binning_amount # position in mm
-    y_space = y_points * 6.5/objective_magnification / 10 ** 3 * binning_amount
+    # Approximately 130nm per physical pixel (6.5um pixel width, and 50x objective with 200mm tube lens)
+    # Add in expansion_ratio=f2/f1 magnification
+    x_space = x_points * 6.5/objective_magnification / 10 ** 3 * binning_amount * expansion_ratio # position in mm
+    y_space = y_points * 6.5/objective_magnification / 10 ** 3 * binning_amount * expansion_ratio
     # region of interest, crop into this portion of the camera's view
 
     # add a row of 8 pixels to y if space allows, to remove the bright row
