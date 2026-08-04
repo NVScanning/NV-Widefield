@@ -1,8 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from scipy.optimize import curve_fit
 
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
+from vary_Y_ODMR import wire_b_field
+import connection_setup as cs
+
+import scipy.ndimage as ndi
 # Maintain directory path expansions
 # import sys
 # sys.path.append(os.path.abspath("..."))
@@ -18,18 +23,23 @@ import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 # # time = "15-40-31" #
 # time = "16-50-33"
 
-date = "2026-07-22"
-time = "15-22-30"
-target_idx = 15  # The specific spatial x-index to extract across all y's
-slice_axis = "y"        # Choose "x" or "y" to slice along that axis
+date = "2026-08-04"
+time = "12-31-28"
+time = "16-43-23"
+time = "13-55-58"
+target_idx = 8  # The specific spatial x-index to extract across all y's
+slice_axis = "x"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-max_peaks = 6
-plot_fits = False
+max_peaks = 7
+plot_dip_positions = True
+fit_fn = True
 
-diff_start_idx = 0
-diff_end_idx = 31
+diff_start_idx = 7
+diff_end_idx = 15
+labelled_dip_idx = -1
 
-offset = 0.003
+offset = 0.001
+I_applied = 1
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
     """
@@ -101,13 +111,72 @@ def plot_dip_vs_axis(y_positions, centers, fixed_pos_val):
     plt.legend(loc="best")
     plt.show()
 
+def fit_and_plot_b_vs_axis(axis_positions, B_fitted, fixed_pos_val):
+    """
+    Converts fitted frequency dip centers to magnetic field B (Tesla) using
+    electron gyromagnetic ratio and fits a 1/r wire field model along the slice.
+    """
+    axis_positions = np.array(axis_positions)
+
+    # Calculate local magnetic field values assuming Zeeman splitting shift
+    # Note: If tracking single-dip displacement from zero-field, adjust scaling accordingly
+
+    plt.figure(figsize=(9, 5.5), layout="constrained")
+    plt.plot(axis_positions, B_fitted, 'o', color='crimson', label='Measured $B_z$', markersize=6)
+
+    axis_label = "x" if slice_axis == "x" else "y"
+    fixed_label = "y" if slice_axis == "x" else "x"
+
+    if len(axis_positions) >= 3:
+        try:
+            initial_pos0 = axis_positions[-1] + 0.2  # Initial guess 200 um away
+            initial_b_offset = np.min(B_fitted)/2
+            p0 = [initial_pos0, initial_b_offset]
+
+            popt, pcov = curve_fit(
+                lambda pos, pos0, b_off: wire_b_field(pos, pos0, b_off, I=I_applied),
+                axis_positions,
+                B_fitted,
+                p0=p0
+            )
+
+            fit_pos0, fit_b_off = popt
+            perr = np.sqrt(np.diag(pcov))
+
+            pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
+            b_fit = wire_b_field(pos_fine, fit_pos0, fit_b_off, I=I_applied)
+
+            print("--- Wire Distance Fit Results ---")
+            print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0:.4f} ± {perr[0]:.4f} mm")
+            print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
+
+            plt.plot(
+                pos_fine,
+                b_fit,
+                '--',
+                color='navy',
+                linewidth=2.0,
+                label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({axis_label}-{fit_pos0:.2f})}} + {fit_b_off:.3e}$ T'
+            )
+
+        except Exception as fit_err:
+            print(f"[Warning] 1/r Curve fit failed: {fit_err}")
+
+    plt.xlabel(f"{axis_label} position [mm]", fontsize=12)
+    plt.ylabel(r"$\partial$B [T]", fontsize=12)
+    plt.title(f"B field 1/r fit vs. {axis_label} (Fixed {fixed_label} = {fixed_pos_val:.4f} mm)", fontsize=13)
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.legend(loc="best", frameon=True, shadow=True)
+    plt.show()
+
 def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
-    N_steps = len(sweep_results)//2
+    N_steps = len(sweep_results)
     print("There should be ", N_steps, "ODMRS plotted")
     plt.figure(figsize=(10, 6), layout="constrained")
 
     fitted_axis_positions = []
     dip_centers_ghz = []
+    B_fitted = []
 
     # Use plasma colormap matching previous scripts
     colors = plt.cm.plasma(np.linspace(0, 0.85, N_steps))
@@ -126,42 +195,47 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
         # y_data = normalized_counts + 0.05 * idx
         # y_data = normalized_counts
 
-        plt.plot(
-            freqs / 1e9,
-            counts / max(counts) + offset*idx,
-            label=f"y = {axis_pos:.4f} mm",
-            color=colors[idx],
-            linewidth=1.5,
-            alpha=0.85
-        )
-
-        if idx == 1:
+        if idx == start_idx:
             popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
             contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
-            plt.axvline(
-                x=dip_Freqs[0], # change index to choose which dip to plot a vline for
-                color='red',
-                linestyle='--',
-                linewidth=1.2,
-                alpha=0.7,
-                label='2.87 GHz'
-            )
-            plt.axvline(
-                x=dip_Freqs[-1], # change index to choose which dip to plot a vline for
-                color='red',
-                linestyle='--',
-                linewidth=1.2,
-                alpha=0.7,
-                label='2.87 GHz'
-            )
+            for freq in dip_Freqs:
+                plt.axvline(
+                    x=freq, # change index to choose which dip to plot a vline for
+                    color='red',
+                    linestyle='--',
+                    linewidth=1.2,
+                    alpha=0.7
+                    # ,
+                    # label=f'{freq:.4f} GHz'
+                )
+            # plt.axvline(
+            #     x=dip_Freqs[labelled_dip_idx], # change index to choose which dip to plot a vline for
+            #     color='red',
+            #     linestyle='--',
+            #     linewidth=1.2,
+            #     alpha=0.7,
+            #     label=f'{dip_Freqs[-1]:.4f} GHz'
+            # )
 
-        if plot_fits:
+        if plot_dip_positions:
             try:
                 # Fit the ODMR trace and retrieve fit parameters along with the model curve
                 # If your Lfit signature differs, adjust this call accordingly
                 popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
                 contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
                 snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
+                delta_freq = dip_Freqs[-1] - dip_Freqs[0]
+
+
+                plt.plot(
+                    freqs / 1e9,
+                    counts_norm + offset*idx,
+                    label=f"y={axis_pos:.4f}mm, avg_val={np.mean(counts):.1e}",
+                    color=colors[idx],
+                    linewidth=1.5,
+                    alpha=0.85
+                )
+
 
                 # Plot the fitted curve on top of the raw data with matching offset
                 plt.plot(
@@ -174,18 +248,23 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 )
 
                 # Calculate center frequency and dip minimum point coordinate
-                center_freq_ghz = dip_Freqs[0]
-                dip_minimum_val = np.min(fitted_norm) + offset*idx
+                # dip_center = dip_Freqs[labelled_dip_idx]
+                dip_minimum_vals = []
+                for dip_freq in dip_Freqs:
+                    freq_idx = (np.abs(freqs - dip_freq*10**9)).argmin()
+                    dip_minimum_val = counts_norm[freq_idx] + offset*idx
+                    dip_minimum_vals.append(dip_minimum_val)
+
 
                 # Overlay a red dot at the fitted minimum of the dip
-                plt.plot(
-                    center_freq_ghz,
-                    dip_minimum_val,
+                plt.scatter(
+                    dip_Freqs,
+                    dip_minimum_vals,
                     marker="o",
                     color="red",
-                    markersize=6,
-                    markeredgecolor="black",
-                    markeredgewidth=0.5,
+                    s=9,
+                    edgecolor="black",
+                    linewidths=0.5,
                     zorder=12
                 )
 
@@ -193,14 +272,27 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 # print(f"--- Fit Results for y = {axis_pos:.4f} mm ---")
                 # Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
                 fitted_axis_positions.append(axis_pos)
-                dip_centers_ghz.append(dip_Freqs[0])
+                dip_centers_ghz.append(dip_Freqs[labelled_dip_idx])
+                B_fitted.append(delta_freq / (2 * cs.gamma_e))
 
             except Exception as fit_error:
                 # Catch fitting failures gracefully to avoid halting the full spatial sweep
                 print(f"[Warning] Fit failed for y = {axis_pos:.4f} mm: {fit_error}")
+        else:
+            plt.plot(
+                freqs / 1e9,
+                counts / max(counts) + offset*idx,
+                label=f"y = {axis_pos:.4f} mm",
+                color=colors[idx],
+                linewidth=1.5,
+                alpha=0.85
+            )
+
+
 
     plt.xlabel("Frequency [GHz]", fontsize=12)
     plt.ylabel("Normalized Brightness (arb units/s)", fontsize=12)
+    plt.legend(loc="center left")
 
     if slice_axis == "x":
         plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val:.4f} mm)", fontsize=13)
@@ -217,6 +309,8 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     plt.show()
     if len(dip_centers_ghz) > 0:
         plot_dip_vs_axis(fitted_axis_positions, dip_centers_ghz, fixed_axis_val)
+    if len(B_fitted) > 0 and fit_fn:
+        fit_and_plot_b_vs_axis(fitted_axis_positions, B_fitted, fixed_axis_val)
 
 
 def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
