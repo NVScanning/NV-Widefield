@@ -69,8 +69,8 @@ def main():
 
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 256  # in pixels, approximate width of image taken, must be >=32 after binning
-    focus_point_centre_x, focus_point_centre_y = 1110,1030  # in pixels, center of the laser point
+    focus_point_size = 280  # in pixels, approximate width of image taken, must be >=32 after binning
+    focus_point_centre_x, focus_point_centre_y = 1070,1200  # in pixels, center of the laser point
 
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
@@ -81,8 +81,10 @@ def main():
     n_iter = 1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.25e9 # Hz, range of frequencies to sample
-    N = 251 # num points in the frequency space to sample
+    span = 0.6e9 # Hz, range of frequencies to sample
+    N = 101 # num points in the frequency space to sample
+
+    max_peaks = 8
     # f_center = 5.3e9 # Hz, generally near 2.87GHz
     # span = 0.3e9 # Hz, range of frequencies to sample
     # N = 101 # num points in the frequency space to sample
@@ -96,15 +98,17 @@ def main():
 
 
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N)
+    # freqs = np.linspace(f_center, f_center + span, N) # only measure half the range for less wasted measurement time
+    # f_start = f_center
+    # f_end = f_center + span
     # print(f"Frequency range from {f_start/1e9:.3f} to {f_end/1e9:.3f}GHz")
 
-    counts = pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts = pci.run_odmr_measurement((roi, binning_amount, 0.05), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     oPlot.plot_odmr(freqs, counts)
 
     oPlot.save_point_odmr_measurement(counts, freqs)
 
-    max_peaks = 4
     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
     # Lfit.print_dip_params(popt)
     contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)

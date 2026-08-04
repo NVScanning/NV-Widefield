@@ -27,7 +27,7 @@ Much of this code was combined from previously written code by Gemini, then edit
 
 
 roi = None
-max_peaks = 4
+max_peaks = 7
 
 def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
     """Executes a dual-directional frequency sweep and returns a 1D binned array, of the brightness per second"""
@@ -49,27 +49,27 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 def main():
     binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
-    focus_point_size = 200  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1110,1010 # in pixels, center point of the laser point
+    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 1060, 1200 # in pixels, center point of the laser point
 
     n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
     freq_dwell = 0.01  # Frequency switch recovery interval
     z_dwell = 1
-    n_iter = 3 # Iterations at each z-step
+    n_iter = 1 # Iterations at each z-step
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.2e9  # Hz
-    N_freqs = 101  # Total frequency resolution steps
+    span = 0.15e9  # Hz
+    N_freqs = 51  # Total frequency resolution steps
     # f_center = 5.3e9  # Hz
     # span = 0.4e9  # Hz
     # N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 6.04 # Target focus center
-    z_span = 0.06 # Distance range over sweep
-    N_z_steps = 7     # Total step divisions to evaluate
+    z_center = 6.24 # Target focus center
+    z_span = 0.04 # Distance range over sweep
+    N_z_steps = 5     # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
@@ -89,8 +89,8 @@ def main():
     else:
         print("Using cam's previous roi and binning settings")
 
-    z_motor.move_to(z_center)
-    time.sleep(5)
+    # z_motor.move_to(z_center)
+    # time.sleep(5)
 
 
 
@@ -100,7 +100,7 @@ def main():
     time.sleep(2)  # extra time for the first point
 
     avg_contrasts, avg_snrs, z_positions, z_sweep_results = (
-        pci.run_odmr_measurement((roi, binning_amount,0.005), amp_dbm, measure_ODMRs,
+        pci.run_odmr_measurement((roi, binning_amount,0.1), amp_dbm, measure_ODMRs,
                                  (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range)))
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
@@ -183,7 +183,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
     # Throw out first scan, it's always fucked
     z_motor.move_to(z_range[0])
     time.sleep(z_dwell*3)  # Allow structural mechanical settle time
-    pci.sweep_freqs_binned_ringBuf(cam, sg, freq_dwell, freqs, min(2, n_windows), 1, 0)
+    pci.sweep_freqs_binned_ringBuf(cam, sg, 0.05, freqs, min(2, n_windows), 1, 0)
     # pci.sweep_freqs_binned_ringBuf(cam, sg, freq_dwell, freqs[::-1], n_windows, 2,  1)[::-1]
     sys.stdout.write(f"\r\033[KFirst throwaway scan complete\n")  # Clear progress bar
     sys.stdout.flush()
