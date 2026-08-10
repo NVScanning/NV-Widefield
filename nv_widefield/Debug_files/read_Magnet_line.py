@@ -23,19 +23,21 @@ import scipy.ndimage as ndi
 # # time = "15-40-31" #
 # time = "16-50-33"
 
-date = "2026-08-04"
+date = "2026-08-10"
 time = "12-31-28"
-time = "16-43-23"
-time = "13-55-58"
-target_idx = 8  # The specific spatial x-index to extract across all y's
-slice_axis = "x"        # Choose "x" or "y" to slice along that axis
+time = "10-00-58"
+# time = "15-13-40"
+target_idx = 16  # The specific spatial x-index to extract across all y's
+slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-max_peaks = 7
+max_peaks = 5
 plot_dip_positions = True
 fit_fn = True
+use_offaxis_binning = False
 
-diff_start_idx = 7
-diff_end_idx = 15
+diff_start_idx = 10
+diff_end_idx = 27
+every_nth_idx = 2
 labelled_dip_idx = -1
 
 offset = 0.001
@@ -92,12 +94,12 @@ def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx
     plt.grid(True, linestyle=":", alpha=0.5)
     plt.show()
 
-def plot_dip_vs_axis(y_positions, centers, fixed_pos_val):
+def plot_dip_vs_axis(y_positions, dip_centers, udip_centers, fixed_pos_val):
     """
     Plots the extracted Lorentzian center frequency against spatial y coordinates.
     """
     plt.figure(figsize=(8, 5), layout="constrained")
-    plt.plot(y_positions, centers, 'o-', color='crimson', markersize=6, linewidth=1.5, label='Fitted $f_0$')
+    plt.errorbar(y_positions, dip_centers, yerr=udip_centers, color='crimson', markersize=5, linewidth=1.5, marker='o', linestyle="",label='Fitted $f_0$', capsize=10)
 
     if slice_axis == "x":
         plt.xlabel("x space (mm)", fontsize=11)
@@ -111,7 +113,7 @@ def plot_dip_vs_axis(y_positions, centers, fixed_pos_val):
     plt.legend(loc="best")
     plt.show()
 
-def fit_and_plot_b_vs_axis(axis_positions, B_fitted, fixed_pos_val):
+def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
     """
     Converts fitted frequency dip centers to magnetic field B (Tesla) using
     electron gyromagnetic ratio and fits a 1/r wire field model along the slice.
@@ -122,21 +124,29 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, fixed_pos_val):
     # Note: If tracking single-dip displacement from zero-field, adjust scaling accordingly
 
     plt.figure(figsize=(9, 5.5), layout="constrained")
-    plt.plot(axis_positions, B_fitted, 'o', color='crimson', label='Measured $B_z$', markersize=6)
+    plt.errorbar(axis_positions, B_fitted, yerr=uB_fitted, color='crimson', label='Measured $B_z$', marker='o', linestyle="", markersize=5,capsize=10)
 
     axis_label = "x" if slice_axis == "x" else "y"
     fixed_label = "y" if slice_axis == "x" else "x"
 
     if len(axis_positions) >= 3:
         try:
-            initial_pos0 = axis_positions[-1] + 0.2  # Initial guess 200 um away
-            initial_b_offset = np.min(B_fitted)/2
+            if B_fitted[0] > B_fitted[-1]:
+                # wire at more negative position
+                initial_pos0 = axis_positions[0] - 0.25  # Initial guess 150 um away
+            else:
+                # wire at more positive positoin
+                initial_pos0 = axis_positions[-1] + 0.25  # Initial guess 150 um away
+            initial_b_offset = 0
             p0 = [initial_pos0, initial_b_offset]
+            print("Guessing initial params:", p0)
 
             popt, pcov = curve_fit(
                 lambda pos, pos0, b_off: wire_b_field(pos, pos0, b_off, I=I_applied),
                 axis_positions,
                 B_fitted,
+                sigma=uB_fitted,
+                absolute_sigma=True,
                 p0=p0
             )
 
@@ -176,7 +186,9 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
 
     fitted_axis_positions = []
     dip_centers_ghz = []
+    udip_centers = []
     B_fitted = []
+    uB_fitted = []
 
     # Use plasma colormap matching previous scripts
     colors = plt.cm.plasma(np.linspace(0, 0.85, N_steps))
@@ -188,6 +200,13 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
         if idx < start_idx or idx > end_idx:
             # print(f"skipping over index={idx}")
             continue
+
+        if not (idx % every_nth_idx == 0):
+            continue
+
+        if idx == 20:
+            continue
+
         # max_counts = np.max(counts)
         # normalized_counts = counts / max_counts if max_counts > 0 else counts
 
@@ -223,13 +242,15 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 # If your Lfit signature differs, adjust this call accordingly
                 popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
                 contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+                uFWHMs, udip_Freqs = Lfit.get_dip_uncertainties(pcov)
                 snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
                 delta_freq = dip_Freqs[-1] - dip_Freqs[0]
+                udelta_freq = np.sqrt(udip_Freqs[0]**2 + udip_Freqs[-1]**2)
 
 
                 plt.plot(
                     freqs / 1e9,
-                    counts_norm + offset*idx,
+                    counts_norm + offset*idx/every_nth_idx,
                     label=f"y={axis_pos:.4f}mm, avg_val={np.mean(counts):.1e}",
                     color=colors[idx],
                     linewidth=1.5,
@@ -240,7 +261,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 # Plot the fitted curve on top of the raw data with matching offset
                 plt.plot(
                     freqs / 1e9,
-                    fitted_norm + offset*idx,
+                    fitted_norm + offset*idx/every_nth_idx,
                     color=colors[idx],
                     linestyle="-",
                     linewidth=2.0,
@@ -252,7 +273,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 dip_minimum_vals = []
                 for dip_freq in dip_Freqs:
                     freq_idx = (np.abs(freqs - dip_freq*10**9)).argmin()
-                    dip_minimum_val = counts_norm[freq_idx] + offset*idx
+                    dip_minimum_val = counts_norm[freq_idx] + offset*idx/every_nth_idx
                     dip_minimum_vals.append(dip_minimum_val)
 
 
@@ -273,7 +294,9 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 # Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
                 fitted_axis_positions.append(axis_pos)
                 dip_centers_ghz.append(dip_Freqs[labelled_dip_idx])
+                udip_centers.append(udip_Freqs[labelled_dip_idx])
                 B_fitted.append(delta_freq / (2 * cs.gamma_e))
+                uB_fitted.append(udelta_freq/(2*cs.gamma_e))
 
             except Exception as fit_error:
                 # Catch fitting failures gracefully to avoid halting the full spatial sweep
@@ -281,7 +304,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
         else:
             plt.plot(
                 freqs / 1e9,
-                counts / max(counts) + offset*idx,
+                counts / max(counts) + offset*idx/every_nth_idx,
                 label=f"y = {axis_pos:.4f} mm",
                 color=colors[idx],
                 linewidth=1.5,
@@ -308,9 +331,9 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
 
     plt.show()
     if len(dip_centers_ghz) > 0:
-        plot_dip_vs_axis(fitted_axis_positions, dip_centers_ghz, fixed_axis_val)
+        plot_dip_vs_axis(fitted_axis_positions, dip_centers_ghz, udip_centers, fixed_axis_val)
     if len(B_fitted) > 0 and fit_fn:
-        fit_and_plot_b_vs_axis(fitted_axis_positions, B_fitted, fixed_axis_val)
+        fit_and_plot_b_vs_axis(fitted_axis_positions, B_fitted, uB_fitted, fixed_axis_val)
 
 
 def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
@@ -342,24 +365,25 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
 
     # Plot high-contrast indicators for the sliced region
     # axvline spans the full height of the axes
-    if slice_axis == "x":
-        plt.axhline(
-            y=slice_axis_coord,
-            color='black',
-            linestyle=':',
-            linewidth=5.0,
-            label=f"Slice line (y = {slice_axis_coord:.4f} mm)",
-            zorder=10
-        )
-    else:
-        plt.axvline(
-            x=slice_axis_coord,
-            color='black',
-            linestyle=':',
-            linewidth=5.0,
-            label=f"Slice line (x = {slice_axis_coord:.4f} mm)",
-            zorder=10
-        )
+    if not use_offaxis_binning:
+        if slice_axis == "x":
+            plt.axhline(
+                y=slice_axis_coord,
+                color='black',
+                linestyle=':',
+                linewidth=5.0,
+                label=f"Slice line (y = {slice_axis_coord:.4f} mm)",
+                zorder=10
+            )
+        else:
+            plt.axvline(
+                x=slice_axis_coord,
+                color='black',
+                linestyle=':',
+                linewidth=5.0,
+                label=f"Slice line (x = {slice_axis_coord:.4f} mm)",
+                zorder=10
+            )
 
     # plt.axvline(
     #     x=slice_axis_coord,
@@ -422,7 +446,8 @@ def main():
 
     # Extract the coordinate value
     actual_x_val = x_points[target_idx]
-    print(f"Slicing spatial data along x_index={target_idx} (x={actual_x_val:.4f} mm)")
+    if not use_offaxis_binning:
+        print(f"Slicing spatial data along x_index={target_idx} (x={actual_x_val:.4f} mm)")
 
     # Slice out all Y-scans for the single specified X-coordinate
     # Structure: { y_coordinate_val: 1D array of counts across frequencies }
@@ -430,11 +455,24 @@ def main():
     # for y_idx, y_val in enumerate(y_points):
     #     # Slice format extracts [X_fixed, Y_current, all_frequencies]
     #     slice_results[y_val] = counts_2D[target_idx, y_idx, :]
+    # for secondary_idx, secondary_val in enumerate(secondary_points):
+    #     if slice_axis == "x":
+    #         slice_results[secondary_val] = counts_2D[target_idx, secondary_idx, :]
+    #     else:
+    #         slice_results[secondary_val] = counts_2D[secondary_idx, target_idx, :]
     for secondary_idx, secondary_val in enumerate(secondary_points):
-        if slice_axis == "x":
-            slice_results[secondary_val] = counts_2D[target_idx, secondary_idx, :]
+        if use_offaxis_binning:
+            # Average across the entire orthogonal axis (axis 0 if slicing x, axis 1 if slicing y)
+            if slice_axis == "x":
+                slice_results[secondary_val] = np.mean(counts_2D[:, secondary_idx, :], axis=0)
+            else:
+                slice_results[secondary_val] = np.mean(counts_2D[secondary_idx, :, :], axis=0)
         else:
-            slice_results[secondary_val] = counts_2D[secondary_idx, target_idx, :]
+            # Single pixel slice
+            if slice_axis == "x":
+                slice_results[secondary_val] = counts_2D[target_idx, secondary_idx, :]
+            else:
+                slice_results[secondary_val] = counts_2D[secondary_idx, target_idx, :]
 
     # Run the plot routine
     # oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
