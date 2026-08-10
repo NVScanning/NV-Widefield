@@ -143,7 +143,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     # freqs in GHz
     df = abs(freqs[1]-freqs[0])
 
-    filtering_sigma = 0.0015/df # this is num samples, not freq space, use 1MHz/df
+    filtering_sigma = 0.001/df # this is num samples, not freq space, use 1MHz/df
     # print("filtering_sigma", filtering_sigma)
 
 
@@ -300,7 +300,21 @@ def get_dip_params(popt):
         FWHMs.append(FWHM)
         dip_Freqs.append(f0)
     return contrasts, FWHMs, dip_Freqs # %, GHz, GHz
+def get_dip_uncertainties(pcov):
+    perr = np.sqrt(np.diag(pcov))
+    n_dips = (len(perr) - 2) // 3
 
+    err_FWHMs = []
+    err_dip_Freqs = []
+
+    for i in range(n_dips):
+        idx_f0 = 3 * i + 1
+        idx_gamma = 3 * i + 2
+
+        err_dip_Freqs.append(perr[idx_f0])
+        err_FWHMs.append(2.0 * perr[idx_gamma])
+
+    return err_FWHMs, err_dip_Freqs
 def print_contrast_snr(contrasts, snrs, dip_Freqs):
     for (freq, snr_val, contr_val) in zip(dip_Freqs, snrs, contrasts):
         print(f"At frequency {freq:.4f} GHz: Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
@@ -434,7 +448,8 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
                 B_Z = delta_freq / (2 * cs.gamma_e)  # in T
                 B_Z_overall[x_ind, y_ind] = B_Z
 
-    sys.stdout.write(f"\r\033[KConverting to B_Z finished, took {time.time()-t0:.0f}s\n")  # Clear progress bar
+    sys.stdout.write(f"\r\033[KConverting to B_Z finished, took {time.time()-t0:.0f}s, "
+                     f"and {len(problem_points)} points with a problem fitting\n")  # Clear progress bar
     sys.stdout.flush()
     return B_Z_overall, problem_points
 
