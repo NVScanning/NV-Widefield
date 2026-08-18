@@ -19,7 +19,7 @@ extra_row_size = 8
 max_pixel_val = 65535 # 2^16-1
 min_roi_dims = 32
 objective_magnification = 50
-expansion_ratio = 35/100 # ratio of focal lengths in beam expander lens pair f2/f1
+expansion_ratio =  25.4/125 # 1 #35/100 # ratio of focal lengths in beam expander lens pair f2/f1
 dark_frame_path = "C:\\Users\\NVCFM\\Desktop\\NV-widefield Experiment\\nv_widefield\\helper_classes\\master_dark.npy"
 master_dark_frame: npt.NDArray[np.float64] | None
 master_roi: tuple[int, int, int, int] | None
@@ -72,7 +72,7 @@ def auto_expose(cam:Camera, target_intensity=0.9, tolerance=0.05, max_iter=5):
         cam.exposure_time = float(min(new_exposure,0.499)) # camera allows 500ms max, but set 499 due to floating point error
 
         # print(f"Adjusting exposure from {og_exposure:.3f} to {cam.exposure_time:.3f}s (Peak was: {peak:.3g}, now will be ~{peak * cam.exposure_time / og_exposure:.3g})")
-    print(f"Autoexpose changing exposure from {original_exposure:.3f} to {cam.exposure_time:.3f}s")
+    print(f"Autoexpose changing exposure from {original_exposure*1000:.1f} to {cam.exposure_time*1000:.1f}ms")
 
     return
 
@@ -146,6 +146,11 @@ def plot_image(image, x_points=None, y_points=None, title = ""):
     plt.show()
 
 def bin_image(image):
+    if (image.shape[0] < 2048 - extra_row_size):
+        image = image[0:image.shape[0] - extra_row_size, :]  # cut off 8 pixels from top of y
+    if np.amax(image) > 0.95*max_pixel_val:
+        # overexposed
+        print("Image is likely overexposed, highest pixel val",np.amax(image))
     return np.sum(image)
 def select_one_pixel(image,x,y):
     return image[x,y]
@@ -303,7 +308,7 @@ def sweep_freqs(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> npt.NDAr
 
 def sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> npt.NDArray[np.float64]:
     point_duration_s = cam.exposure_time * n_windows
-    cam.record(mode="ring buffer", number_of_images=n_windows*10)
+    cam.record(mode="ring buffer", number_of_images=4)
     cam.wait_for_new_image()
     # image, dict = cam.image(image_index=-1) # Ignore first image
     image = get_image_sub_bkg(cam)
@@ -338,7 +343,7 @@ def sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> 
             image = get_image_sub_bkg(cam)
             # if (image.shape[0] < 2048 - extra_row_size):
             #     image = image[0:image.shape[0] - extra_row_size, :]  # cut off 8 pixels from top of y
-            Log.log("binning image")
+            Log.log("summing image")
             all_counts += image
         # pci.plot_image(image)
         # Log.log("saving binned value")
@@ -348,12 +353,12 @@ def sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> 
 
 def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iteration) -> npt.NDArray[np.float64]:
     point_duration_s = cam.exposure_time * n_windows
-    brightness = np.zeros((freqs.size))
-    cam.record(mode="ring buffer", number_of_images=n_windows*10)
+    cam.record(mode="ring buffer", number_of_images=4)
     cam.wait_for_new_image()
     image, dict = cam.image(image_index=-1) # Ignore first image
-    cam.wait_for_new_image()
-    image, dict = cam.image(image_index=-1) # Ignore second image
+    # cam.wait_for_new_image()
+    # image, dict = cam.image(image_index=-1) # Ignore second image
+    brightness = np.zeros((freqs.size))
     for j, f in enumerate(freqs):
         Log.log("at freq " + str(np.round(f/10**9,2)) + "GHz, updating progress")
         cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f)
@@ -363,6 +368,7 @@ def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iterati
         sg.write(f"FREQ {float(f)}")
         cam.wait_for_new_image() # wait for new image, to be sure recorded ones are it's only for this frequency
         # If i don't wait, i'm blurring the lines between freqs, adding a bit of x uncertainty, maybe its worth it for the speed
+
         curr_img_num = cam.recorded_image_count
         # Log.log("sleeping " + str(dwell) + "s")
         time.sleep(dwell)
@@ -388,7 +394,7 @@ def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iterati
             #     # overexposed
             #     print("Image is likely overexposed, highest pixel val",np.amax(image))
             image = get_image_sub_bkg(cam)
-            Log.log("binning image")
+            Log.log("binning+summing image")
             all_counts += bin_image(image)
         # pci.plot_image(image)
         # Log.log("saving binned value")
@@ -445,12 +451,12 @@ def sweep_freqs_binned_recorded(cam, sg, dwell, freqs, n_windows, n_iter, iterat
     return brightness
 
 # TODO: upgrade the freq sweep so that I don't have to relaunch the recording each iteration,
-#  will save 10s of ms/iter so not super urgent
+#  will save ~200ms/iter so not super urgent since n_iter is at most ~10 anyways
 
 
 def measure_binned_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarray:
     point_duration_s = cam.exposure_time * n_windows
-    cam.record(mode="ring buffer", number_of_images=n_windows * 10)
+    cam.record(mode="ring buffer", number_of_images=4)
     cam.wait_for_new_image()
     print(f"measuring binned ODMR with {n_iter} iterations, estimate time to completion"
           f" ~{n_iter*2 * ((len(freqs) + 1) * (dwell + point_duration_s) + 0.02):.0f}s")
@@ -479,7 +485,7 @@ def save_master_dark(cam, save_path, n_averages, num_windows):
     print(f"Capturing {n_averages} dark frames. Ensure lens cap is secured...")
     for _ in range(n_averages):
         # Replace with your actual camera frame acquisition call
-        cam.record(mode="sequence", number_of_images=num_windows)
+        cam.record(mode="sequence", number_of_images=4)
         image = cam.image_average()
         dark_buffer.append(image)
 

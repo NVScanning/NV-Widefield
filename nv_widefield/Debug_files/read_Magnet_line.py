@@ -23,21 +23,21 @@ import scipy.ndimage as ndi
 # # time = "15-40-31" #
 # time = "16-50-33"
 
-date = "2026-08-10"
+date = "2026-08-17"
 time = "12-31-28"
-time = "10-00-58"
-# time = "15-13-40"
-target_idx = 16  # The specific spatial x-index to extract across all y's
+time = "12-28-50"
+time = "14-42-56"
+target_idx = 2  # The specific spatial x-index to extract across all y's
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-max_peaks = 5
+max_peaks = 4
 plot_dip_positions = True
 fit_fn = True
 use_offaxis_binning = False
 
-diff_start_idx = 10
-diff_end_idx = 27
-every_nth_idx = 2
+diff_start_idx = 0
+diff_end_idx = 15
+every_nth_idx = 1
 labelled_dip_idx = -1
 
 offset = 0.001
@@ -169,6 +169,47 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
                 label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({axis_label}-{fit_pos0:.2f})}} + {fit_b_off:.3e}$ T'
             )
 
+        # try:
+        #     if B_fitted[0] > B_fitted[-1]:
+        #         # wire at more negative position
+        #         initial_pos0 = axis_positions[0] - 0.25  # Initial guess 150 um away
+        #     else:
+        #         # wire at more positive positoin
+        #         initial_pos0 = axis_positions[-1] + 0.25  # Initial guess 150 um away
+        #     p0 = [initial_pos0]
+        #     b_offset = 25e-6
+        #     print("Guessing initial params:", p0)
+        #
+        #     popt, pcov = curve_fit(
+        #         lambda pos, pos0: wire_b_field(pos, pos0, b_offset, I=I_applied),
+        #         axis_positions,
+        #         B_fitted,
+        #         sigma=uB_fitted,
+        #         absolute_sigma=True,
+        #         p0=p0
+        #     )
+        #
+        #     fit_pos0 = popt
+        #     perr = np.sqrt(np.diag(pcov))
+        #     print("fit_pos0[0]:", fit_pos0[0], "type=", type(fit_pos0[0]))
+        #     print("perr[0]:", perr[0], "type=", type(perr[0]))
+        #
+        #     pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
+        #     b_fit = wire_b_field(pos_fine, fit_pos0, b_offset, I=I_applied)
+        #
+        #     print("--- Wire Distance Fit Results ---")
+        #     print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0[0]:.4f} ± {perr[0]:.4f} mm")
+        #     # print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
+        #
+        #     plt.plot(
+        #         pos_fine,
+        #         b_fit,
+        #         '--',
+        #         color='navy',
+        #         linewidth=2.0,
+        #         label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({axis_label}-{fit_pos0[0]:.2f})}} + {b_offset:.3e}$ T'
+        #     )
+
         except Exception as fit_err:
             print(f"[Warning] 1/r Curve fit failed: {fit_err}")
 
@@ -204,8 +245,11 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
         if not (idx % every_nth_idx == 0):
             continue
 
-        if idx == 20:
-            continue
+        # if idx == 24:
+        #     continue
+
+        # if (idx == 0 or idx == 10) or (idx == 14 or idx == 28):
+        #     continue
 
         # max_counts = np.max(counts)
         # normalized_counts = counts / max_counts if max_counts > 0 else counts
@@ -253,8 +297,8 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                     counts_norm + offset*idx/every_nth_idx,
                     label=f"y={axis_pos:.4f}mm, avg_val={np.mean(counts):.1e}",
                     color=colors[idx],
-                    linewidth=1.5,
-                    alpha=0.85
+                    linewidth=1,
+                    alpha=0.7
                 )
 
 
@@ -263,9 +307,9 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                     freqs / 1e9,
                     fitted_norm + offset*idx/every_nth_idx,
                     color=colors[idx],
-                    linestyle="-",
-                    linewidth=2.0,
-                    alpha=0.9
+                    linestyle="--",
+                    linewidth=1,
+                    alpha=1
                 )
 
                 # Calculate center frequency and dip minimum point coordinate
@@ -321,7 +365,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
         plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val:.4f} mm)", fontsize=13)
     else:
         plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val:.4f} mm)", fontsize=13)
-    # plt.xlim(2.68,2.79)
+    # plt.xlim(2.87,2.93)
     # plt.ylim(0.997, 1 + len(z_sweep_results.items())*0.0002)
     # plt.grid(True, linestyle="--", alpha=0.5)
 

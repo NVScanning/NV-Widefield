@@ -32,10 +32,11 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-08-04" # YYYY-MM-DD
+date = "2026-08-18" # YYYY-MM-DD
 time = "16-43-23"   # hh-mm_ss
-time = "13-55-58"
-max_peaks = 7
+time = "11-17-58"
+time = "10-36-37"
+max_peaks = 4
 
 
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
@@ -362,8 +363,8 @@ elif match[0].startswith("widefield"):
 
                 oPlot.plot_odmr(freqs, counts, "raw ODMR data")
                 oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
-            except ValueError:
-                print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4').")
+            except ValueError as e:
+                print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4'). Threw:", e)
 
 
 else:
