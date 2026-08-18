@@ -27,7 +27,7 @@ Much of this code was combined from previously written code by Gemini, then edit
 
 
 roi = None
-max_peaks = 7
+max_peaks = 3
 
 def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
     """Executes a dual-directional frequency sweep and returns a 1D binned array, of the brightness per second"""
@@ -48,15 +48,15 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 
 def main():
-    binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
-    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1060, 1200 # in pixels, center point of the laser point
+    binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
+    focus_point_size = 512  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 1110,1215 #1090,1040 # in pixels, center point of the laser point
 
     n_windows_per_point = 1
     amp_dbm = -10  # RF Generator Amplitude
-    freq_dwell = 0.01  # Frequency switch recovery interval
+    freq_dwell = 0.04  # Frequency switch recovery interval
     z_dwell = 1
-    n_iter = 1 # Iterations at each z-step
+    n_iter = 2 # Iterations at each z-step
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
@@ -67,13 +67,14 @@ def main():
     # N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 6.24 # Target focus center
-    z_span = 0.04 # Distance range over sweep
-    N_z_steps = 5     # Total step divisions to evaluate
+    z_center = 5.65 # Target focus center
+    z_span = 0.1 # Distance range over sweep
+    N_z_steps = 11     # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
     z_start, z_end, z_range = cs.calc_sweep_range(z_center, z_span, N_z_steps)
+    # z_range = [3.975, 3.995]
     N_z_steps = len(z_range)
     # print(f"Frequency range from {f_start/1e9:.3f} to {f_end/1e9:.3f}GHz")
     print(f"Z range from {z_start:.4f} to {z_end:.4f}mm")
@@ -100,7 +101,7 @@ def main():
     time.sleep(2)  # extra time for the first point
 
     avg_contrasts, avg_snrs, z_positions, z_sweep_results = (
-        pci.run_odmr_measurement((roi, binning_amount,0.1), amp_dbm, measure_ODMRs,
+        pci.run_odmr_measurement((roi, binning_amount,0.01), amp_dbm, measure_ODMRs,
                                  (freq_dwell, freqs, n_iter, n_windows_per_point, z_dwell, z_motor, z_range)))
 
     plot_odmrs(N_z_steps, freqs, z_sweep_results)
@@ -121,11 +122,12 @@ def move_to_user_input(z_motor: Motor, z_prev_position: float):
 
     if ans.lower() == "exit":
         print("Exiting")
-    elif ans == "n":
+    elif ans == "prev":
         z_motor.move_to(z_prev_position)
         time.sleep(1)
         print("moved to pre-optimization position, possibly uncalibrated")
     else:
+        print(f"Trying to move to z={ans}, this will take ~6s")
         try:
             z_motor.move_to(float(ans) - 0.005)
             time.sleep(3)
@@ -144,7 +146,8 @@ def plot_odmrs(N_z_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], 
         plt.plot(
             freqs / 1e9,
             # counts/max(counts) + 0.004*idx, # display normalized curves above each other
-            counts/max(counts), # display normalized curves on top of each other
+            # counts/max(counts), # display normalized curves on top of each other
+            counts - min(counts), # display the absolute contrast by centering them all with a min at 0
             # counts,
             label=f"z = {z_pos:.5f} mm, avg val ={np.mean(counts):.1e}",
             color=colors[idx],
@@ -152,7 +155,8 @@ def plot_odmrs(N_z_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], 
         )
 
     plt.xlabel("Frequency [GHz]", fontsize=12)
-    plt.ylabel("Normalized Brightness (arb units/s)", fontsize=12)
+    # plt.ylabel("Normalized Brightness (arb units/s)", fontsize=12)
+    plt.ylabel("Brightness offset to have a min of 0 (counts/s)", fontsize=12)
     plt.title("Binned-sensor ODMR for varying z positions", fontsize=14)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend(loc="best", frameon=True, shadow=True)
@@ -168,7 +172,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
                   z_range: ndarray[tuple[Any, ...], dtype[float64]]) -> tuple[
     list[float], list[float], list[float], dict[float, float]]:
     point_duration_s = cam.exposure_time * n_windows
-    print(f"beggining measurements, estimate time to completion: "
+    print(f"beginning measurements, estimate time to completion: "
           f"{len(z_range) * ((n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell) + 0.02) + z_dwell) + (len(freqs) + 1)*(point_duration_s + freq_dwell) +0.02 + z_dwell * 3:.0f}s")
 
     t0 = time.time()
@@ -183,8 +187,8 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
     # Throw out first scan, it's always fucked
     z_motor.move_to(z_range[0])
     time.sleep(z_dwell*3)  # Allow structural mechanical settle time
-    pci.sweep_freqs_binned_ringBuf(cam, sg, 0.05, freqs, min(2, n_windows), 1, 0)
-    # pci.sweep_freqs_binned_ringBuf(cam, sg, freq_dwell, freqs[::-1], n_windows, 2,  1)[::-1]
+    pci.sweep_freqs_binned_ringBuf(cam, sg, 0.05, freqs, min(2, n_windows), 2, 0)
+    pci.sweep_freqs_binned_ringBuf(cam, sg, 0.05, freqs[::-1], min(2, n_windows), 2,  1)
     sys.stdout.write(f"\r\033[KFirst throwaway scan complete\n")  # Clear progress bar
     sys.stdout.flush()
 

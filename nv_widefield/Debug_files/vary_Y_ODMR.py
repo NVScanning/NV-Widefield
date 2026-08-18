@@ -29,10 +29,11 @@ roi = None
 max_peaks = 4
 I_applied = 1
 
-new_Measurement = False
+new_Measurement = True
 # old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_00-32-38.txt" # overnight with 1A
 # old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_09-46-58.txt" # 0.7A
-old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_10-39-51.txt" # larger stepsize 1A
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_10-39-51.txt" # larger stepsize 1A
+old_Measurement_Path = "C:\\Users\\NVCFM\\ownCloud\\QIQM\\NVCFM Data\\2026-08-17\\y-dep-17-08-22.txt" # 15um range, 1A
 
 
 def wire_b_field(y, y0, B_offset, I=1.0):
@@ -241,7 +242,8 @@ def plot_odmrs(N_y_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], 
         plt.plot(
             freqs / 1e9,
             # counts/max(counts) + 0.004*idx, # display normalized curves above each other
-            counts/max(counts), # display normalized curves on top of each other
+            # counts/max(counts), # display normalized curves on top of each other
+            counts - min(counts), # display the absolute contrast by centering them all with a min at 0
             # counts,
             label=f"y = {y_pos:.5f} mm, avg val ={np.mean(counts):.1e}",
             color=colors[idx],
@@ -249,7 +251,8 @@ def plot_odmrs(N_y_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], 
         )
 
     plt.xlabel("Frequency [GHz]", fontsize=12)
-    plt.ylabel("Normalized Brightness (arb units/s)", fontsize=12)
+    # plt.ylabel("Normalized Brightness (arb units/s)", fontsize=12)
+    plt.ylabel("Brightness offset to have a min of 0 (counts/s)", fontsize=12)
     plt.title("Binned-sensor ODMR for varying y positions", fontsize=14)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend(loc="best", frameon=True, shadow=True)
@@ -285,7 +288,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
                   y_range: ndarray[tuple[Any, ...], dtype[float64]]) -> tuple[
     list[float], list[float], list[float], dict[float, float]]:
     point_duration_s = cam.exposure_time * n_windows
-    print(f"beggining measurements, estimate time to completion: {len(y_range) * (n_iter * (len(freqs) + 1) * 2 * (point_duration_s + freq_dwell) + y_dwell/2 + 0.1):.0f}s")
+    print(f"beginning measurements, estimate time to completion: {len(y_range) * (n_iter * 2 * ((len(freqs) + 1) * (point_duration_s + freq_dwell) + y_dwell/2 + 0.1)):.0f}s")
 
     # Throw out first scan, it's always fucked
     y_motor.move_to(y_range[0])
@@ -294,6 +297,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
     # pci.sweep_freqs_binned_ringBuf(cam, sg, freq_dwell, freqs[::-1], n_windows, 2,  1)[::-1]
     sys.stdout.write(f"\r\033[KFirst throwaway scan complete\n")  # Clear progress bar
 
+    t0 = time.time()
     # Setup data store dictionary: {y_position: odmr_counts_array}
     y_sweep_results = {}
 
@@ -340,28 +344,30 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
         except Exception as fit_error:
             print(f"Data fit sequence rejected at y={y_pos:.4f} mm: {fit_error}")
 
+    print(f"Sweeping Y ODMRs took {time.time() - t0:.0f}s")
+
     return avg_contrasts, avg_snrs, avg_FWHMs, y_positions, y_sweep_results
 
 
 
 def main():
     if new_Measurement:
-        binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
+        binning_amount = 2  # Hardware binning configuration (1, 2, or 4)
         # focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
         # focus_point_centre_x, focus_point_centre_y = 930,770 # in pixels, center point of the laser point
-        focus_point_size = 128  # in physical (unbinned) pixels, diameter of circle of laser point
-        focus_point_centre_x, focus_point_centre_y = 1110,1050 # in pixels, center point of the laser point
+        focus_point_size = 512  # in physical (unbinned) pixels, diameter of circle of laser point
+        focus_point_centre_x, focus_point_centre_y = 1110,1215 # in pixels, center point of the laser point
 
-        n_windows_per_point = 10
+        n_windows_per_point = 1
         amp_dbm = -10  # RF Generator Amplitude
-        freq_dwell = 0.01  # Frequency switch recovery interval
+        freq_dwell = 0.04  # Frequency switch recovery interval
         y_dwell = 1
         n_iter = 2 # Iterations at each z-step
 
         # Frequency Sweep Space Configuration
         f_center = 2.87e9  # Hz
-        span = 0.25e9  # Hz
-        N_freqs = 501  # Total frequency resolution steps
+        span = 0.15e9  # Hz
+        N_freqs = 151  # Total frequency resolution steps
 
         # Y-Axis Step Parameters
         # y_center = 3.1625  # Target focus center
@@ -369,9 +375,9 @@ def main():
         # N_y_steps = 5  # Total step divisions to evaluate
         # y_center = 4.22  # Target focus center
         # y_span = 0.15 # Distance range over sweep
-        y_start = 3.92
+        y_start = 6.32
         N_y_steps = 10  # Total step divisions to evaluate
-        y_stepsize = 0.02 #
+        y_stepsize = -0.01 #1um step
 
         # Calculate operational sweep coordinates
         _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
@@ -410,7 +416,7 @@ def main():
         time.sleep(2)  # extra time for the first point
 
         avg_contrasts, avg_snrs, avg_FWHMs, y_positions, y_sweep_results = (
-            pci.run_odmr_measurement((roi, binning_amount, 0.002), amp_dbm, measure_ODMRs,
+            pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, measure_ODMRs,
                                      (freq_dwell, freqs, n_iter, n_windows_per_point, y_dwell, y_motor, y_range)))
 
         plot_odmrs(N_y_steps, freqs, y_sweep_results)
