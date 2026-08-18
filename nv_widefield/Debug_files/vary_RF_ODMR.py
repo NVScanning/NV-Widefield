@@ -27,6 +27,8 @@ amp_name = ""
 def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
     """Executes a dual-directional frequency sweep and returns a 1D binned array of brightness per second."""
 
+    print(f"measuring binned ODMR with {n_iter} iteration(s), estimate time to completion"
+          f" ~{(n_iter)*2 * ((len(freqs) + 1) * (dwell + point_duration_s) + 0.02):.0f}s")
 
     t0 = time.time()
     brightnesses = np.zeros((n_iter * 2, freqs.size))
@@ -36,8 +38,10 @@ def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_wind
         # brightness = []
         time.sleep(dwell)
 
-        brightnesses[i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
-        brightnesses[n_iter + i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
+        brightnesses[i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
+        brightnesses[n_iter + i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
+        # brightnesses[i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
+        # brightnesses[n_iter + i] = pci.sweep_freqs_binned(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
     sys.stdout.write(f"\r\033[KODMR finished, took {time.time()-t0:.0f}s\n") # Clear progress bar
     sys.stdout.flush()
 
@@ -46,25 +50,25 @@ def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_wind
 
 
 def main():
-    binning_amount = 1
-    focus_point_size = 150
-    focus_point_centre_x, focus_point_centre_y = 880,1045
+    binning_amount = 4
+    focus_point_size = 512
+    focus_point_centre_x, focus_point_centre_y = 1080,1300
 
     n_windows_per_point = 1
-    freq_dwell = 0.01
-    power_dwell = 0.01  # Settle interval following an amplitude step update
-    n_iter = 1
+    freq_dwell = 0.04
+    power_dwell = 1  # Settle interval following an amplitude step update
+    n_iter = 2
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9
     span = 0.1e9
-    N_freqs = 51
+    N_freqs = 101
 
 
     # RF Power Amplitude Sweep Parameters
     amp_min = -20.0  # dBm
     amp_max = -10.0  # dBm
-    N_amp_steps = 5  # Total power increments to evaluate
+    N_amp_steps = 11  # Total power increments to evaluate
     amp_range = np.linspace(amp_min, amp_max, N_amp_steps)
 
     # Calculate operational frequency sweep coordinates
@@ -141,7 +145,7 @@ def measure_power_dependency(cam: Camera, sg: Any, freq_dwell: float,
     list[float], list[float], list[float], dict[float, float]]:
     point_duration_s = cam.exposure_time * n_windows
     print(
-        f"Beginning measurements, estimate time to completion: {len(amp_range) * (n_iter * (len(freqs) + 1) * 2 * 1.1 * (point_duration_s + freq_dwell + 0.1) + power_dwell) + 10:.0f}s")
+        f"Beginning measurements, estimate time to completion: {len(amp_range) * (n_iter * 2 * ((len(freqs) + 1) * (point_duration_s + freq_dwell) + 0.2) + power_dwell):.0f}s")
 
     power_sweep_results = {}
     evaluated_powers = []
@@ -166,7 +170,7 @@ def measure_power_dependency(cam: Camera, sg: Any, freq_dwell: float,
 
         # Run Lorentzian curve fitting
         try:
-            popt, pcov, _, _, baseline = Lfit.analyze_data(freqs, counts, max_peaks=2)
+            popt, pcov, _, _, baseline = Lfit.analyze_data(freqs, counts, max_peaks=3)
 
             contrasts, _, _ = Lfit.get_dip_params(popt)
             snrs = Lfit.get_SNRs(baseline, counts, freqs / 1e9, popt)
