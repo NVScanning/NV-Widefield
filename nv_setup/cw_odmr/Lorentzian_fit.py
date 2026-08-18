@@ -16,6 +16,9 @@ import helper_classes.pco_cam_interface as pci
 # from nv_widefield.helper_classes.odmr_plotting import plot_fitted_data
 
 
+dip_range = (2.84,2.9) # GHz
+
+
 # ============================
 # Fitting helper functions
 # ============================
@@ -181,6 +184,11 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     peaks, props = peaks_d2, props_d2
     # print(f"\nFind_peaks on second derivative found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
 
+    # filter peaks to be only within valid range
+    valid_peaks_mask = (freqs[peaks] >= dip_range[0]) & (freqs[peaks] <= dip_range[1])
+    peaks = peaks[valid_peaks_mask]
+    props = {k: v[valid_peaks_mask] for k, v in props.items()}
+    # props = props[valid_peaks_mask]
 
 
     if max_peaks is not None and len(peaks) > max_peaks:
@@ -248,10 +256,13 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
     #     print(f"Guessed only {n_peaks} peaks out of {max_peaks} peaks at frequencies ", freqs[peaks])
     lower = []
     upper = []
+    params = []
     for i in range(n_peaks):
         A0, f0, g0 = p0[3*i:3*i+3]
-        lower += [-abs(A0*2), f0 - 0.005, 0.001]
-        upper += [-abs(A0*0.5), f0 + 0.005, 2 * g0] # max HWHF is 40MHz
+        lower += [-abs(A0*2), f0 - 0.005, 0.0005]
+        upper += [0, f0 + 0.005, 2.2 * g0]
+        params.extend([f"A{i}",f"f{i}",f"g{i}"])
+    params.extend(["slope","offset"])
 
     # lower += [R_vals.min() - 1, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
     # upper += [R_vals.max()*1.1,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
@@ -266,6 +277,7 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
             p0=p0, bounds=(lower, upper), maxfev=3000
             # ,ftol=0.001, xtol=0.001) # Note: these make convergence quicker, but lose accuracy
         )
+        check_bound_proximity(popt, (lower, upper), threshold=0.05, param_names=params)
         return popt, pcov, peaks
     except Exception as e:
         # print("Couldn't curve_fit, threw:", e, "Plotting ODMR")
@@ -276,6 +288,27 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
         oPlot.plot_odmr(freqs*10**9, R_vals)
         return p0, np.zeros_like(p0), peaks
 
+
+def check_bound_proximity(popt, bounds, threshold=0.05, param_names=None):
+    lb, ub = np.asarray(bounds[0]), np.asarray(bounds[1])
+    popt = np.asarray(popt)
+
+    # Compute relative position within bounded interval [0, 1]
+    span = ub - lb
+    rel_pos = (popt - lb) / span
+
+    near_lower = rel_pos <= threshold
+    near_upper = rel_pos >= (1 - threshold)
+    flagged = near_lower | near_upper
+
+    if np.any(flagged):
+        for idx in np.where(flagged)[0]:
+            name = param_names[idx] if param_names else f"popt[{idx}]"
+            side = "LOWER" if near_lower[idx] else "UPPER"
+            print(
+                f"[Warning] {name} = {popt[idx]:.4e} is near {side} bound ({lb[idx]} to {ub[idx]}) | rel_pos = {rel_pos[idx]:.2%}")
+
+    return flagged, rel_pos
 
 def get_dip_params(popt):
     c0, c1 = popt[-2], popt[-1]
