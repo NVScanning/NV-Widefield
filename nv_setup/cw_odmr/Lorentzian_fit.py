@@ -466,20 +466,30 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
     # num_printouts = 10
     # printout_factor = len(x_points) * len(y_points) // num_printouts
 
+    image = counts_2D.sum(axis=2)
+    brightest_pixel = np.amax(image)
+
     for x_ind in range(len(x_points)):
         for y_ind in range(len(y_points)):
             cs.print_analysis_progress((x_ind * len(y_points) + y_ind), len(y_points) * len(x_points))
             # if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
             #     # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
             #     print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
-            delta_freq = odmr_to_delta_freq(counts_2D[x_ind, y_ind], freqs, max_peaks=max_peaks)
-            if delta_freq == 0:
-                # had problem fitting
+            if image[x_ind, y_ind] < 0.2 * brightest_pixel:
                 problem_points.append((x_ind, y_ind))
                 B_Z_overall[x_ind, y_ind] = np.nan
+                # print(f"pixel ({x_ind},{y_ind}) has too low of signal, ignoring)")
             else:
-                B_Z = delta_freq / (2 * cs.gamma_e)  # in T
-                B_Z_overall[x_ind, y_ind] = B_Z
+                delta_freq = odmr_to_delta_freq(counts_2D[x_ind, y_ind], freqs, max_peaks=max_peaks)
+
+
+                if delta_freq == 0:
+                    # had problem fitting
+                    problem_points.append((x_ind, y_ind))
+                    B_Z_overall[x_ind, y_ind] = np.nan
+                else:
+                    B_Z = delta_freq / (2 * cs.gamma_e)  # in T
+                    B_Z_overall[x_ind, y_ind] = B_Z
 
     sys.stdout.write(f"\r\033[KConverting to B_Z finished, took {time.time()-t0:.0f}s, "
                      f"and {len(problem_points)} points with a problem fitting\n")  # Clear progress bar
