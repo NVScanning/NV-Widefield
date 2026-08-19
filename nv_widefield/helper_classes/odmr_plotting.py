@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 from numpy import dtype, float64, ndarray
 from typing import Any
@@ -56,17 +57,18 @@ def plot_odmr_fft(plot_freqs, plot_mag):
 
 
 def plot_magnet_image(x_points, y_points, B_Z_overall):
-
-    # TODO: use RWB colourmap
-    # TODO: plot NaN's as black
+    # x_points, y_points in mm
+    # B_Z in T
 
     plt.figure(figsize=(8, 6))
     # shading='auto' handles the coordinate mapping automatically
-    mesh = plt.pcolormesh(x_points, y_points, B_Z_overall, shading='nearest', cmap='bwr')
+    cmap = plt.cm.bwr
+    cmap.set_bad('black',1.)
+    mesh = plt.pcolormesh(x_points*1000, y_points*1000, B_Z_overall*1000, shading='nearest', cmap=cmap)
 
-    plt.colorbar(mesh, label=r'$\partial$ B (T)')
-    plt.xlabel('x space (mm)')
-    plt.ylabel('y space (mm)')
+    plt.colorbar(mesh, label=r'$\partial$ B (mT)')
+    plt.xlabel(r'x space ($\mu$m)')
+    plt.ylabel(r'y space ($\mu$m)')
     plt.title('Magnetic Field Heatmap')
     plt.show()
 
