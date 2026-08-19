@@ -459,7 +459,7 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
     # TODO: convert this fitting to be on the GPU with JAXFit
     # TODO: find a way to have a background term that's shared between nearby pixels
     # TODO: if fitting problem, then save NaN rather than 0
-    B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
+    B_Z_overall = np.zeros((len(y_points), len(x_points)), dtype=float)
     problem_points = []
 
     t0 = time.time()
@@ -475,21 +475,21 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
             # if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
             #     # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
             #     print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
-            if image[x_ind, y_ind] < 0.2 * brightest_pixel:
+            if image[y_ind, x_ind] < 0.2 * brightest_pixel:
                 problem_points.append((x_ind, y_ind))
-                B_Z_overall[x_ind, y_ind] = np.nan
+                B_Z_overall[y_ind, x_ind] = np.nan
                 # print(f"pixel ({x_ind},{y_ind}) has too low of signal, ignoring)")
             else:
-                delta_freq = odmr_to_delta_freq(counts_2D[x_ind, y_ind], freqs, max_peaks=max_peaks)
+                delta_freq = odmr_to_delta_freq(counts_2D[y_ind, x_ind], freqs, max_peaks=max_peaks)
 
 
                 if delta_freq == 0:
                     # had problem fitting
                     problem_points.append((x_ind, y_ind))
-                    B_Z_overall[x_ind, y_ind] = np.nan
+                    B_Z_overall[y_ind, x_ind] = np.nan
                 else:
                     B_Z = delta_freq / (2 * cs.gamma_e)  # in T
-                    B_Z_overall[x_ind, y_ind] = B_Z
+                    B_Z_overall[y_ind, x_ind] = B_Z
 
     sys.stdout.write(f"\r\033[KConverting to B_Z finished, took {time.time()-t0:.0f}s, "
                      f"and {len(problem_points)} points with a problem fitting\n")  # Clear progress bar
@@ -540,7 +540,7 @@ def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
     all_contrasts = np.zeros((x_points.shape[0], y_points.shape[0], max_peaks))
     for x in range(x_points.shape[0]):
         for y in range(y_points.shape[0]):
-            snrs, contrasts = ODMR_to_SNR_contr(counts_2D[x, y, :], freqs, max_peaks)
+            snrs, contrasts = ODMR_to_SNR_contr(counts_2D[y, x, :], freqs, max_peaks)
             all_snrs[x, y, :] = snrs
             all_contrasts[x, y, :] = contrasts
 

@@ -36,16 +36,14 @@ master_bin = None
 def get_image_sub_bkg(cam):
     # Generally used when recording with some buffer (rather than sequence)
     # because in sequence there is a built-in averaging function
-    image, dict = cam.image(image_index=-1)  # changed to always get the newest image
+    image, dict = cam.image(image_index=-1)
     if master_dark_frame is not None:
         image = image - cam.exposure_time * master_dark_frame[
-            (master_roi[1] - 1) // master_bin:master_roi[3] // master_bin, (master_roi[0] - 1) // master_bin:
-                                                                           master_roi[2] // master_bin]
-    if (image.shape[0] < 2048 - extra_row_size):
-        image = image[0:image.shape[0] - extra_row_size, :]  # cut off 8 pixels from top of y
-    if np.amax(image) > 0.95*max_pixel_val:
-        # overexposed
-        print("Image is likely overexposed, highest pixel val",np.amax(image))
+            (master_roi[1] - 1) // master_bin: master_roi[3] // master_bin,
+            (master_roi[0] - 1) // master_bin: master_roi[2] // master_bin,
+        ]
+    if np.amax(image) > 0.95 * max_pixel_val:
+        print("Image is likely overexposed, highest pixel val", np.amax(image))
     return image
 
 def auto_expose(cam:Camera, target_intensity=0.9, tolerance=0.05, max_iter=5):
@@ -118,13 +116,11 @@ def read_image(cam:Camera,n_windows):
     image = cam.image_average()
     if master_dark_frame is not None:
         image = image - cam.exposure_time * master_dark_frame[
-            (master_roi[1] - 1) // master_bin:master_roi[3] // master_bin, (master_roi[0] - 1) // master_bin:
-                                                                           master_roi[2] // master_bin]
-    if (image.shape[0] < 2048 - extra_row_size):
-        image = image[0:image.shape[0] - extra_row_size, :]  # cut off 8 pixels from top of y
-    if np.amax(image) > 0.95*max_pixel_val:
-        # overexposed
-        print("Image is likely overexposed, highest pixel val",np.amax(image))
+            (master_roi[1] - 1) // master_bin: master_roi[3] // master_bin,
+            (master_roi[0] - 1) // master_bin: master_roi[2] // master_bin,
+        ]
+    if np.amax(image) > 0.95 * max_pixel_val:
+        print("Image is likely overexposed, highest pixel val", np.amax(image))
     return image
 
 
@@ -146,12 +142,12 @@ def plot_image(image, x_points=None, y_points=None, title = ""):
     plt.show()
 
 def bin_image(image):
-    if (image.shape[0] < 2048 - extra_row_size):
-        image = image[0:image.shape[0] - extra_row_size, :]  # cut off 8 pixels from top of y
-    if np.amax(image) > 0.95*max_pixel_val:
-        # overexposed
-        print("Image is likely overexposed, highest pixel val",np.amax(image))
+    if np.amax(image) > 0.95 * max_pixel_val:
+        print("Image is likely overexposed, highest pixel val", np.amax(image))
     return np.sum(image)
+
+
+
 def select_one_pixel(image,x,y):
     return image[x,y]
 
@@ -217,6 +213,21 @@ def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, i
                fpcx + fps // 2, fpcy + fps // 2)
     return roi, x_space, y_space
 
+def get_roi(binning_amount, center_x, center_y, width_x, width_y) -> tuple[tuple[int, int, int, int], float, float]:
+    wx = width_x // 16 * 16 // binning_amount
+    wy = width_y // 16 * 16 // binning_amount
+    fpcx = center_x // 16 * 16 // binning_amount
+    fpcy = center_y // 16 * 16 // binning_amount
+    x_points = np.arange(fpcx - wx // 2 + 1, fpcx + wx // 2 + 1)
+    y_points = np.arange(fpcy - wy // 2 + 1, fpcy + wy // 2 + 1)
+    x_space = x_points * 6.5 / objective_magnification / 10 ** 3 * binning_amount * expansion_ratio  # position in mm
+    y_space = y_points * 6.5 / objective_magnification / 10 ** 3 * binning_amount * expansion_ratio
+
+    roi = (fpcx - wx // 2 + 1, fpcy - wy // 2 + 1,
+           fpcx + wx // 2, fpcy + wy // 2)
+
+    return roi, x_space, y_space
+
 def run_odmr_measurement(cam_rf_params, amp_dbm, fn, odmr_params):
     # Safely runs measurement with cam and sg, turning everything off correctly at the end
 
@@ -241,6 +252,7 @@ def bin_counts(counts_2D, binning_num, x_space, y_space):
         raise camera_exception.CameraException(
             f"Cannot bin empty spatial coordinates. x_space len: {len(x_space)}, y_space len: {len(y_space)}"
         )
+    ny, nx, n_freqs = counts_2D.shape
 
     if binning_num < 1:
         raise camera_exception.CameraException(f"Binning number must be >= 1, was {binning_num}")
@@ -248,17 +260,32 @@ def bin_counts(counts_2D, binning_num, x_space, y_space):
         return counts_2D, x_space, y_space
     elif binning_num > len(x_space):
         raise camera_exception.CameraException(f"Binning number must be smaller than dimension width, was {binning_num} with image dimensions {len(x_space)}x{len(y_space)}")
-    elif len(x_space) % binning_num != 0:
+    elif len(x_space) % binning_num != 0 or len(y_space) % binning_num != 0:
         raise camera_exception.CameraException(f"Binning number must be an even multiple of dimension width, was {binning_num} with image dimensions {len(x_space)}x{len(y_space)}")
 
-    # counts_reshaped is of the shape: counts_x/bin, bin, counts_y/bin, bin, freq
-    counts_reshaped = np.reshape(counts_2D, (counts_2D.shape[0] // binning_num, binning_num, counts_2D.shape[1] // binning_num, binning_num, counts_2D.shape[2]))
-    # print("Reshaping image worked")
-    # counts_binned is of the shape: counts_x/bin, counts_y/bin, freq, meaning we have to sum over the two bin axes
-    counts_binned = counts_reshaped.sum(axis=1).sum(axis=2) # sum over the binning axes, (second sum is one lower index cuz the first sum decreases an axis by 1)
-    # print("Summing image worked, returning")
+    ny_crop = (ny // binning_num) * binning_num
+    nx_crop = (nx // binning_num) * binning_num
+    counts_cropped = counts_2D[:ny_crop, :nx_crop, :]
 
-    return counts_binned, x_space[0::binning_num], y_space[0::binning_num]
+    # Reshape: (ny/bin, bin_y, nx/bin, bin_x, freqs)
+    counts_reshaped = np.reshape(
+        counts_cropped,
+        (
+            ny_crop // binning_num,
+            binning_num,
+            nx_crop // binning_num,
+            binning_num,
+            n_freqs,
+        ),
+    )
+
+    # Sum across the two intra-bin axes (axis 1 for y-bin, axis 3 for x-bin)
+    counts_binned = counts_reshaped.sum(axis=(1, 3))
+
+    x_binned = x_space[:nx_crop:binning_num]
+    y_binned = y_space[:ny_crop:binning_num]
+
+    return counts_binned, x_binned, y_binned
 
 
 
