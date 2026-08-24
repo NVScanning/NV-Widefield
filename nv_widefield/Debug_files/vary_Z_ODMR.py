@@ -38,8 +38,8 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
     for i in range(n_iter):
         time.sleep(dwell)
 
-        brightnesses[i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
-        brightnesses[n_iter + i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[::-1]
+        brightnesses[i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2, t0)
+        brightnesses[n_iter + i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1, t0)[::-1]
     sys.stdout.write(f"\r\033[KODMR finished, took {time.time() - t0:.0f}s\n")  # Clear progress bar
     sys.stdout.flush()
 
@@ -48,11 +48,11 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 
 def main():
-    binning_amount = 4  # Hardware binning configuration (1, 2, or 4)
-    focus_point_size = 512  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1110,1215 #1090,1040 # in pixels, center point of the laser point
+    binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
+    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 1024,1024 #1090,1040 # in pixels, center point of the laser point
 
-    n_windows_per_point = 1
+    n_windows_per_point = 5
     amp_dbm = -10  # RF Generator Amplitude
     freq_dwell = 0.04  # Frequency switch recovery interval
     z_dwell = 1
@@ -60,16 +60,17 @@ def main():
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.15e9  # Hz
+    span = 0.1e9  # Hz
     N_freqs = 51  # Total frequency resolution steps
     # f_center = 5.3e9  # Hz
     # span = 0.4e9  # Hz
     # N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 5.65 # Target focus center
-    z_span = 0.1 # Distance range over sweep
-    N_z_steps = 11     # Total step divisions to evaluate
+    z_center = 5.71 #wire measurement # Target focus center
+    # z_center = 3.49 #permalloy sample # Target focus center
+    z_span = 0.06 # Distance range over sweep
+    N_z_steps = 7     # Total step divisions to evaluate
 
     # Calculate operational sweep coordinates
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
@@ -127,7 +128,7 @@ def move_to_user_input(z_motor: Motor, z_prev_position: float):
         time.sleep(1)
         print("moved to pre-optimization position, possibly uncalibrated")
     else:
-        print(f"Trying to move to z={ans}, this will take ~6s")
+        print(f"Trying to move to z={ans}mm, this will take ~6s")
         try:
             z_motor.move_to(float(ans) - 0.005)
             time.sleep(3)
@@ -159,7 +160,7 @@ def plot_odmrs(N_z_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], 
     plt.ylabel("Brightness offset to have a min of 0 (counts/s)", fontsize=12)
     plt.title("Binned-sensor ODMR for varying z positions", fontsize=14)
     plt.grid(True, linestyle="--", alpha=0.6)
-    plt.legend(loc="best", frameon=True, shadow=True)
+    plt.legend(loc="lower left", frameon=True, shadow=True)
     plt.tight_layout()
     plt.show()
 

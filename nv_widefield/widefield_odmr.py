@@ -24,11 +24,13 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
     point_duration_s = cam.exposure_time * n_windows
     print(f"measuring ODMR with {n_iter} iterations and {n_windows} windows, estimate time to completion "
           f"~{n_iter*2 * ((len(freqs) + 1) * (dwell + point_duration_s) + 0.2):.0f}s")
+    # TODO: make an estimate that takes into account data transfer rate,
+    #  because at high resolution and short exposure time that is significant
 
     image = pci.read_image(cam,1) # Throw out first image, it's often too bright
     # Note: one row of pixels is ~30% brighter than the rest, can't figure out why though
     if x_space is None:
-        x_space = np.arange(image.shape[0])
+        x_space = np.arange(image.shape[1])
     if y_space is None:
         y_space = np.arange(image.shape[0])
 
@@ -44,9 +46,9 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
         f.write("temp file so no errors come up when deleting")
 
     for i in range(n_iter):
-        brightnesses[i,:,:] = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2)
-        brightnesses[n_iter + i,:,:] = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1)[:, :,::-1]
-        prev_path = oPlot.overwrite_2D_odmr_measurement(x_space, y_space, freqs, np.sum(brightnesses,axis=0)/(i*2 + 2), prev_path, print_saving=False)
+        brightnesses[i,:,:] = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2, t0)
+        brightnesses[n_iter + i,:,:] = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1, t0)[:, :,::-1]
+        prev_path = oPlot.overwrite_2D_odmr_measurement(x_space, y_space, freqs, np.sum(brightnesses,axis=0)/(i*2 + 2), prev_path, print_saving=True)
 
     sys.stdout.write(f"\r\033[KODMR finished, took {time.time()-t0:.0f}s\n") # Clear progress bar
     sys.stdout.flush()
@@ -55,23 +57,27 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
 
 def main():
     # params
-    camera_binning = 4 # built-int pco camera binning, can only be 1,2,4
-    post_processing_binning = 8
-    focus_point_size = 512  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1110,1215  # in pixels, center of the laser point
+    camera_binning = 1 # built-int pco camera binning, can only be 1,2,4
+    post_processing_binning = 16
+    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+    focus_point_centre_x, focus_point_centre_y = 1024,1024  # in pixels, center of the laser point
+
+    # center_x, center_y, width_x, width_y = 1024,900,128,1536
+
     # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
-    n_windows_per_point = 10 # n readouts to increase certainty without overexposing
+    n_windows_per_point = 100 # n readouts to increase certainty without overexposing
     amp_dbm = -10 # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
     dwell =  0.04 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 20 # integer >=1
+    n_iter = 10 # integer >=1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.15e9 # Hz, range of frequencies to sample
-    N = 301 # num points in the frequency space to sample
+    span = 0.1e9 # Hz, range of frequencies to sample
+    N = 201 # num points in the frequency space to sample
 
-    max_peaks = 4
+    max_peaks = 6
 
     roi, x_space, y_space = pci.get_spacial_params(camera_binning,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
+    # roi, x_space, y_space = pci.get_roi(camera_binning, center_x, center_y, width_x, width_y)
     # roi=(1,1,pci.camera_resolution//camera_binning,pci.camera_resolution//camera_binning)
     print(f"Using the following roi: {roi} and binning a {camera_binning}x{camera_binning} region")
 
@@ -91,13 +97,13 @@ def main():
     if post_processing_binning > 1:
         print(f"now binning {post_processing_binning}x{post_processing_binning} area and converting odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)/post_processing_binning**2:.0f}s")
         binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, post_processing_binning, x_space, y_space)
-        prev_path = oPlot.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path, False)
+        prev_path = oPlot.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path, True)
         B_Z_binned, _ = Lfit.counts_to_B_Z(x_binned, y_binned, binned_counts, freqs, max_peaks=max_peaks)
         print("Conversion done, saving and plotting")
         oPlot.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_binned, binned_counts)
         oPlot.plot_magnet_image(x_binned, y_binned, B_Z_binned)
     else:
-        prev_path = oPlot.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, False)
+        prev_path = oPlot.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, True)
         print(f"now converting raw odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)}s")
         B_Z_overall, _ = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs, max_peaks=max_peaks)
         print("Conversion done, saving and plotting")
