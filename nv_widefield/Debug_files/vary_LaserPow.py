@@ -1,5 +1,7 @@
 import time
 import numpy as np
+import os
+import re
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import helper_classes.pco_cam_interface as pci
@@ -7,6 +9,46 @@ import helper_classes.Novanta_Laser as nLas
 import helper_classes.odmr_plotting as oPlot
 
 
+
+NEW_MEASUREMENT = False  # Set to True for hardware run, False to parse log_text
+
+old_Measurement_Path = "C:\\Users\\NVCFM\\ownCloud\\QIQM\\NVCFM Data\\2026-08-25\\saturation_sweep_02-58-54.txt"
+
+
+def read_txt(txt_path):
+    if not os.path.exists(txt_path):
+        raise FileNotFoundError(f"Log text file not found at: {txt_path}")
+
+    powers = []
+    means = []
+    std_t = []
+
+    power_pattern = re.compile(r"Setting laser power to ([\d\.]+)\s*mW")
+    stats_pattern = re.compile(r"Mean Brightness:\s*([\d\.e\+-]+)\s*\|\s*Temporal SD:\s*([\d\.e\+-]+)")
+
+    current_power = None
+
+    with open(txt_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line_str = line.strip()
+
+            power_match = power_pattern.search(line_str)
+            if power_match:
+                current_power = float(power_match.group(1))
+                continue
+
+            stats_match = stats_pattern.search(line_str)
+            if stats_match and current_power is not None:
+                mean_val = float(stats_match.group(1))
+                sd_val = float(stats_match.group(2))
+
+                powers.append(current_power)
+                means.append(mean_val)
+                std_t.append(sd_val)
+
+                current_power = None
+
+    return np.array(powers), np.array(means), np.array(std_t)
 class NovantaLaserWrapper:
     """Wrapper around LaserInterface to expose set_power and get_power methods."""
 
@@ -115,7 +157,7 @@ def fit_saturation_curve(powers, means, std_t):
     return popt, perr
 
 
-def plot_saturation_results(powers, means, std_t, std_s, fit_params=None):
+def plot_saturation_results(powers, means, std_t, fit_params=None):
     fig, ax1 = plt.subplots(figsize=(8, 5), layout="constrained")
 
     color = "crimson"
@@ -149,56 +191,62 @@ def plot_saturation_results(powers, means, std_t, std_s, fit_params=None):
 
     ax2 = ax1.twinx()
     color = "blue"
-    ax2.set_ylabel("Temporal Noise SD [counts/s]", color=color, fontsize=12)
-    ax2.plot(powers, std_t, "s", color=color, linewidth=1.2, label="Temporal SD")
+    ax2.set_ylabel("Relative Temporal uncertainty [unitless]", color=color, fontsize=12)
+    ax2.plot(powers, std_t/means, "s", color=color, linewidth=1.2, label="Relative uncertainty")
     ax2.tick_params(axis="y", labelcolor=color)
 
-    plt.legend(loc="upper left")
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines1 + lines2, labels1 + labels2, loc=0)
+    # ax1.legend(loc="upper left")
+    # ax2.legend(loc="upper left")
     plt.title("NV Saturation & Power Stability Sweep", fontsize=13)
     plt.show()
 
 
 def main():
     power_setpoints = [5, 10, 20, 50, 75, 100, 125, 150, 200, 250]
-    settle_time_s = 1
-    num_frames = 5
-    exposure_time_s = 0.01
+    if not NEW_MEASUREMENT:
+        powers, means, std_t = read_txt(old_Measurement_Path)
+    else:
+        try:
 
-    binning_amount = 1
+            settle_time_s = 3600
+            num_frames = 10000
+            exposure_time_s = 0.02
 
-    # Instantiate hardware interface objects
-    laser = NovantaLaserWrapper(port='COM3')
+            binning_amount = 1
 
-    # Preserved spatial setup
-    roi, x_space, y_space = pci.get_spacial_params(binning_amount, (128, 1024, 1024))
-    cam = pci.connect_cam(roi, binning_amount, forced_exposure=0.01)
+            # Instantiate hardware interface objects
+            laser = NovantaLaserWrapper(port='COM3')
 
-    try:
-        # 1. Run automated measurement
-        powers, means, std_t, std_s = run_saturation_sweep(
-            laser=laser,
-            cam=cam,
-            power_setpoints=power_setpoints,
-            settle_time_s=settle_time_s,
-            num_frames=num_frames,
-            exposure_time_s=exposure_time_s,
-            roi=roi
-        )
+            # Preserved spatial setup
+            roi, _, _ = pci.get_spacial_params(binning_amount, (128, 1024, 1024))
+            cam = pci.connect_cam(roi, binning_amount, forced_exposure=0.01)
+            powers, means, std_t, std_s = run_saturation_sweep(
+                laser=laser,
+                cam=cam,
+                power_setpoints=power_setpoints,
+                settle_time_s=settle_time_s,
+                num_frames=num_frames,
+                exposure_time_s=exposure_time_s,
+                roi=roi
+            )
 
-        # 2. Fit saturation model
-        popt, perr = fit_saturation_curve(powers, means, std_t)
-        I_max, P_sat, I_bg = popt
+        finally:
+            laser.close()
 
-        print("\n--- Fit Results ---")
-        print(f"I_max: {I_max:.3e} ± {perr[0]:.3e} counts/s")
-        print(f"P_sat: {P_sat:.3f} ± {perr[1]:.3f} mW")
-        print(f"I_bg : {I_bg:.3e} ± {perr[2]:.3e} counts/s")
 
-        # 3. Plot overlay
-        plot_saturation_results(powers, means, std_t, std_s, fit_params=popt)
 
-    finally:
-        laser.close()
+    popt, perr = fit_saturation_curve(powers, means, std_t)
+    I_max, P_sat, I_bg = popt
+
+    print("\n--- Fit Results ---")
+    print(f"I_max: {I_max:.3e} ± {perr[0]:.3e} counts")
+    print(f"P_sat: {P_sat:.3f} ± {perr[1]:.3f} mW")
+    print(f"I_bg : {I_bg:.3e} ± {perr[2]:.3e} counts")
+
+    plot_saturation_results(powers, means, std_t, fit_params=popt)
 
 
 if __name__ == "__main__":
