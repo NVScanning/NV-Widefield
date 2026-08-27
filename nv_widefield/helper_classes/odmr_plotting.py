@@ -56,20 +56,27 @@ def plot_odmr_fft(plot_freqs, plot_mag):
     plt.show()
 
 
-def plot_magnet_image(x_points, y_points, B_Z_overall):
+def plot_magnet_image(x_points, y_points, B_Z_overall, title=""):
     # x_points, y_points in mm
     # B_Z in T
 
     plt.figure(figsize=(8, 6))
     # shading='auto' handles the coordinate mapping automatically
-    cmap = plt.cm.bwr
-    cmap.set_bad('black',1.)
+    cmap = plt.cm.inferno
+    cmap.set_bad('white',1.)
+    # cmap = plt.cm.bwm
+    # cmap.set_bad('black',1.)
     mesh = plt.pcolormesh(x_points*1000, y_points*1000, B_Z_overall*1000, shading='nearest', cmap=cmap)
+
+    # plt.gca().invert_yaxis()
 
     plt.colorbar(mesh, label=r'$\partial$ B (mT)')
     plt.xlabel(r'x space ($\mu$m)')
     plt.ylabel(r'y space ($\mu$m)')
-    plt.title('Magnetic Field Heatmap')
+    if title != "":
+        plt.title(title)
+    else:
+        plt.title('Magnetic Field Heatmap')
     plt.show()
 
 
@@ -121,9 +128,12 @@ def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
     save_path = get_newfile_dir("")
     np.savez(save_path, x=freqs, y=counts)
 
-def overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, prev_path, print_saving=True):
+def overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, prev_path, print_saving=True, Bmap=None):
     new_path = get_newfile_dir("widefield_", print_saving=print_saving)
-    np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=np.zeros((len(x_points),len(y_points))), odmrs=counts_2D)
+    if Bmap is not None:
+        np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=Bmap, odmrs=counts_2D)
+    else:
+        np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=np.zeros((len(x_points),len(y_points))), odmrs=counts_2D)
     try:
         os.remove(prev_path)
         if print_saving:
