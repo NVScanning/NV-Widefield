@@ -374,6 +374,7 @@ def sweep_freqs(cam, sg, dwell, freqs, n_windows, n_iter, iteration, t0=None) ->
 def sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iteration, t0=None) -> npt.NDArray[np.float64]:
     point_duration_s = cam.exposure_time * n_windows
     cam.record(mode="ring buffer", number_of_images=4)
+    time.sleep(dwell*3) # camera heats slightly
     cam.wait_for_new_image()
     # image, dict = cam.image(image_index=-1) # Ignore first image
     image = get_image_sub_bkg(cam)
@@ -421,8 +422,9 @@ def sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iteration, t0=
 def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iteration, t0=None) -> npt.NDArray[np.float64]:
     point_duration_s = cam.exposure_time * n_windows
     cam.record(mode="ring buffer", number_of_images=4)
+    time.sleep(dwell*3) # camera heats slightly
     cam.wait_for_new_image()
-    image, dict = cam.image(image_index=-1) # Ignore first image
+    # image, dict = cam.image(image_index=-1) # Ignore first image
     # cam.wait_for_new_image()
     # image, dict = cam.image(image_index=-1) # Ignore second image
     brightness = np.zeros((freqs.size))
