@@ -32,11 +32,11 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-08-18" # YYYY-MM-DD
+date = "2026-08-27" # YYYY-MM-DD
 time = "16-43-23"   # hh-mm_ss
 time = "11-17-58"
-time = "10-36-37"
-max_peaks = 4
+time = "15-03-35"
+max_peaks = 5
 
 
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
@@ -194,7 +194,7 @@ elif match[0].startswith("widefield"):
         is_B_saved = True
 
     filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "widefield_cw_odmr_" + time)
-    plt.figure(figsize=(8, 5))
+
 
     data = np.load(filepath + ".npz")
 
@@ -208,7 +208,7 @@ elif match[0].startswith("widefield"):
         # freq_deltas = np.zeros_like(B_Z_overall)
         oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
     else:
-
+        plt.figure(figsize=(8, 5))
         fig, ax = plt.subplots(figsize=(8, 6))
         ext = [x_points.min(), x_points.max(), y_points.min(), y_points.max()]
         ax.set_xlabel("x space (mm)")

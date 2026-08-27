@@ -155,7 +155,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
 
 
     # find noise of background
-    edge_pts = max(5, int(len(vals) * 0.05))
+    edge_pts = max(5, int(len(vals) * 0.1))
 
     d1 = np.gradient(filtered_vals, df)
     # print(d1)
@@ -173,7 +173,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     # print(f"using {max_prominence/max_d2*100*0.12}% prominence for find_peaks of the second derivative")
 
     noise_std = np.std(d2[:edge_pts] - filtered_d2[:edge_pts])
-    min_distance_pts = max(1, int(0.005 / df))  # ~4 MHz minimum peak separation
+    min_distance_pts = max(1, int(0.002 / df))  # ~2 MHz minimum peak separation
     peaks_d2, props_d2 = find_peaks(
         filtered_d2,
         # prominence=max(0.1*max_prominence, 1.5 * noise_std),
@@ -259,8 +259,8 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
     params = []
     for i in range(n_peaks):
         A0, f0, g0 = p0[3*i:3*i+3]
-        lower += [-abs(A0*2), f0 - 0.005, 0.0005]
-        upper += [0, f0 + 0.005, 2.2 * g0]
+        lower += [-abs(A0*3), f0 - 0.005, 0.0005]
+        upper += [0, f0 + 0.005, min(3 * g0,0.015)]
         params.extend([f"A{i}",f"f{i}",f"g{i}"])
     params.extend(["slope","offset"])
 
@@ -277,7 +277,7 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
             p0=p0, bounds=(lower, upper), maxfev=3000
             # ,ftol=0.001, xtol=0.001) # Note: these make convergence quicker, but lose accuracy
         )
-        check_bound_proximity(popt, (lower, upper), threshold=0.05, param_names=params)
+        # check_bound_proximity(popt, (lower, upper), threshold=0.05, param_names=params) # useful to know if fitting code is flexible enough, gets annoying with non-ODMR sweeps
         return popt, pcov, peaks
     except Exception as e:
         # print("Couldn't curve_fit, threw:", e, "Plotting ODMR")

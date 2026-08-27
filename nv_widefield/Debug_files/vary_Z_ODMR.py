@@ -50,9 +50,9 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 def main():
     binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
     focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1024,1024 #1090,1040 # in pixels, center point of the laser point
+    focus_point_centre_x, focus_point_centre_y = 960,980 #1090,1040 # in pixels, center point of the laser point
 
-    n_windows_per_point = 5
+    n_windows_per_point = 3
     amp_dbm = -10  # RF Generator Amplitude
     freq_dwell = 0.04  # Frequency switch recovery interval
     z_dwell = 1
@@ -60,14 +60,14 @@ def main():
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9  # Hz
-    span = 0.1e9  # Hz
+    span = 0.15e9  # Hz
     N_freqs = 51  # Total frequency resolution steps
     # f_center = 5.3e9  # Hz
     # span = 0.4e9  # Hz
     # N_freqs = 51  # Total frequency resolution steps
 
     # Z-Axis Step Parameters
-    z_center = 5.71 #wire measurement # Target focus center
+    z_center = 5.68 #wire measurement # Target focus center
     # z_center = 3.49 #permalloy sample # Target focus center
     z_span = 0.06 # Distance range over sweep
     N_z_steps = 7     # Total step divisions to evaluate
