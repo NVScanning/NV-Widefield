@@ -23,24 +23,25 @@ import scipy.ndimage as ndi
 # # time = "15-40-31" #
 # time = "16-50-33"
 
-date = "2026-08-17"
+date = "2026-08-27"
 time = "12-31-28"
 time = "12-28-50"
-time = "14-42-56"
-target_idx = 2  # The specific spatial x-index to extract across all y's
+time = "15-03-35"
+target_idx = 8  # The specific spatial x-index to extract across all y's
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-max_peaks = 4
+max_peaks = 5
 plot_dip_positions = True
 fit_fn = True
-use_offaxis_binning = False
+use_offaxis_binning = True
+fixed_B = False
 
 diff_start_idx = 0
 diff_end_idx = 15
 every_nth_idx = 1
 labelled_dip_idx = -1
 
-offset = 0.001
+offset = 0.003
 I_applied = 1
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
@@ -131,84 +132,86 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
 
     if len(axis_positions) >= 3:
         try:
-            if B_fitted[0] > B_fitted[-1]:
-                # wire at more negative position
-                initial_pos0 = axis_positions[0] - 0.25  # Initial guess 150 um away
+            if fixed_B:
+                if B_fitted[0] > B_fitted[-1]:
+                    # wire at more negative position
+                    initial_pos0 = axis_positions[0] - 0.15  # Initial guess 150 um away
+                else:
+                    # wire at more positive positoin
+                    initial_pos0 = axis_positions[-1] + 0.15  # Initial guess 150 um away
+                p0 = [initial_pos0]
+                b_offset = -65e-6
+                print("Guessing initial params:", p0)
+
+                popt, pcov = curve_fit(
+                    lambda pos, pos0: wire_b_field(pos, pos0, b_offset, I=I_applied),
+                    axis_positions,
+                    B_fitted,
+                    sigma=uB_fitted,
+                    absolute_sigma=True,
+                    p0=p0
+                )
+
+                fit_pos0 = popt
+                perr = np.sqrt(np.diag(pcov))
+                print("fit_pos0[0]:", fit_pos0[0], "type=", type(fit_pos0[0]))
+                print("perr[0]:", perr[0], "type=", type(perr[0]))
+
+                pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
+                b_fit = wire_b_field(pos_fine, fit_pos0, b_offset, I=I_applied)
+
+                print("--- Wire Distance Fit Results ---")
+                print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0[0]:.4f} ± {perr[0]:.4f} mm")
+                # print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
+
+                plt.plot(
+                    pos_fine,
+                    b_fit,
+                    '--',
+                    color='navy',
+                    linewidth=2.0,
+                    label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({axis_label}-{fit_pos0[0]:.2f})}} + {b_offset:.3e}$ T'
+                )
             else:
-                # wire at more positive positoin
-                initial_pos0 = axis_positions[-1] + 0.25  # Initial guess 150 um away
-            initial_b_offset = 0
-            p0 = [initial_pos0, initial_b_offset]
-            print("Guessing initial params:", p0)
+                if B_fitted[0] > B_fitted[-1]:
+                    # wire at more negative position
+                    initial_pos0 = axis_positions[0] - 0.25  # Initial guess 150 um away
+                else:
+                    # wire at more positive positoin
+                    initial_pos0 = axis_positions[-1] + 0.25  # Initial guess 150 um away
+                initial_b_offset = 0
+                p0 = [initial_pos0, initial_b_offset]
+                print("Guessing initial params:", p0)
 
-            popt, pcov = curve_fit(
-                lambda pos, pos0, b_off: wire_b_field(pos, pos0, b_off, I=I_applied),
-                axis_positions,
-                B_fitted,
-                sigma=uB_fitted,
-                absolute_sigma=True,
-                p0=p0
-            )
+                popt, pcov = curve_fit(
+                    lambda pos, pos0, b_off: wire_b_field(pos, pos0, b_off, I=I_applied),
+                    axis_positions,
+                    B_fitted,
+                    sigma=uB_fitted,
+                    absolute_sigma=True,
+                    p0=p0
+                )
 
-            fit_pos0, fit_b_off = popt
-            perr = np.sqrt(np.diag(pcov))
+                fit_pos0, fit_b_off = popt
+                perr = np.sqrt(np.diag(pcov))
 
-            pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
-            b_fit = wire_b_field(pos_fine, fit_pos0, fit_b_off, I=I_applied)
+                pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
+                b_fit = wire_b_field(pos_fine, fit_pos0, fit_b_off, I=I_applied)
 
-            print("--- Wire Distance Fit Results ---")
-            print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0:.4f} ± {perr[0]:.4f} mm")
-            print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
+                print("--- Wire Distance Fit Results ---")
+                print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0:.4f} ± {perr[0]:.4f} mm")
+                print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
 
-            plt.plot(
-                pos_fine,
-                b_fit,
-                '--',
-                color='navy',
-                linewidth=2.0,
-                label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({axis_label}-{fit_pos0:.2f})}} + {fit_b_off:.3e}$ T'
-            )
+                plt.plot(
+                    pos_fine,
+                    b_fit,
+                    '--',
+                    color='navy',
+                    linewidth=2.0,
+                    label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({axis_label}-{fit_pos0:.2f})}} + {fit_b_off:.3e}$ T'
+                )
 
-        # try:
-        #     if B_fitted[0] > B_fitted[-1]:
-        #         # wire at more negative position
-        #         initial_pos0 = axis_positions[0] - 0.25  # Initial guess 150 um away
-        #     else:
-        #         # wire at more positive positoin
-        #         initial_pos0 = axis_positions[-1] + 0.25  # Initial guess 150 um away
-        #     p0 = [initial_pos0]
-        #     b_offset = 25e-6
-        #     print("Guessing initial params:", p0)
-        #
-        #     popt, pcov = curve_fit(
-        #         lambda pos, pos0: wire_b_field(pos, pos0, b_offset, I=I_applied),
-        #         axis_positions,
-        #         B_fitted,
-        #         sigma=uB_fitted,
-        #         absolute_sigma=True,
-        #         p0=p0
-        #     )
-        #
-        #     fit_pos0 = popt
-        #     perr = np.sqrt(np.diag(pcov))
-        #     print("fit_pos0[0]:", fit_pos0[0], "type=", type(fit_pos0[0]))
-        #     print("perr[0]:", perr[0], "type=", type(perr[0]))
-        #
-        #     pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
-        #     b_fit = wire_b_field(pos_fine, fit_pos0, b_offset, I=I_applied)
-        #
-        #     print("--- Wire Distance Fit Results ---")
-        #     print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0[0]:.4f} ± {perr[0]:.4f} mm")
-        #     # print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
-        #
-        #     plt.plot(
-        #         pos_fine,
-        #         b_fit,
-        #         '--',
-        #         color='navy',
-        #         linewidth=2.0,
-        #         label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({axis_label}-{fit_pos0[0]:.2f})}} + {b_offset:.3e}$ T'
-        #     )
+
 
         except Exception as fit_err:
             print(f"[Warning] 1/r Curve fit failed: {fit_err}")
@@ -222,7 +225,7 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
 
 def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     N_steps = len(sweep_results)
-    print("There should be ", N_steps, "ODMRS plotted")
+    print("There should be ", N_steps//every_nth_idx, "ODMRS plotted")
     plt.figure(figsize=(10, 6), layout="constrained")
 
     fitted_axis_positions = []
@@ -245,7 +248,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
         if not (idx % every_nth_idx == 0):
             continue
 
-        # if idx == 24:
+        # if idx == 13 or idx==14 or idx == 11 or idx==12:
         #     continue
 
         # if (idx == 0 or idx == 10) or (idx == 14 or idx == 28):
@@ -362,9 +365,9 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     plt.legend(loc="center left")
 
     if slice_axis == "x":
-        plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val:.4f} mm)", fontsize=13)
+        plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val*1000:.4f} um)", fontsize=13)
     else:
-        plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val:.4f} mm)", fontsize=13)
+        plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val*1000:.4f} um)", fontsize=13)
     # plt.xlim(2.87,2.93)
     # plt.ylim(0.997, 1 + len(z_sweep_results.items())*0.0002)
     # plt.grid(True, linestyle="--", alpha=0.5)
@@ -404,7 +407,9 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
     plt.figure(figsize=(8, 6), layout='constrained')
 
 
-    mesh = plt.pcolormesh(x_space, y_space, B_field_2D, shading='nearest', cmap='bwr')
+    cmap = plt.cm.inferno
+    cmap.set_bad('white',1.)
+    mesh = plt.pcolormesh(x_space*1000, y_space*1000, B_field_2D*1000, shading='nearest', cmap=cmap)
 
 
     # Plot high-contrast indicators for the sliced region
@@ -412,20 +417,20 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
     if not use_offaxis_binning:
         if slice_axis == "x":
             plt.axhline(
-                y=slice_axis_coord,
+                y=slice_axis_coord*1000,
                 color='black',
                 linestyle=':',
                 linewidth=5.0,
-                label=f"Slice line (y = {slice_axis_coord:.4f} mm)",
+                label=f"Slice line (y = {slice_axis_coord*1000:.4f} um)",
                 zorder=10
             )
         else:
             plt.axvline(
-                x=slice_axis_coord,
+                x=slice_axis_coord*1000,
                 color='black',
                 linestyle=':',
                 linewidth=5.0,
-                label=f"Slice line (x = {slice_axis_coord:.4f} mm)",
+                label=f"Slice line (x = {slice_axis_coord*1000:.4f} um)",
                 zorder=10
             )
 
@@ -450,9 +455,9 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
 
     # plt.gca().invert_yaxis()  # Maintain spatial match to physical sensor layout
 
-    plt.colorbar(mesh, label=r'$\partial$ B (T)')
-    plt.xlabel('x space (mm)')
-    plt.ylabel('y space (mm)')
+    plt.colorbar(mesh, label=r'$\partial$ B (mT)')
+    plt.xlabel(r'x space ($\mu$m)')
+    plt.ylabel(r'y space ($\mu$m)')
     if slice_axis == "x":
         plt.title(f'2D Magnet Image with Slice Overlay (y_ind={target_axis_idx})')
     else:
@@ -479,8 +484,8 @@ def main():
     B_Z_overall = data["magnet"]
     counts_2D = data["odmrs"]  # Expected shape: (X_pixels, Y_pixels, Freq_points)
 
-    primary_points = x_points if slice_axis == "x" else y_points
-    secondary_points = y_points if slice_axis == "x" else x_points
+    primary_points = y_points if slice_axis == "x" else x_points
+    secondary_points = x_points if slice_axis == "x" else y_points
 
     # Check bounds of target x-slice
     # if target_x_idx >= len(x_points) or target_x_idx < 0:
