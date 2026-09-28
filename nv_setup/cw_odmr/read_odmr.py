@@ -32,11 +32,11 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-08-27" # YYYY-MM-DD
+date = "2026-09-28" # YYYY-MM-DD
 time = "16-43-23"   # hh-mm_ss
 time = "11-17-58"
-time = "15-03-35"
-max_peaks = 5
+time = "16-22-20"
+max_peaks = 3
 
 
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
@@ -140,7 +140,8 @@ elif match[0].startswith("scanned"):
                 print(problem_points)
             oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
-            oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+            # oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+            oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz", print_saving=True, Bmap=B_Z_overall)
 
         try:
             # Parse the input string into integers
@@ -286,7 +287,9 @@ elif match[0].startswith("widefield"):
                     print(problem_points)
                 oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
-                oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+                # oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+                oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
+                                                    print_saving=True, Bmap=B_Z_overall)
                 # print(f"Trying to bin a {numbers[-1]}x{numbers[-1]} region")
                 # binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, numbers[-1], x_points, y_points)
                 # B_Z_overall, problem_points = Lfit.counts_to_B_Z(x_binned, y_binned, binned_counts, freqs,
@@ -313,7 +316,8 @@ elif match[0].startswith("widefield"):
                 print(problem_points)
             oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
-            oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+            # oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+            oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz", print_saving=True, Bmap=B_Z_overall)
         elif user_input.lower().startswith("bin"):
             try:
                 numbers = re.findall(r'\d+', user_input)
@@ -362,7 +366,7 @@ elif match[0].startswith("widefield"):
                 # Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
 
                 oPlot.plot_odmr(freqs, counts, "raw ODMR data")
-                oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+                oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm, popt)
             except ValueError as e:
                 print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4'). Threw:", e)
 
