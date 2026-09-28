@@ -33,7 +33,7 @@ new_Measurement = True
 # old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_00-32-38.txt" # overnight with 1A
 # old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_09-46-58.txt" # 0.7A
 # old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-07-23\\y_dep_10-39-51.txt" # larger stepsize 1A
-old_Measurement_Path = "C:\\Users\\NVCFM\\ownCloud\\QIQM\\NVCFM Data\\2026-08-17\\y-dep-17-08-22.txt" # 15um range, 1A
+old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM Data\\2026-08-17\\y-dep-17-08-22.txt" # 15um range, 1A
 
 
 def wire_b_field(y, y0, B_offset, I=1.0):
