@@ -93,10 +93,10 @@ def plot_graphs():
     plt.close(fig)
 
 def main():
-    n_windows_per_point = 20 # n readouts to increase certainty without overexposing
+    n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 600  # in pixels, approximate width of image taken, must be >=32 after binning
-    focus_point_centre_x, focus_point_centre_y = 800,1280 # in pixels, center of the laser point
+    focus_point_size = 512  # in pixels, approximate width of image taken, must be >=32 after binning
+    focus_point_centre_x, focus_point_centre_y = 1000,1140 # in pixels, center of the laser point
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi = (1,1,2048//binning_amount,2048//binning_amount)
     if roi is not None:
@@ -104,7 +104,7 @@ def main():
     else:
         print("Using previous roi")
 
-    cam = pci.connect_cam(roi, binning_amount, 0.05)
+    cam = pci.connect_cam(roi, binning_amount, 0.01)
 
 
     point_duration_s = cam.exposure_time * n_windows_per_point
@@ -120,7 +120,7 @@ def main():
             #     get_new_data(cam,n_windows_per_point,point_duration_s)
             get_new_data(cam,n_windows_per_point,point_duration_s)
             imgnum += 1
-            if imgnum%4==0:
+            if imgnum%100==0:
                 plot_graphs()
     finally:
         cam.stop()

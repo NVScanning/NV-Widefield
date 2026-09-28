@@ -70,11 +70,11 @@ def main():
     # params
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
     focus_point_size = 256  # in pixels, approximate width of image taken, must be >=32 after binning
-    focus_point_centre_x, focus_point_centre_y = 1050,940  # in pixels, center of the laser point
+    focus_point_centre_x, focus_point_centre_y = 1020, 1000  # in pixels, center of the laser point
 
     # center_x, center_y, width_x, width_y = 1110,1215,128,1536
 
-    n_windows_per_point = 5 # n readouts to increase certainty without overexposing
+    n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     amp_dbm = -10 #anything bigger than -10 does nothing (Hayden)
     # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
     # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
@@ -83,10 +83,10 @@ def main():
     n_iter = 2
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.1e9 # Hz, range of frequencies to sample
-    N = 51 # num points in the frequency space to sample
+    span = 0.08e9 # Hz, range of frequencies to sample
+    N = 101 # num points in the frequency space to sample
 
-    max_peaks = 6
+    max_peaks = 3
     # f_center = 5.3e9 # Hz, generally near 2.87GHz
     # span = 0.3e9 # Hz, range of frequencies to sample
     # N = 101 # num points in the frequency space to sample
@@ -106,7 +106,7 @@ def main():
     # f_end = f_center + span
     # print(f"Frequency range from {f_start/1e9:.3f} to {f_end/1e9:.3f}GHz")
 
-    counts = pci.run_odmr_measurement((roi, binning_amount,0.05), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts = pci.run_odmr_measurement((roi, binning_amount), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     oPlot.plot_odmr(freqs, counts)
 

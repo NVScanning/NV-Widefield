@@ -50,9 +50,9 @@ def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_wind
 
 
 def main():
-    binning_amount = 4
-    focus_point_size = 512
-    focus_point_centre_x, focus_point_centre_y = 1080,1300
+    binning_amount = 1
+    focus_point_size = 128
+    focus_point_centre_x, focus_point_centre_y = 1050,1000
 
     n_windows_per_point = 1
     freq_dwell = 0.04
@@ -62,13 +62,13 @@ def main():
     # Frequency Sweep Space Configuration
     f_center = 2.87e9
     span = 0.1e9
-    N_freqs = 101
+    N_freqs = 51
 
 
     # RF Power Amplitude Sweep Parameters
     amp_min = -20.0  # dBm
     amp_max = -10.0  # dBm
-    N_amp_steps = 11  # Total power increments to evaluate
+    N_amp_steps = 6  # Total power increments to evaluate
     amp_range = np.linspace(amp_min, amp_max, N_amp_steps)
 
     # Calculate operational frequency sweep coordinates
@@ -88,7 +88,7 @@ def main():
 
     # Pass functional loop array down to interface controller execution stack
     avg_contrasts, avg_snrs, evaluated_powers, power_sweep_results = pci.run_odmr_measurement(
-        (roi, binning_amount), -10, measure_power_dependency,
+        (roi, binning_amount,0.04), -10, measure_power_dependency,
         (freq_dwell, freqs, n_iter, n_windows_per_point, power_dwell, amp_range)
     )
 

@@ -16,7 +16,8 @@ import helper_classes.pco_cam_interface as pci
 # from nv_widefield.helper_classes.odmr_plotting import plot_fitted_data
 
 
-dip_range = (2.84,2.9) # GHz
+dip_range = (2.82,2.92) # GHz
+brightness_factor = 0.1 # unitless, 0<_<1, proportion of max brightness, below which pixels are automatically ignored
 
 
 # ============================
@@ -332,7 +333,7 @@ def get_dip_params(popt):
         contrasts.append(C_frac)
         FWHMs.append(FWHM)
         dip_Freqs.append(f0)
-    return contrasts, FWHMs, dip_Freqs # %, GHz, GHz
+    return contrasts, FWHMs, dip_Freqs # prop, GHz, GHz
 def get_dip_uncertainties(pcov):
     perr = np.sqrt(np.diag(pcov))
     n_dips = (len(perr) - 2) // 3
@@ -475,7 +476,7 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
             # if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
             #     # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
             #     print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
-            if image[y_ind, x_ind] < 0.2 * brightest_pixel:
+            if image[y_ind, x_ind] < brightness_factor * brightest_pixel:
                 problem_points.append((x_ind, y_ind))
                 B_Z_overall[y_ind, x_ind] = np.nan
                 # print(f"pixel ({x_ind},{y_ind}) has too low of signal, ignoring)")

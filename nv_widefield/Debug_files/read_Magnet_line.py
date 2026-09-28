@@ -23,25 +23,24 @@ import scipy.ndimage as ndi
 # # time = "15-40-31" #
 # time = "16-50-33"
 
-date = "2026-08-27"
-time = "12-31-28"
-time = "12-28-50"
-time = "15-03-35"
-target_idx = 8  # The specific spatial x-index to extract across all y's
+date = "2026-09-28"
+time = "12-24-13"
+time="16-40-23"
+target_idx = 16  # The specific spatial x-index to extract across all y's
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-max_peaks = 5
+max_peaks = 3
 plot_dip_positions = True
-fit_fn = True
-use_offaxis_binning = True
+fit_fn = False
+use_offaxis_binning = False
 fixed_B = False
 
 diff_start_idx = 0
-diff_end_idx = 15
-every_nth_idx = 1
+diff_end_idx = 32
+every_nth_idx = 2
 labelled_dip_idx = -1
 
-offset = 0.003
+offset = 0.001
 I_applied = 1
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
@@ -120,11 +119,13 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
     electron gyromagnetic ratio and fits a 1/r wire field model along the slice.
     """
     axis_positions = np.array(axis_positions)
+    B_fitted = np.array(B_fitted)*1000 # convert to mT
+    uB_fitted = np.array(uB_fitted)*1000 # convert to mT
 
     # Calculate local magnetic field values assuming Zeeman splitting shift
     # Note: If tracking single-dip displacement from zero-field, adjust scaling accordingly
 
-    plt.figure(figsize=(9, 5.5), layout="constrained")
+    plt.figure(figsize=(6, 4), layout="constrained")
     plt.errorbar(axis_positions, B_fitted, yerr=uB_fitted, color='crimson', label='Measured $B_z$', marker='o', linestyle="", markersize=5,capsize=10)
 
     axis_label = "x" if slice_axis == "x" else "y"
@@ -146,8 +147,8 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
                 popt, pcov = curve_fit(
                     lambda pos, pos0: wire_b_field(pos, pos0, b_offset, I=I_applied),
                     axis_positions,
-                    B_fitted,
-                    sigma=uB_fitted,
+                    B_fitted/1000, # convert mT to T
+                    sigma=uB_fitted, # convert mT to T
                     absolute_sigma=True,
                     p0=p0
                 )
@@ -158,20 +159,22 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
                 print("perr[0]:", perr[0], "type=", type(perr[0]))
 
                 pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
-                b_fit = wire_b_field(pos_fine, fit_pos0, b_offset, I=I_applied)
+                b_fit = wire_b_field(pos_fine, fit_pos0, b_offset, I=I_applied) * 1000 # convert T to mT
 
                 print("--- Wire Distance Fit Results ---")
                 print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0[0]:.4f} ± {perr[0]:.4f} mm")
                 # print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
 
+                minusR = f"{axis_label}-{fit_pos0[0]:.2f}" if fit_pos0[0] > 0 else f"{axis_label}+{-fit_pos0[0]:.2f}"
                 plt.plot(
                     pos_fine,
                     b_fit,
                     '--',
                     color='navy',
                     linewidth=2.0,
-                    label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({axis_label}-{fit_pos0[0]:.2f})}} + {b_offset:.3e}$ T'
+                    label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({minusR})}} + {b_offset:.3e}$ T'
                 )
+
             else:
                 if B_fitted[0] > B_fitted[-1]:
                     # wire at more negative position
@@ -186,8 +189,8 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
                 popt, pcov = curve_fit(
                     lambda pos, pos0, b_off: wire_b_field(pos, pos0, b_off, I=I_applied),
                     axis_positions,
-                    B_fitted,
-                    sigma=uB_fitted,
+                    B_fitted/1000, # convert mT to T
+                    sigma=uB_fitted/1000, # convert mT to T
                     absolute_sigma=True,
                     p0=p0
                 )
@@ -196,11 +199,13 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
                 perr = np.sqrt(np.diag(pcov))
 
                 pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
-                b_fit = wire_b_field(pos_fine, fit_pos0, fit_b_off, I=I_applied)
+                b_fit = wire_b_field(pos_fine, fit_pos0, fit_b_off, I=I_applied) * 1000 # convert T to mT
 
                 print("--- Wire Distance Fit Results ---")
                 print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0:.4f} ± {perr[0]:.4f} mm")
                 print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
+
+                minusR = f"{axis_label}-{fit_pos0:.2f}" if fit_pos0 > 0 else f"{axis_label}+{-fit_pos0:.2f}"
 
                 plt.plot(
                     pos_fine,
@@ -208,7 +213,7 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
                     '--',
                     color='navy',
                     linewidth=2.0,
-                    label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({axis_label}-{fit_pos0:.2f})}} + {fit_b_off:.3e}$ T'
+                    label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({minusR})}} + {fit_b_off:.3e}$ T'
                 )
 
 
@@ -217,7 +222,7 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
             print(f"[Warning] 1/r Curve fit failed: {fit_err}")
 
     plt.xlabel(f"{axis_label} position [mm]", fontsize=12)
-    plt.ylabel(r"$\partial$B [T]", fontsize=12)
+    plt.ylabel(r"$\partial$B [mT]", fontsize=12)
     plt.title(f"B field 1/r fit vs. {axis_label} (Fixed {fixed_label} = {fixed_pos_val:.4f} mm)", fontsize=13)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.legend(loc="best", frameon=True, shadow=True)
@@ -225,8 +230,9 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
 
 def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     N_steps = len(sweep_results)
-    print("There should be ", N_steps//every_nth_idx, "ODMRS plotted")
+    print("There should be ", (end_idx-start_idx)//every_nth_idx, "ODMRS plotted")
     plt.figure(figsize=(10, 6), layout="constrained")
+    # plt.figure(figsize=(20, 12), layout="constrained")
 
     fitted_axis_positions = []
     dip_centers_ghz = []
@@ -298,7 +304,8 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 plt.plot(
                     freqs / 1e9,
                     counts_norm + offset*idx/every_nth_idx,
-                    label=f"y={axis_pos:.4f}mm, avg_val={np.mean(counts):.1e}",
+                    # label=f"y={axis_pos:.4f}mm, avg_val={np.mean(counts):.1e}",
+                    # label=f"avg_val={np.mean(counts):.1e}",
                     color=colors[idx],
                     linewidth=1,
                     alpha=0.7

@@ -58,23 +58,23 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
 def main():
     # params
     camera_binning = 1 # built-int pco camera binning, can only be 1,2,4
-    post_processing_binning = 16
+    post_processing_binning = 2
     focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1050,940  # in pixels, center of the laser point
+    focus_point_centre_x, focus_point_centre_y = 1030,1000  # in pixels, center of the laser point
 
     # center_x, center_y, width_x, width_y = 1024,900,128,1536
 
     # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
-    n_windows_per_point = 10 # n readouts to increase certainty without overexposing
+    n_windows_per_point = 50 # n readouts to increase certainty without overexposing
     amp_dbm = -10 # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
     dwell =  0.04 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 2 # integer >=1
+    n_iter = 10 # integer >=1
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.1e9 # Hz, range of frequencies to sample
-    N = 201 # num points in the frequency space to sample
+    span = 0.08e9 # Hz, range of frequencies to sample
+    N = 161 # num points in the frequency space to sample
 
-    max_peaks = 3
+    max_peaks = 5
 
     roi, x_space, y_space = pci.get_spacial_params(camera_binning,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi, x_space, y_space = pci.get_roi(camera_binning, center_x, center_y, width_x, width_y)
@@ -91,7 +91,7 @@ def main():
     if len(x_space) % post_processing_binning != 0:
         raise ValueError("postprocessing binning is not a divisor of the focus point size after camera binning")
 
-    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, 0.05), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space))
+    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, 0.01), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space))
 
     print("Frequency sweeping done")
     if post_processing_binning > 1:
