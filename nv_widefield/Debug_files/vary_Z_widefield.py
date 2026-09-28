@@ -21,8 +21,7 @@ import Debug_files.read_Magnet_line as rml
 
 
 new_Measurement = False
-
-old_Measurement_Path = "C:\\Users\\NVCFM\\ownCloud\\QIQM\\NVCFM Data\\2026-08-26\\vary_Z_widefield_07-48-12.txt"
+old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM Data\\2026-08-26\\vary_Z_widefield_07-48-12.txt"
 
 def read_widefield_txt(txt_path: str):
     """Reads log file and populates B-field and 2D ODMR maps keyed by stage position."""
