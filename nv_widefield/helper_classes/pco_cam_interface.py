@@ -140,6 +140,7 @@ def record_stack(cam, num_images):
     cam.record(number_of_images=num_images, mode="ring buffer")
 
     # Pre-allocate buffer based on current sensor configuration
+    cam.wait_for_new_image() # ensure at least one image has been created
     image, dict = cam.image(image_index=-1)
     stack = np.empty((image.shape[0], image.shape[1], num_images), dtype=np.uint16)
 
