@@ -6,6 +6,8 @@ from typing import Any
 import datetime
 import os
 
+import nv_setup.cw_odmr.Lorentzian_fit as lFit
+
 """
 Lots of plotting code gets used in various placed, but is all quite similar, so has been
 compiled into one file to always use when plotting
@@ -92,17 +94,30 @@ def plot_dFreq_image(x_points, y_points, freq_deltas):
     plt.show()
 
 
-def plot_fitted_data(freqs, I_norm, fit_norm):
+def plot_fitted_data(freqs, I_norm, fit_norm, popt=None):
     # Expects frequencies in GHz
-    fig = plt.figure(figsize=(8, 5))
+    # fig = plt.figure(figsize=(6, 3))
+    fig = plt.figure(figsize=(8,5))
     gs = fig.add_gridspec(1, 2, width_ratios=[1, 0])
 
     ax = fig.add_subplot(gs[0, 0])
     ax_info = fig.add_subplot(gs[0, 1])
     ax_info.axis('off')
 
-    ax.plot(freqs, I_norm, '-o', ms=2, color='k')
+    ax.plot(freqs, I_norm, '-o', ms=2, color='k', label="Measured normalized intensity")
     ax.plot(freqs, fit_norm, '-', lw=2, color='C0', alpha=0.6, label='Lorentzian fit')
+
+    if popt is not None:
+        contrasts, FWHMs, dip_Freqs = lFit.get_dip_params(popt)
+        for dip_Freq in dip_Freqs:
+            ax.axvline(
+                x=dip_Freq,
+                color='red',
+                linestyle='--',
+                linewidth=1.2,
+                alpha=0.7
+            )
+
 
     # ax.axvline(
     #     x=2.87,
@@ -116,9 +131,9 @@ def plot_fitted_data(freqs, I_norm, fit_norm):
     ax.set_title("normalized ODMR and best-fit multi-lorentzian")
     ax.set_xlabel("Frequency (GHz)")
     ax.set_ylabel("Normalized Intensity")
-    ax.legend(loc='upper left')
+    ax.legend()
 
-    plt.grid(True)
+    # plt.grid(True)
     plt.tight_layout()
     plt.show()
 
@@ -130,10 +145,14 @@ def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
 
 def overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, prev_path, print_saving=True, Bmap=None):
     new_path = get_newfile_dir("widefield_", print_saving=print_saving)
-    if Bmap is not None:
-        np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=Bmap, odmrs=counts_2D)
-    else:
-        np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=np.zeros((len(x_points),len(y_points))), odmrs=counts_2D)
+    # if Bmap is not None:
+    #     np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=Bmap, odmrs=counts_2D)
+    # else:
+    #     np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=np.zeros((len(x_points),len(y_points))), odmrs=counts_2D)
+    if Bmap is None:
+        Bmap = np.zeros((len(x_points),len(y_points)))
+        Bmap.fill(np.nan)
+    np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=Bmap, odmrs=counts_2D)
     try:
         os.remove(prev_path)
         if print_saving:
