@@ -12,8 +12,8 @@ import helper_classes.odmr_plotting as oPlot
 
 NEW_MEASUREMENT = False  # Set to True for hardware run, False to parse log_text
 
-old_Measurement_Path = "C:\\Users\\NVCFM\\ownCloud\\QIQM\\NVCFM Data\\2026-08-25\\saturation_sweep_02-58-54.txt"
-
+old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM Data\\2026-08-25\\saturation_sweep_02-58-54.txt"
+old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM Data\\2026-09-22\\saturation_sweep_03-26-29.txt" # focused onto smaller point
 
 def read_txt(txt_path):
     if not os.path.exists(txt_path):
@@ -68,6 +68,7 @@ class NovantaLaserWrapper:
         return 0.0
 
     def close(self):
+        self.laser.send_command(f"POWER={int(5)}") # make sure its set to a safe power
         self.laser.send_command("OFF")
         self.laser.close()
 
@@ -75,6 +76,8 @@ class NovantaLaserWrapper:
 def saturation_model(P, I_max, P_sat, I_bg):
     return I_bg + (I_max * P) / (P + P_sat)
 
+def set_to_applied_power(p_set):
+    return p_set * 0.2752 + 0.3491 #
 
 def run_saturation_sweep(
         laser,
@@ -82,13 +85,14 @@ def run_saturation_sweep(
         power_setpoints,
         settle_time_s=1800,
         num_frames=100,
-        exposure_time_s=0.01,
         roi=None
 ):
     mean_intensities = []
     std_temporal = []
     std_spatial = []
     actual_powers = []
+
+    exposure_time_s = cam.exposure_time
 
     print(f"Starting overnight saturation sweep across {len(power_setpoints)} setpoints.")
     print(
@@ -98,8 +102,8 @@ def run_saturation_sweep(
         print(f"[{i + 1}/{len(power_setpoints)}] Setting laser power to {p_set} mW...")
 
         laser.set_power(p_set)
-        p_actual = laser.get_power() if hasattr(laser, "get_power") else p_set
-        actual_powers.append(p_actual)
+        # p_set = laser.get_power() if hasattr(laser, "get_power") else p_set
+        actual_powers.append(set_to_applied_power(p_set))
 
         print(f"   Stabilizing for {settle_time_s / 60:.1f} minutes...")
         time.sleep(settle_time_s)
@@ -109,8 +113,10 @@ def run_saturation_sweep(
         # Collect actual camera stack via PCI interface
         stack = pci.record_stack(cam, num_frames)
 
-        # Temporal statistics across frame dimension (axis 0)
-        frame_means = stack.mean(axis=(1, 2))
+        # print(stack.shape)
+
+        # Temporal statistics across frame dimension (axis 2)
+        frame_means = stack.mean(axis=(0,1))
         mean_val = np.mean(frame_means)
         std_temp = np.std(frame_means, ddof=1)
 
@@ -161,7 +167,7 @@ def plot_saturation_results(powers, means, std_t, fit_params=None):
     fig, ax1 = plt.subplots(figsize=(8, 5), layout="constrained")
 
     color = "crimson"
-    ax1.set_xlabel("Laser Power [mW]", fontsize=12)
+    ax1.set_xlabel("Laser Actual Output Power [mW]", fontsize=12)
     ax1.set_ylabel("Mean NV Brightness [counts/s]", color=color, fontsize=12)
     ax1.errorbar(
         powers,
@@ -197,9 +203,10 @@ def plot_saturation_results(powers, means, std_t, fit_params=None):
 
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    ax2.legend(lines1 + lines2, labels1 + labels2, loc=0)
+    ax2.legend(lines1 + lines2, labels1 + labels2, loc="lower right")
     # ax1.legend(loc="upper left")
     # ax2.legend(loc="upper left")
+    plt.gca().set_ylim(bottom=0)
     plt.title("NV Saturation & Power Stability Sweep", fontsize=13)
     plt.show()
 
@@ -213,7 +220,7 @@ def main():
 
             settle_time_s = 3600
             num_frames = 10000
-            exposure_time_s = 0.02
+            exposure_time_s = 0.01
 
             binning_amount = 1
 
@@ -221,15 +228,14 @@ def main():
             laser = NovantaLaserWrapper(port='COM3')
 
             # Preserved spatial setup
-            roi, _, _ = pci.get_spacial_params(binning_amount, (128, 1024, 1024))
-            cam = pci.connect_cam(roi, binning_amount, forced_exposure=0.01)
+            roi, _, _ = pci.get_spacial_params(binning_amount, (128, 1050, 1000))
+            cam = pci.connect_cam(roi, binning_amount, forced_exposure=exposure_time_s)
             powers, means, std_t, std_s = run_saturation_sweep(
                 laser=laser,
                 cam=cam,
                 power_setpoints=power_setpoints,
                 settle_time_s=settle_time_s,
                 num_frames=num_frames,
-                exposure_time_s=exposure_time_s,
                 roi=roi
             )
 
