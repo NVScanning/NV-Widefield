@@ -93,7 +93,7 @@ def print_odmr_progress(idx, total_points, i, f, t_passed=None):
         if time_left > 3600:
             sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}% | Iteration {i/2:.1f} | Freq: {f/10**9:.4f} GHz | estimate {time_left/3600:.1f}h left")
         elif time_left > 60:
-            sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}% | Iteration {i/2:.1f} | Freq: {f/10**9:.4f} GHz | estimate {time_left/3600:.1f}h left")
+            sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}% | Iteration {i/2:.1f} | Freq: {f/10**9:.4f} GHz | estimate {time_left/60:.1f}m left")
         else:
             sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}% | Iteration {i/2:.1f} | Freq: {f/10**9:.4f} GHz | estimate {time_left:.0f}s left")
     else:
