@@ -16,7 +16,7 @@ import helper_classes.pco_cam_interface as pci
 # from nv_widefield.helper_classes.odmr_plotting import plot_fitted_data
 
 
-dip_range = (2.82,2.92) # GHz
+dip_range = (2.64,3.1) # GHz
 brightness_factor = 0.1 # unitless, 0<_<1, proportion of max brightness, below which pixels are automatically ignored
 
 
@@ -47,101 +47,6 @@ def multi_lorentzian(f, *params):
         y += A * g**2 / ((f - f0)**2 + g**2)
 
     return y
-
-# def guess_initial_params(freqs, vals, max_peaks=None):
-#     # freqs in GHz
-#     max_val = max(vals)
-#     df = abs(freqs[1]-freqs[0])
-#     # peaks, props = find_peaks(-vals,prominence=0.005*max_val, distance=max(1,0.005//(freqs[1]-freqs[0])))
-#     peaks, props = find_peaks(-vals, prominence=0.0004*max_val, distance=max(1,0.005//df))
-#     # peaks, props = find_peaks(-vals, prominence=0.0002*max_val, distance=max(1,0.005//df))
-#
-#     # filtered_vals = ndi.gaussian_filter(vals, sigma=1.5)
-#     # oPlot.plot_odmr(freqs*10**9, filtered_vals) # print the filtered values to know what kind of prominence to expect
-#     # peaks, props = find_peaks(-filtered_vals, prominence=0.0003*max_val, distance=max(1,0.005//df))
-#
-#
-#     # print(f"\nFind_peaks found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
-#
-#
-#     max_prominence = (max(vals)-min(vals))/max(vals) # use maybe 1/5-1/10th of this has the minimal prominence
-#
-#     if max_peaks is not None and len(peaks) > max_peaks:
-#         # Sort by prominences
-#         prominences = props["prominences"]
-#         top_idx = np.argsort(prominences)[-max_peaks:]
-#         peaks = peaks[top_idx]
-#         peaks = peaks[np.argsort(peaks)]
-#
-#     if max_peaks == 2 and len(peaks) == 1:
-#         # print("Warning: Unresolved overlapping doublet detected. Manually splitting peak seeds")
-#         # sole_peak_idx = peaks[0]
-#         sole_peak_idx = len(freqs) // 2 # assume centered around 2.87GHz
-#         # Calculate index offset corresponding to roughly 8 MHz splitting
-#         df = freqs[1]-freqs[0]
-#         split_offset_idx = max(3, int(0.005 / df))
-#
-#         # Seed two distinct peaks symmetrically around the center trough
-#         peak1 = max(0, sole_peak_idx - split_offset_idx)
-#         peak2 = min(len(freqs) - 1, sole_peak_idx + split_offset_idx)
-#         peaks = np.array([peak1, peak2])
-#
-#
-#         # detected_peak_idx = peaks[0]
-#         # # Seed two distinct peaks symmetrically around the detected dip center (approx 6-8 MHz split)
-#         # split_offset_idx = max(2, int(0.004 / df))
-#         #
-#         # peak1 = max(0, detected_peak_idx - split_offset_idx)
-#         # peak2 = min(len(freqs) - 1, detected_peak_idx + split_offset_idx)
-#         # peaks = np.array([peak1, peak2])
-#         print(f"Manually split 1 dip into {max_peaks} at freqs {freqs[peaks]} GHz")
-#     elif len(peaks) == 0:
-#         center_idx = len(freqs) // 2
-#         split_offset_idx = max(2, int(0.006 / df))
-#         peaks = np.array([center_idx - split_offset_idx, center_idx + split_offset_idx])
-#         print(f"No peaks resolved. Defaulting to blind center seeds: {freqs[peaks]} GHz")
-#
-#     # print(f"After culling lowest peaks, using {len(peaks)} initial peaks, at frequencies: {freqs[peaks]}GHz")
-#     filtered_vals = ndi.gaussian_filter(vals, sigma=10)
-#     c1 = (filtered_vals[-1]-filtered_vals[0])/(freqs[-1]-freqs[0])                # slope value
-#     c0 = filtered_vals[0] - c1*freqs[0]                                           # offset
-#
-#     init_params = []
-#     # results_half = peak_widths(-vals, peaks, rel_height=0.5)
-#     # widths = results_half[0]
-#     #
-#     #
-#     # for i, p in enumerate(peaks):
-#     #     f0 = freqs[p]
-#     #     amp = -abs(vals[p] - c0)
-#     #     w_idx = widths[i]
-#     #     fwhm = w_idx * df
-#     #     # gamma = df*3
-#     #     gamma = fwhm/2
-#     #     init_params.extend([amp, f0, gamma])
-#     #
-#     # init_params.extend([c0, c1])
-#     # return np.array(init_params), peaks
-#
-#     try:
-#         results_half = peak_widths(-vals, peaks, rel_height=0.5) # this could break for peaks I create manually
-#         widths = results_half[0]
-#     except Exception:
-#         # Fallback if peak_widths fails on highly overlapping, noisy regions
-#         widths = [max(3, int(0.015 / df))] * len(peaks)
-#
-#     for i, p in enumerate(peaks):
-#         f0 = freqs[p]
-#         amp = -abs(vals[p] - (c0 + c1 * f0))
-#         fwhm = widths[i] * df
-#
-#         # Constrain initial gamma guess to prevent broad overlapping seeds from starting too wide
-#         gamma = np.clip(fwhm / 2, 0.003, 0.015)
-#         init_params.extend([amp, f0, gamma])
-#
-#     init_params.extend([c0, c1])
-#     return np.array(init_params), peaks
-
 
 def guess_initial_params(freqs, vals, max_peaks=None):
     # freqs in GHz
@@ -239,7 +144,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
         fwhm = widths[i] * df
 
         # Constrain initial gamma guess to prevent broad overlapping seeds from starting too wide
-        gamma = np.clip(fwhm / 2, 0.005, 0.015) # limit to 5-15MHz
+        gamma = np.clip(fwhm / 2, 0.005, 0.05) # limit to 5-15MHz
         init_params.extend([amp, f0, gamma])
         # print(f"Dip {i}: amp={amp:.0f}, f0={f0:.4f}Ghz, gamma={gamma}")
 
@@ -281,12 +186,14 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
         # check_bound_proximity(popt, (lower, upper), threshold=0.05, param_names=params) # useful to know if fitting code is flexible enough, gets annoying with non-ODMR sweeps
         return popt, pcov, peaks
     except Exception as e:
+        # do smth to tell abt the error maybe idk
+        #
         # print("Couldn't curve_fit, threw:", e, "Plotting ODMR")
-        print("\nCouldn't curve_fit, threw:", e, ". trying to fit peaks at frequencies", freqs[peaks],
-              ". p0=",p0,")")
-        print("lower bounds:", lower)
-        print("upper bounds:", upper)
-        oPlot.plot_odmr(freqs*10**9, R_vals)
+        # print("\nCouldn't curve_fit, threw:", e, ". trying to fit peaks at frequencies", freqs[peaks],
+        #       ". p0=",p0,")")
+        # print("lower bounds:", lower)
+        # print("upper bounds:", upper)
+        # oPlot.plot_odmr(freqs*10**9, R_vals)
         return p0, np.zeros_like(p0), peaks
 
 
