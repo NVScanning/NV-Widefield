@@ -18,10 +18,25 @@ import widefield_odmr as wODMR
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
 
-NEW_MEASUREMENT = True  # Set to True for hardware run, False to read old widefield measurement
+NEW_MEASUREMENT = False  # Set to True for hardware run, False to read old widefield measurement
+roi_regions = 4
 
-old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-09-29\\widefield_cw_odmr_15-14-02.npz" # image of B2-looking FGT flake
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-09-29\\widefield_cw_odmr_15-14-02.npz" # image of B2-looking FGT flake
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-01\\widefield_cw_odmr_16-43-36.npz" # image of triangle-looking FGT flake
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-02\\widefield_cw_odmr_15-33-52.npz" # image of triangle-looking FGT flake
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_13-42-34.npz" # image of triangle-looking FGT flake
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_13-53-09.npz" # image of triangle-looking FGT flake
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_14-07-35.npz" # image of triangle-looking FGT flake
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_14-23-17.npz" # image of triangle-looking FGT flake
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_15-46-32.npz" # image of triangle-looking FGT flake
+# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_16-27-41.npz" # image of triangle-looking FGT flake
 
+date = "2026-10-06" # YYYY-MM-DD
+time = "17-09-12"   # HH-MM-SS
+
+data_dir = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data"
+date_directory = os.path.join(data_dir, date)
+old_Measurement_Path = os.path.join(date_directory, "widefield_cw_odmr_"+time+".npz")
 
 def extract_region_odmrs(counts_3d, x_space, y_space, regions):
     """
@@ -158,9 +173,10 @@ def plot_regions_and_odmrs(counts_3d, freqs, x_space, y_space, region_odmrs, reg
     freqs_ghz = freqs / 1e9
     for idx, (odmr, meta) in enumerate(zip(region_odmrs, region_metadata)):
         color = colors[idx % len(colors)]
-        trace = (odmr - np.min(odmr)) / (np.max(odmr) - np.min(odmr)) if normalize else (odmr - np.min(odmr))
+        trace = (odmr-np.min(odmr)) / (np.max(odmr)-np.min(odmr)) if normalize else (odmr - np.min(odmr))
 
-        label_str = f"Region {idx} | Center: {meta['center']}, Width: {meta['width']} px"
+        # label_str = f"Region {idx} | Center: {meta['center']}, Width: {meta['width']} px"
+        label_str = f"Region {idx} | Center: {meta['center']}"
         ax_odmr.plot(freqs_ghz, trace, label=label_str, color=color, linewidth=1.5)
 
     ax_odmr.set_xlabel("Frequency (GHz)")
@@ -227,26 +243,36 @@ def generate_img_rois(ax_img, colors, dx: ndarray[tuple[Any, ...], dtype[Any]] |
 
 
 def main():
+    # target_regions = [
+    #     {"center": (120, 150), "width": 16},
+    #     {"center": (155, 140), "width": 16},
+    #     {"center": (20, 240), "width": 16},
+    # ]
     target_regions = [
-        {"center": (120, 150), "width": 16},
-        {"center": (155, 140), "width": 16},
-        {"center": (20, 240), "width": 16},
+        {"center": (70, 40), "width": roi_regions},
+        {"center": (50, 45), "width": roi_regions},
+        {"center": (95, 45), "width": roi_regions},
+        {"center": (70, 80), "width": roi_regions},
+        {"center": (30, 95), "width": roi_regions},
+        {"center": (80, 120), "width": roi_regions},
+        {"center": (140, 150), "width": roi_regions},
+        {"center": (110, 120), "width": roi_regions},
     ]
 
 
     if NEW_MEASUREMENT:
         camera_binning = 1
-        focus_point_size = 256
-        focus_point_centre_x, focus_point_centre_y = 950, 970
+        focus_point_size = 160
+        focus_point_centre_x, focus_point_centre_y = 950, 1070
 
-        n_windows_per_point = 5
+        n_windows_per_point = 10
         amp_dbm = -10
         dwell = 0.04
-        n_iter = 2
+        n_iter = 10
 
         f_center = 2.87e9
-        span = 0.1e9
-        N = 101
+        span = 0.3e9
+        N = 301
 
 
         roi, x_space, y_space = pci.get_spacial_params(
@@ -259,7 +285,7 @@ def main():
 
 
 
-        cam, sg = pci.connect_cam_RF(roi, camera_binning, 0.01)
+        cam, sg = pci.connect_cam_RF(roi, camera_binning, 0.005)
         image = pci.read_image(cam, 1)
 
         plot_regions(image, x_space, y_space, region_meta)
@@ -269,9 +295,11 @@ def main():
 
         try:
             counts_2D, prev_path = wODMR.measure_odmr(cam, sg, freqs, dwell, n_windows_per_point, n_iter, x_space, y_space)
+            # _ = oPlot.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, print_saving=True)
         finally:
             cs.enable_sg386(sg, enable=False)
             cam.close()
+
     else:
 
         data = np.load(old_Measurement_Path)
@@ -288,7 +316,7 @@ def main():
     region_odmrs = extract_region_odmrs(counts_2D, x_space, y_space, target_regions)
 
     # plot_stacked_odmrs(freqs, region_odmrs, region_meta, normalize=True, vertical_offset=0.0)
-    plot_regions_and_odmrs(counts_2D, freqs, x_space, y_space, region_odmrs, region_meta, normalize=False)
+    plot_regions_and_odmrs(counts_2D, freqs, x_space, y_space, region_odmrs, region_meta, normalize=True)
 
 if __name__ == "__main__":
     main()
