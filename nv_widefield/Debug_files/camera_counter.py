@@ -95,8 +95,8 @@ def plot_graphs():
 def main():
     n_windows_per_point = 1 # n readouts to increase certainty without overexposing
     binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 512  # in pixels, approximate width of image taken, must be >=32 after binning
-    focus_point_centre_x, focus_point_centre_y = 1000,1140 # in pixels, center of the laser point
+    focus_point_size = 1024  # in pixels, approximate width of image taken, must be >=32 after binning
+    focus_point_centre_x, focus_point_centre_y = 1010,1120 # in pixels, center of the laser point
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi = (1,1,2048//binning_amount,2048//binning_amount)
     if roi is not None:

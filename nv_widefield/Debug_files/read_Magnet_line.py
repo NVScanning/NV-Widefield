@@ -6,6 +6,7 @@ from scipy.optimize import curve_fit
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 from vary_Y_ODMR import wire_b_field
 import connection_setup as cs
+import matplotlib.patches as patches
 
 import scipy.ndimage as ndi
 # Maintain directory path expansions
@@ -23,24 +24,25 @@ import scipy.ndimage as ndi
 # # time = "15-40-31" #
 # time = "16-50-33"
 
-date = "2026-09-28"
-time = "12-24-13"
-time="16-40-23"
-target_idx = 16  # The specific spatial x-index to extract across all y's
+date = "2026-10-06"
+time = "17-09-12"
+target_idx = 40  # The specific spatial x-index to extract across all y's
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-max_peaks = 3
-plot_dip_positions = True
+max_peaks = 5
+plot_dip_positions = False
 fit_fn = False
 use_offaxis_binning = False
 fixed_B = False
+plot_Vline = False
+plot_dip_centers = False
 
 diff_start_idx = 0
-diff_end_idx = 32
+diff_end_idx = 50
 every_nth_idx = 2
 labelled_dip_idx = -1
 
-offset = 0.001
+offset = 0.02
 I_applied = 1
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
@@ -68,10 +70,7 @@ def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx
     # Calculate and plot consecutive trace differences
     for i in range(len(normalized_traces) - 1):
         diff = normalized_traces[i + 1] - normalized_traces[i]
-        if slice_axis == "x":
-            label_text = f"Δ (x={selected_axis[i + 1]:.4f} - x={selected_axis[i]:.4f})"
-        else:
-            label_text = f"Δ (y={selected_axis[i + 1]:.4f} - y={selected_axis[i]:.4f})"
+        label_text = f"Δ ({slice_axis}={selected_axis[i + 1]:.4f} - {slice_axis}={selected_axis[i]:.4f})"
 
         plt.plot(
             freqs / 1e9,
@@ -241,7 +240,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     uB_fitted = []
 
     # Use plasma colormap matching previous scripts
-    colors = plt.cm.plasma(np.linspace(0, 0.85, N_steps))
+    colors = plt.cm.plasma(np.linspace(0, 1, end_idx-start_idx+1))
 
 
 
@@ -267,7 +266,8 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
         # y_data = normalized_counts + 0.05 * idx
         # y_data = normalized_counts
 
-        if idx == start_idx:
+
+        if (idx == start_idx and plot_Vline):
             popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
             contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
             for freq in dip_Freqs:
@@ -280,6 +280,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                     # ,
                     # label=f'{freq:.4f} GHz'
                 )
+
             # plt.axvline(
             #     x=dip_Freqs[labelled_dip_idx], # change index to choose which dip to plot a vline for
             #     color='red',
@@ -303,10 +304,11 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
 
                 plt.plot(
                     freqs / 1e9,
-                    counts_norm + offset*idx/every_nth_idx,
-                    # label=f"y={axis_pos:.4f}mm, avg_val={np.mean(counts):.1e}",
+                    counts_norm + offset*(idx-start_idx)/every_nth_idx,
+                    # label=f"{slice_axis}={axis_pos*1000:.1f}um, avg_val={np.mean(counts):.1e}",
+                    label=f"{slice_axis}={axis_pos*1000:.1f}um",
                     # label=f"avg_val={np.mean(counts):.1e}",
-                    color=colors[idx],
+                    color=colors[idx-start_idx],
                     linewidth=1,
                     alpha=0.7
                 )
@@ -315,8 +317,8 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 # Plot the fitted curve on top of the raw data with matching offset
                 plt.plot(
                     freqs / 1e9,
-                    fitted_norm + offset*idx/every_nth_idx,
-                    color=colors[idx],
+                    fitted_norm + offset*(idx-start_idx)/every_nth_idx,
+                    color=colors[idx-start_idx],
                     linestyle="--",
                     linewidth=1,
                     alpha=1
@@ -327,7 +329,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 dip_minimum_vals = []
                 for dip_freq in dip_Freqs:
                     freq_idx = (np.abs(freqs - dip_freq*10**9)).argmin()
-                    dip_minimum_val = counts_norm[freq_idx] + offset*idx/every_nth_idx
+                    dip_minimum_val = counts_norm[freq_idx] + offset*(idx-start_idx)/every_nth_idx
                     dip_minimum_vals.append(dip_minimum_val)
 
 
@@ -344,7 +346,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 )
 
                 # # Print parameters to standard output for this specific spatial point
-                # print(f"--- Fit Results for y = {axis_pos:.4f} mm ---")
+                # print(f"--- Fit Results for y = {axis_pos*1000:.1f} um ---")
                 # Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
                 fitted_axis_positions.append(axis_pos)
                 dip_centers_ghz.append(dip_Freqs[labelled_dip_idx])
@@ -354,16 +356,22 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
 
             except Exception as fit_error:
                 # Catch fitting failures gracefully to avoid halting the full spatial sweep
-                print(f"[Warning] Fit failed for y = {axis_pos:.4f} mm: {fit_error}")
+                print(f"[Warning] Fit failed for y = {axis_pos*1000:.1f} um: {fit_error}")
         else:
             plt.plot(
                 freqs / 1e9,
-                counts / max(counts) + offset*idx/every_nth_idx,
-                label=f"y = {axis_pos:.4f} mm",
-                color=colors[idx],
+                counts / max(counts) + offset*(idx-start_idx)/every_nth_idx,
+                label=f"y = {axis_pos*1000:.1f} um",
+                color=colors[idx-start_idx],
                 linewidth=1.5,
                 alpha=0.85
             )
+
+
+        # handles, labels = plt.get_legend_handles_labels()
+        # # sort both labels and handles by labels
+        # labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+        # plt.legend(handles, labels)
 
 
 
@@ -372,9 +380,9 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     plt.legend(loc="center left")
 
     if slice_axis == "x":
-        plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val*1000:.4f} um)", fontsize=13)
+        plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val*1000:.1f} um)", fontsize=13)
     else:
-        plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val*1000:.4f} um)", fontsize=13)
+        plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val*1000:.1f} um)", fontsize=13)
     # plt.xlim(2.87,2.93)
     # plt.ylim(0.997, 1 + len(z_sweep_results.items())*0.0002)
     # plt.grid(True, linestyle="--", alpha=0.5)
@@ -384,7 +392,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     # plt.legend(loc="best", frameon=True, shadow=False, ncol=2, fontsize=9)
 
     plt.show()
-    if len(dip_centers_ghz) > 0:
+    if len(dip_centers_ghz) > 0 and plot_dip_centers:
         plot_dip_vs_axis(fitted_axis_positions, dip_centers_ghz, udip_centers, fixed_axis_val)
     if len(B_fitted) > 0 and fit_fn:
         fit_and_plot_b_vs_axis(fitted_axis_positions, B_fitted, uB_fitted, fixed_axis_val)
@@ -412,6 +420,7 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
     # vmax = np.percentile(B_field_2D, 99)
 
     plt.figure(figsize=(8, 6), layout='constrained')
+    ax = plt.gca()
 
 
     cmap = plt.cm.inferno
@@ -422,24 +431,55 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
     # Plot high-contrast indicators for the sliced region
     # axvline spans the full height of the axes
     if not use_offaxis_binning:
+        # if slice_axis == "x":
+        #     plt.axhline(
+        #         y=slice_axis_coord*1000,
+        #         color='black',
+        #         linestyle=':',
+        #         linewidth=5.0,
+        #         label=f"Slice line (y = {slice_axis_coord*1000:.1f} um)",
+        #         zorder=10
+        #     )
+        # else:
+        #     plt.axvline(
+        #         x=slice_axis_coord*1000,
+        #         color='black',
+        #         linestyle=':',
+        #         linewidth=5.0,
+        #         label=f"Slice line (x = {slice_axis_coord*1000:.1f} um)",
+        #         zorder=10
+        #     )
+
         if slice_axis == "x":
-            plt.axhline(
-                y=slice_axis_coord*1000,
-                color='black',
-                linestyle=':',
-                linewidth=5.0,
-                label=f"Slice line (y = {slice_axis_coord*1000:.4f} um)",
-                zorder=10
-            )
+            bottom_left_x = x_space[diff_start_idx]
+            bottom_left_y = y_space[target_axis_idx]
+            w_spatial_x = x_space[diff_end_idx] - x_space[diff_start_idx]
+            w_spatial_y = y_space[target_axis_idx+1] - y_space[target_axis_idx-1]
         else:
-            plt.axvline(
-                x=slice_axis_coord*1000,
-                color='black',
-                linestyle=':',
-                linewidth=5.0,
-                label=f"Slice line (x = {slice_axis_coord*1000:.4f} um)",
-                zorder=10
-            )
+            bottom_left_x = x_space[target_axis_idx]
+            bottom_left_y = y_space[diff_start_idx]
+            w_spatial_y = y_space[diff_end_idx] - y_space[diff_start_idx]
+            w_spatial_x = x_space[target_axis_idx+1] - x_space[target_axis_idx-1]
+
+        rect = patches.Rectangle(
+            (bottom_left_x*1000, bottom_left_y*1000),
+            w_spatial_x*1000,
+            w_spatial_y*1000,
+            linewidth=2,
+            edgecolor="black",
+            facecolor="none"
+        )
+        ax.add_patch(rect)
+        # ax_img.text(
+        #     cx_spatial,
+        #     bottom_left_y + w_spatial_y + (0.02 * w_spatial_y),
+        #     f"R{idx}",
+        #     color="black",
+        #     fontsize=10,
+        #     weight="bold",
+        #     ha="center",
+        #     va="bottom",
+        # )
 
     # plt.axvline(
     #     x=slice_axis_coord,
@@ -470,7 +510,7 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
     else:
         plt.title(f'2D Magnet Image with Slice Overlay (x_ind={target_axis_idx})')
 
-    plt.legend(loc='upper right', framealpha=0.9)
+    # plt.legend(loc='upper right', framealpha=0.9)
 
     plt.show()
 
