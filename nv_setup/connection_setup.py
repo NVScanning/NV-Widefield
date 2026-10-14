@@ -90,23 +90,26 @@ def print_odmr_progress(idx, total_points, i, f, t_passed=None):
     bar = '█' * filled_length + '-' * (bar_length - filled_length)
     if t_passed is not None and percent != 0:
         time_left = (100-float(percent))*t_passed/float(percent)
-        if time_left > 3600:
-            sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}% | Iteration {i/2:.1f} | Freq: {f/10**9:.4f} GHz | estimate {time_left/3600:.1f}h left")
-        elif time_left > 60:
-            sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}% | Iteration {i/2:.1f} | Freq: {f/10**9:.4f} GHz | estimate {time_left/60:.1f}m left")
-        else:
-            sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}% | Iteration {i/2:.1f} | Freq: {f/10**9:.4f} GHz | estimate {time_left:.0f}s left")
+        sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}% | Iteration {i/2:.1f} | Freq: {f/10**9:.4f} GHz | "
+                         f"estimate {int(time_left//3600):02d}:{int(time_left%3600//60):02d}:{int(time_left%60):02d} left")
     else:
         sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}% | Iteration {i/2:.1f} | Freq: {f/10**9:.4f} GHz")
     sys.stdout.flush()
 
 
-def print_analysis_progress(idx, total_points):
+def print_analysis_progress(idx, total_points, t_passed=None):
     # expects frequency in Hz
     percent = int((idx + 1) / (total_points) * 100)
     bar_length = 20
     filled_length = int(bar_length * idx + 1) // (total_points)
     bar = '█' * filled_length + '-' * (bar_length - filled_length)
-    sys.stdout.write(f"\r\033[K[{bar}] {percent}% ")
+    # sys.stdout.write(f"\r\033[K[{bar}] {percent}% ")
+    # sys.stdout.flush()
+    if t_passed is not None and percent != 0:
+        time_left = (100-float(percent))*t_passed/float(percent)
+        sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}% "
+                         f"estimate {int(time_left//3600):02d}:{int(time_left%3600//60):02d}:{int(time_left%60):02d} left")
+    else:
+        sys.stdout.write(f"\r\033[K[{bar}] {percent:.0f}%")
     sys.stdout.flush()
 
