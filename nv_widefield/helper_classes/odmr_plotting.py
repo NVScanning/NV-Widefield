@@ -1,3 +1,5 @@
+import time
+
 import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
@@ -144,6 +146,7 @@ def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
     np.savez(save_path, x=freqs, y=counts)
 
 def overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, prev_path, print_saving=True, Bmap=None):
+    time.sleep(2) # make sure new directory is different from old, so you don't overwrite then delete the new one
     new_path = get_newfile_dir("widefield_", print_saving=print_saving)
     # if Bmap is not None:
     #     np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=Bmap, odmrs=counts_2D)
