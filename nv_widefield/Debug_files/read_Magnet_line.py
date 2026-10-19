@@ -24,13 +24,13 @@ import scipy.ndimage as ndi
 # # time = "15-40-31" #
 # time = "16-50-33"
 
-date = "2026-10-06"
-time = "17-09-12"
-target_idx = 40  # The specific spatial x-index to extract across all y's
+date = "2026-10-19"
+time = "14-13-09"
+target_idx = 20  # The specific spatial x-index to extract across all y's
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-max_peaks = 5
-plot_dip_positions = False
+max_peaks = 2
+plot_ODMR_fits = True
 fit_fn = False
 use_offaxis_binning = False
 fixed_B = False
@@ -38,11 +38,11 @@ plot_Vline = False
 plot_dip_centers = False
 
 diff_start_idx = 0
-diff_end_idx = 50
+diff_end_idx = 39
 every_nth_idx = 2
 labelled_dip_idx = -1
 
-offset = 0.02
+offset = 0.003
 I_applied = 1
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
@@ -228,8 +228,7 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
     plt.show()
 
 def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
-    N_steps = len(sweep_results)
-    print("There should be ", (end_idx-start_idx)//every_nth_idx, "ODMRS plotted")
+    print("There should be ", (end_idx-start_idx+1)//every_nth_idx, "ODMRS plotted")
     plt.figure(figsize=(10, 6), layout="constrained")
     # plt.figure(figsize=(20, 12), layout="constrained")
 
@@ -268,7 +267,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
 
 
         if (idx == start_idx and plot_Vline):
-            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True)
             contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
             for freq in dip_Freqs:
                 plt.axvline(
@@ -290,11 +289,11 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
             #     label=f'{dip_Freqs[-1]:.4f} GHz'
             # )
 
-        if plot_dip_positions:
+        if plot_ODMR_fits:
             try:
                 # Fit the ODMR trace and retrieve fit parameters along with the model curve
                 # If your Lfit signature differs, adjust this call accordingly
-                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True)
                 contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
                 uFWHMs, udip_Freqs = Lfit.get_dip_uncertainties(pcov)
                 snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
@@ -362,6 +361,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 freqs / 1e9,
                 counts / max(counts) + offset*(idx-start_idx)/every_nth_idx,
                 label=f"y = {axis_pos*1000:.1f} um",
+                # label=f"{slice_axis}={axis_pos*1000:.1f}um, avg_val={np.mean(counts):.1e}",
                 color=colors[idx-start_idx],
                 linewidth=1.5,
                 alpha=0.85
@@ -454,12 +454,12 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
             bottom_left_x = x_space[diff_start_idx]
             bottom_left_y = y_space[target_axis_idx]
             w_spatial_x = x_space[diff_end_idx] - x_space[diff_start_idx]
-            w_spatial_y = y_space[target_axis_idx+1] - y_space[target_axis_idx-1]
+            w_spatial_y = y_space[min(target_axis_idx+1,len(y_space)-1)] - y_space[max(0,target_axis_idx-1)]
         else:
             bottom_left_x = x_space[target_axis_idx]
             bottom_left_y = y_space[diff_start_idx]
             w_spatial_y = y_space[diff_end_idx] - y_space[diff_start_idx]
-            w_spatial_x = x_space[target_axis_idx+1] - x_space[target_axis_idx-1]
+            w_spatial_x = x_space[min(target_axis_idx+1,len(x_space)-1)] - x_space[max(0,target_axis_idx-1)]
 
         rect = patches.Rectangle(
             (bottom_left_x*1000, bottom_left_y*1000),
