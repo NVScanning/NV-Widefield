@@ -5,6 +5,7 @@ import os
 from os import listdir
 from os.path import isfile, join
 from uncertainties import ufloat
+import scipy.ndimage as ndi
 
 import re
 
@@ -24,7 +25,7 @@ change max_peaks for the lorentzian fitting for any ODMRs to be fitted
 
 note: measurements previous to 2026-05-13 at 15:02 only have cps data, not frequency stored
 ^ this means you don't have any x data, and filetype is different (npy)
-note: scanned odmrs from may 15, 2026 don't have the odmrs saved only the frequency deltas 
+note: scanned odmrs previous to may 15, 2026 don't have the odmrs saved only the frequency deltas 
 note: scanned odmrs previous to 2026-05-19 at 10:47 have freq delta data not B data
 
 Point of all the above notes is that despite hiding a lot of these issues by checking for location manually,
@@ -32,10 +33,11 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-10-07" # YYYY-MM-DD
-time = "16-52-14"   # hh-mm_ss
-max_peaks = 5
-
+date = "2026-10-19" # YYYY-MM-DD
+time = "14-13-09"   # hh-mm_ss
+max_peaks = 3
+fft_point_measurement = False
+subtract_blurred_ODMR = True
 
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
 directory = os.path.join(desktop_dir, "NVCFM_Data", date)
@@ -78,7 +80,42 @@ if match[0].startswith("cw_odmr"):
         counts = data
         freqs = np.linspace(2.67, 3.07, len(counts) ,endpoint=True)
         print("Old file being read, frequency data is guessed and cannot be used for numerical analysis.")
-        oPlot.plot_odmr(freqs, data)
+        oPlot.plot_odmr(freqs, counts)
+
+    if fft_point_measurement:
+        df = abs(freqs[1] - freqs[0])
+        fft = scipy.fft.fft(counts)
+        fft_freqs = scipy.fft.fftfreq(len(freqs), d=df)
+        fft_shifted = scipy.fft.fftshift(fft)
+        freqs_shifted = scipy.fft.fftshift(fft_freqs)
+
+        magnitude = np.abs(fft_shifted)
+        pos_mask = freqs_shifted > 0
+        plot_freqs = freqs_shifted[pos_mask]
+        plot_mag = magnitude[pos_mask]
+
+        oPlot.plot_odmr_fft(plot_freqs, plot_mag)
+
+
+        filter_mask = np.abs(fft_freqs) > 9e-9
+        filter_mask2 = np.abs(fft_freqs) < 11e-9
+
+        fft_filtered = fft.copy()
+        fft_filtered[filter_mask & filter_mask2]*=5
+
+        counts_reconstructed = np.real(scipy.fft.ifft(fft_filtered))
+        oPlot.plot_odmr(freqs, counts_reconstructed)
+
+    if subtract_blurred_ODMR:
+        # df = abs(freqs[1] - freqs[0])
+        # freq_range = freqs[-1] - freqs[0]
+        # filtering_sigma = 0.02 * freq_range / df  # this is num samples, not freq space, use 1MHz/df
+        # filtering_sigma = 100e6 / df  # this is num samples, not freq space, use 75MHz/df
+        #
+        # filtered_counts = ndi.gaussian_filter(counts, sigma=filtering_sigma)
+        # oPlot.plot_odmr(freqs, counts - filtered_counts)
+
+        oPlot.plot_odmr(freqs, Lfit.subtract_blurred_ODMR(freqs, counts))
 
 elif match[0].startswith("scanned"):
     # is widefield
@@ -353,7 +390,7 @@ elif match[0].startswith("widefield"):
 
                 B_Z_saved = B_Z_overall[y_ind, x_ind]
                 counts = counts_2D[y_ind, x_ind]
-                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks,Gaussian_subtraction=True)
                 # print(f"B_Z was saved in the file as {B_Z_saved:.3}")
                 # Lfit.print_dip_params(popt)
                 # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
