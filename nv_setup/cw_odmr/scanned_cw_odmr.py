@@ -94,7 +94,7 @@ def measure_all_points(sg, job, x_motor, y_motor, x_points, y_points, freqs, dwe
                 delta_freq = Lfit.odmr_to_delta_freq(np.array(kcps)  , freqs) # in GHz
                 B_Z = delta_freq / (2*cs.gamma_e) # in T
                 B_Z_overall[i,x_ind,y_ind]=B_Z
-                if delta_freq == 0:
+                if delta_freq == np.nan:
                     # had problem fitting
                     problem_points.append((x_ind, y_ind))
                 cs.plot_dFreq_image(x_points, y_points, np.sum(B_Z_overall, axis=0) / i)

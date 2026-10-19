@@ -146,7 +146,7 @@ def plot_B_Y_dep(freqs, y_sweep_results):
         # else:
         #     max_peaks = 6
         delta_freq = Lfit.odmr_to_delta_freq(counts, freqs, max_peaks=max_peaks)
-        if delta_freq == 0:
+        if delta_freq == np.nan:
             print(f"Couldn't fit ODMR at y = {y_pos:.4f} mm")
         else:
             B_Z = delta_freq / (2 * cs.gamma_e)  # in T
