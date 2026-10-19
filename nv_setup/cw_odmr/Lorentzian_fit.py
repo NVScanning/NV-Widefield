@@ -16,8 +16,8 @@ import helper_classes.pco_cam_interface as pci
 # from nv_widefield.helper_classes.odmr_plotting import plot_fitted_data
 
 
-dip_range = (2.64,3.1) # GHz
-brightness_factor = 0.1 # unitless, 0<_<1, proportion of max brightness, below which pixels are automatically ignored
+dip_range = (2.7,3.04) # GHz
+brightness_factor = 0.05 # unitless, 0<_<1, proportion of max brightness, below which pixels are automatically ignored
 
 
 # ============================
@@ -52,7 +52,8 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     # freqs in GHz
     df = abs(freqs[1]-freqs[0])
 
-    filtering_sigma = 0.001/df # this is num samples, not freq space, use 1MHz/df
+    freq_range = freqs[-1]-freqs[0]
+    filtering_sigma = 0.02*freq_range/df # this is num samples, not freq space, use 1MHz/df
     # print("filtering_sigma", filtering_sigma)
 
 
@@ -68,7 +69,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     # oPlot.plot_odmr(freqs*10**9, d1) # plot the 1st derivative values to know what kind of prominence to expect
     filtered_d1 = ndi.gaussian_filter(d1, sigma=filtering_sigma)
     # oPlot.plot_odmr(freqs*10**9, filtered_d1, "gaussian filtered ODMR derivative") # print the 2nd derivative values to know what kind of prominence to expect
-    d2 = np.gradient(filtered_d1, df) # why a negative sign?
+    d2 = np.gradient(filtered_d1, df)
     # oPlot.plot_odmr(freqs*10**9, d2) # plot the 2nd derivative values to know what kind of prominence to expect
 
     filtered_d2 = ndi.gaussian_filter(d2, sigma=filtering_sigma)
@@ -90,6 +91,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     peaks, props = peaks_d2, props_d2
     # print(f"\nFind_peaks on second derivative found {len(peaks)} peaks, at frequencies: {freqs[peaks]}")
 
+
     # filter peaks to be only within valid range
     valid_peaks_mask = (freqs[peaks] >= dip_range[0]) & (freqs[peaks] <= dip_range[1])
     peaks = peaks[valid_peaks_mask]
@@ -104,29 +106,29 @@ def guess_initial_params(freqs, vals, max_peaks=None):
         peaks = peaks[top_idx]
         peaks = peaks[np.argsort(peaks)]
 
-    if max_peaks == 2 and len(peaks) == 1:
-        # print("Warning: Unresolved overlapping doublet detected. Manually splitting peak seeds")
-        # sole_peak_idx = peaks[0]
-        sole_peak_idx = len(freqs) // 2 # assume centered around 2.87GHz
-        # Calculate index offset corresponding to roughly 8 MHz splitting
-        df = freqs[1]-freqs[0]
-        split_offset_idx = max(3, int(0.005 / df))
-
-        # Seed two distinct peaks symmetrically around the center trough
-        peak1 = max(0, sole_peak_idx - split_offset_idx)
-        peak2 = min(len(freqs) - 1, sole_peak_idx + split_offset_idx)
-        peaks = np.array([peak1, peak2])
-
-
-        print(f"Manually split 1 dip into {max_peaks} at freqs {freqs[peaks]} GHz")
-    elif len(peaks) == 0:
+    # if max_peaks == 2 and len(peaks) == 1:
+    #     # print("Warning: Unresolved overlapping doublet detected. Manually splitting peak seeds")
+    #     # sole_peak_idx = peaks[0]
+    #     sole_peak_idx = len(freqs) // 2 # assume centered around 2.87GHz
+    #     # Calculate index offset corresponding to roughly 8 MHz splitting
+    #     df = freqs[1]-freqs[0]
+    #     split_offset_idx = max(3, int(0.005 / df))
+    #
+    #     # Seed two distinct peaks symmetrically around the center trough
+    #     peak1 = max(0, sole_peak_idx - split_offset_idx)
+    #     peak2 = min(len(freqs) - 1, sole_peak_idx + split_offset_idx)
+    #     peaks = np.array([peak1, peak2])
+    #
+    #
+    #     print(f"Manually split 1 dip into {max_peaks} at freqs {freqs[peaks]} GHz")
+    if len(peaks) == 0:
         center_idx = len(freqs) // 2
         split_offset_idx = max(2, int(0.006 / df))
         peaks = np.array([center_idx - split_offset_idx, center_idx + split_offset_idx])
         print(f"No peaks resolved. Defaulting to blind center seeds: {freqs[peaks]} GHz")
 
     # print(f"After culling lowest peaks, using {len(peaks)} initial peaks, at frequencies: {freqs[peaks]}GHz")
-    filtered_vals = ndi.gaussian_filter(vals, sigma=2)
+    filtered_vals = ndi.gaussian_filter(vals, sigma=filtering_sigma)
     c1 = (filtered_vals[-1]-filtered_vals[0])/(freqs[-1]-freqs[0])                # slope value
     c0 = filtered_vals[0] - c1*freqs[0]                                           # offset
 
@@ -151,8 +153,25 @@ def guess_initial_params(freqs, vals, max_peaks=None):
     init_params.extend([c0, c1])
     return np.array(init_params), peaks
 
+
+def subtract_blurred_ODMR(freqs, R_vals, Gaussian_sigma=None):
+    # Blur the R_vals array with a set gaussian blur, and subtract this blurred value from the original array
+    # To ensure positive numbers and approximate relative contrast, the averaged value gets added back
+
+    df = abs(freqs[1] - freqs[0])
+    freq_range = freqs[-1] - freqs[0]
+    if Gaussian_sigma is not None:
+        filtering_sigma = Gaussian_sigma
+    else:
+        filtering_sigma = 0.02 * freq_range / df  # this is num samples, not freq space, sigma is 2% of frequency range
+
+    filtered_counts = ndi.gaussian_filter(R_vals, sigma=filtering_sigma)
+
+    return R_vals - filtered_counts + np.mean(filtered_counts)
+
 def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_fit = None):
     # freqs in GHz
+
     if default_fit is None:
         p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
     else:
@@ -317,8 +336,13 @@ def print_SNR(snrs, freqs):
 # ============================
 # Lorentzian fitting (with baseline normalization)
 # ============================
-def analyze_data(freqs, counts, max_peaks):
+def analyze_data(freqs, counts, max_peaks,Gaussian_subtraction=False, Gaussian_sigma=None):
     # expects freqs in Hz
+
+    if Gaussian_subtraction:
+        counts = subtract_blurred_ODMR(freqs, counts, Gaussian_sigma)
+        # oPlot.plot_odmr(freqs, counts, "gaussian subtracted ODMR signal")
+
     popt, pcov, peaks = fit_odmr_multi_lorentzian(freqs / 10 ** 9, counts, max_peaks=max_peaks)
     fitted_counts = multi_lorentzian(freqs / 10 ** 9, *popt)
 
@@ -328,6 +352,15 @@ def analyze_data(freqs, counts, max_peaks):
 
     # ---- Normalized intensity (baseline = 1) ----
     # if there's a linear term in the counts, then this also removes that
+
+    # if Gaussian_subtraction:
+    #     # gaussian subtraction normalizes any background
+    #     counts_norm = (counts-np.min(counts))/np.max(counts-np.min(counts))
+    #     fitted_norm = (fitted_counts-np.min(fitted_counts))/np.max(fitted_counts-np.min(fitted_counts))
+    # else:
+    #     counts_norm = counts / baseline
+    #     fitted_norm = fitted_counts / baseline
+
     counts_norm = counts / baseline
     fitted_norm = fitted_counts / baseline
 
@@ -351,7 +384,7 @@ def params_to_B(popt):
 def odmr_to_delta_freq(counts, freqs, max_peaks=4):
     delta_freq = 0
     # max_peaks = 2 # nominally 4, try 2 if the middle dips r too small to see
-    popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks)
+    popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True)
     _, _, dip_Freqs = get_dip_params(popt)
     # print_SNR(baseline, counts, freqs / 10 ** 9, popt)
     # oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
@@ -359,7 +392,9 @@ def odmr_to_delta_freq(counts, freqs, max_peaks=4):
         # need exactly at least 2 dips to get the difference between the two
         # if >2 dips, assume the additional ones are the middle dips (irrelevant i think)
         delta_freq = dip_Freqs[-1] - dip_Freqs[0]
-    # if you didn't get >=2 dips there's no delta, so return 0
+    if (len(dip_Freqs) == 0):
+        delta_freq = np.nan
+        print("no fitted dips, B is NaN")
     return delta_freq
 
 def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
@@ -379,7 +414,7 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
 
     for x_ind in range(len(x_points)):
         for y_ind in range(len(y_points)):
-            cs.print_analysis_progress((x_ind * len(y_points) + y_ind), len(y_points) * len(x_points))
+            cs.print_analysis_progress((x_ind * len(y_points) + y_ind), len(y_points) * len(x_points),time.time()-t0)
             # if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
             #     # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
             #     print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
@@ -391,7 +426,7 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
                 delta_freq = odmr_to_delta_freq(counts_2D[y_ind, x_ind], freqs, max_peaks=max_peaks)
 
 
-                if delta_freq == 0:
+                if delta_freq == np.nan:
                     # had problem fitting
                     problem_points.append((x_ind, y_ind))
                     B_Z_overall[y_ind, x_ind] = np.nan
