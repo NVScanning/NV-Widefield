@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from numpy import dtype, float64, ndarray
 from pco import Camera
 
+
 sys.path.append(os.path.abspath(".."))
 import connection_setup as cs
 import helper_classes.pco_cam_interface as pci
@@ -23,6 +24,9 @@ Much of this code was combined from previously written code for varying Z
 amp_name = ""
 # amp_name = "SAM100"
 # amp_name = "ZHL-2W"
+
+MAX_PEAKS = 8
+
 
 def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
     """Executes a dual-directional frequency sweep and returns a 1D binned array of brightness per second."""
@@ -51,18 +55,18 @@ def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_wind
 
 def main():
     binning_amount = 1
-    focus_point_size = 128
-    focus_point_centre_x, focus_point_centre_y = 1050,1000
+    focus_point_size = 160
+    focus_point_centre_x, focus_point_centre_y = 1010,1200
 
-    n_windows_per_point = 1
+    n_windows_per_point = 10
     freq_dwell = 0.04
     power_dwell = 1  # Settle interval following an amplitude step update
-    n_iter = 2
+    n_iter = 5
 
     # Frequency Sweep Space Configuration
     f_center = 2.87e9
-    span = 0.1e9
-    N_freqs = 51
+    span = 0.8e9
+    N_freqs = 101
 
 
     # RF Power Amplitude Sweep Parameters
@@ -88,7 +92,7 @@ def main():
 
     # Pass functional loop array down to interface controller execution stack
     avg_contrasts, avg_snrs, evaluated_powers, power_sweep_results = pci.run_odmr_measurement(
-        (roi, binning_amount,0.04), -10, measure_power_dependency,
+        (roi, binning_amount,0.005), -10, measure_power_dependency,
         (freq_dwell, freqs, n_iter, n_windows_per_point, power_dwell, amp_range)
     )
 
@@ -170,7 +174,7 @@ def measure_power_dependency(cam: Camera, sg: Any, freq_dwell: float,
 
         # Run Lorentzian curve fitting
         try:
-            popt, pcov, _, _, baseline = Lfit.analyze_data(freqs, counts, max_peaks=3)
+            popt, pcov, _, _, baseline = Lfit.analyze_data(freqs, counts, max_peaks=MAX_PEAKS)
 
             contrasts, _, _ = Lfit.get_dip_params(popt)
             snrs = Lfit.get_SNRs(baseline, counts, freqs / 1e9, popt)
@@ -194,7 +198,7 @@ def measure_power_dependency(cam: Camera, sg: Any, freq_dwell: float,
         except Exception as fit_error:
             print(f"Data fit sequence rejected at {amp_val:.2f} dBm: {fit_error}")
 
-    print(f"Sweeping Z ODMRs took {time.time() - t0:.0f}s")
+    print(f"Sweeping RF ODMRs took {time.time() - t0:.0f}s")
     return avg_contrasts, avg_snrs, evaluated_powers, power_sweep_results
 
 

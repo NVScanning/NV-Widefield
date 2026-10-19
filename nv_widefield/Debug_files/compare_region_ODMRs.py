@@ -19,20 +19,10 @@ import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
 
 NEW_MEASUREMENT = False  # Set to True for hardware run, False to read old widefield measurement
-roi_regions = 4
+roi_width = 8
 
-# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-09-29\\widefield_cw_odmr_15-14-02.npz" # image of B2-looking FGT flake
-# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-01\\widefield_cw_odmr_16-43-36.npz" # image of triangle-looking FGT flake
-# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-02\\widefield_cw_odmr_15-33-52.npz" # image of triangle-looking FGT flake
-# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_13-42-34.npz" # image of triangle-looking FGT flake
-# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_13-53-09.npz" # image of triangle-looking FGT flake
-# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_14-07-35.npz" # image of triangle-looking FGT flake
-# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_14-23-17.npz" # image of triangle-looking FGT flake
-# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_15-46-32.npz" # image of triangle-looking FGT flake
-# old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-05\\widefield_cw_odmr_16-27-41.npz" # image of triangle-looking FGT flake
-
-date = "2026-10-06" # YYYY-MM-DD
-time = "17-09-12"   # HH-MM-SS
+date = "2026-10-19" # YYYY-MM-DD
+time = "10-28-46"   # HH-MM-SS
 
 data_dir = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data"
 date_directory = os.path.join(data_dir, date)
@@ -249,14 +239,14 @@ def main():
     #     {"center": (20, 240), "width": 16},
     # ]
     target_regions = [
-        {"center": (70, 40), "width": roi_regions},
-        {"center": (50, 45), "width": roi_regions},
-        {"center": (95, 45), "width": roi_regions},
-        {"center": (70, 80), "width": roi_regions},
-        {"center": (30, 95), "width": roi_regions},
-        {"center": (80, 120), "width": roi_regions},
-        {"center": (140, 150), "width": roi_regions},
-        {"center": (110, 120), "width": roi_regions},
+        {"center": (80, 30), "width": roi_width},
+        {"center": (80, 150), "width": roi_width},
+        # {"center": (20, 60), "width": roi_width},
+        {"center": (80, 80), "width": roi_width},
+        {"center": (10, 100), "width": roi_width},
+        {"center": (150, 100), "width": roi_width},
+        {"center": (80, 100), "width": roi_width},
+        # {"center": (110, 120), "width": roi_width},
     ]
 
 

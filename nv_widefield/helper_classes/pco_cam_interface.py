@@ -437,6 +437,11 @@ def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iterati
         else:
             cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f, None)
 
+        # turn the RF off for some time before the exposure to cool it down
+        # cs.enable_sg386(sg, enable=False)
+        # time.sleep(0.5)
+        # cs.enable_sg386(sg, enable=True)
+
         # Log.log("setting new freq on signal gen")
         # supposedly this value will wrap around so I shouldn't get an index-out-of-bounds error when using it to get img
         sg.write(f"FREQ {float(f)}")
@@ -470,8 +475,18 @@ def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iterati
             image = get_image_sub_bkg(cam)
             Log.log("binning+summing image")
             all_counts += bin_image(image)
-        # pci.plot_image(image)
-        # Log.log("saving binned value")
+
+        # this normalizes counts between each frame, to account for any RF heating:
+
+        # cs.enable_sg386(sg, enable=False)
+        # time.sleep(dwell)
+        # cam.wait_for_new_image()
+        # img_off = get_image_sub_bkg(cam)
+        # counts_off = bin_image(img_off)
+        # brightness[j]=(all_counts - counts_off)/point_duration_s
+
+
+
         brightness[j]=(all_counts / point_duration_s)
     cam.stop()
     return brightness
