@@ -11,6 +11,14 @@ import os
 """
 Main interface for using the PCO camera, many functions are defined for repeated usage 
 such as setting up the camera or running a frequency sweep
+
+There are two main ways to record images in this code, either by using a ringbuffer where new images are constantly
+received and overwrite a small buffer, and you need to get the most recent ones, or by setting a sequence of exposures
+which required a new recording to start for each frequency. The latter is much slower because there is a ~200ms overhead 
+to starting a new recording
+
+There is old code from dark frame subtraction that does not get used, if you run this file as main, you'll get a
+dark frame recorded, make sure to delete the file at dark_frame_path or it will add uncertainty to your measurements
 """
 
 # Constants

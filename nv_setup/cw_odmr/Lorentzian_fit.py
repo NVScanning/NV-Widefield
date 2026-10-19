@@ -15,6 +15,15 @@ import helper_classes.pco_cam_interface as pci
 
 # from nv_widefield.helper_classes.odmr_plotting import plot_fitted_data
 
+"""
+Has the lorentzian function definition, and various helper functions to fit lorentizans to an ODMR
+Also has printout methods which format the params in an easily legible way for debugging
+
+part of this fitting is to limit the frequency range where dips are expected to help reduce fits to noise, with the 
+dip_range field, which is the min and max frequencies in GHz that will get a dip fitted
+
+An additional component is to ignore dark pixels, below some threshold brightness, done with the brightnes_factor field
+"""
 
 dip_range = (2.7,3.04) # GHz
 brightness_factor = 0.05 # unitless, 0<_<1, proportion of max brightness, below which pixels are automatically ignored
@@ -465,19 +474,6 @@ def counts_to_B_Z_bin_init_params(x_points, y_points, counts_2D, freqs, max_peak
     return B_Z_overall, problem_points
 
 def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
-
-    # B_Z_overall = np.zeros((len(x_points), len(y_points)), dtype=float)
-    #
-    # num_printouts = 10
-    # printout_factor = len(x_points) * len(y_points) // num_printouts
-    #
-    # for x_ind in range(len(x_points)):
-    #     for y_ind in range(len(y_points)):
-    #         if ((x_ind*len(y_points) + y_ind) % printout_factor == 0):
-    #             # Below approximation for %done isn't exact, but it gives round numbers which are easier to read
-    #             print(f"at position (x,y)=({x_ind},{y_ind}); {(x_ind*len(y_points) + y_ind)/(printout_factor*num_printouts)*100}% done")
-    #         popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts_2D[x_ind,y_ind], max_peaks)
-    #         contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
 
     all_snrs = np.zeros((x_points.shape[0], y_points.shape[0], max_peaks))
     all_contrasts = np.zeros((x_points.shape[0], y_points.shape[0], max_peaks))

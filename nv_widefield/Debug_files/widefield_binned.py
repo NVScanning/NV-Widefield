@@ -85,7 +85,7 @@ def main():
     n_iter = 2
     # frequency parameters
     f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.7e9 # Hz, range of frequencies to sample
+    span = 0.5e9 # Hz, range of frequencies to sample
     N = 101 # num points in the frequency space to sample
 
     max_peaks = 3

@@ -8,7 +8,11 @@ import helper_classes.pco_cam_interface as pci
 import helper_classes.Novanta_Laser as nLas
 import helper_classes.odmr_plotting as oPlot
 
+"""
+Vary laser power and measure the stability of the brightness coming out (through the NV fluorescence)
 
+This then fits a saturation curve to determine the power at which the NVs are saturated with light 
+"""
 
 NEW_MEASUREMENT = False  # Set to True for hardware run, False to parse log_text
 
@@ -94,7 +98,7 @@ def run_saturation_sweep(
 
     exposure_time_s = cam.exposure_time
 
-    print(f"Starting overnight saturation sweep across {len(power_setpoints)} setpoints.")
+    print(f"Starting saturation sweep across {len(power_setpoints)} setpoints.")
     print(
         f"Estimated total run time: ~{(len(power_setpoints) * (settle_time_s + num_frames * exposure_time_s) + 0.1) / 3600:.2f} hours.\n")
 
@@ -121,7 +125,7 @@ def run_saturation_sweep(
         std_temp = np.std(frame_means, ddof=1)
 
         # Spatial statistics across average image
-        mean_frame_spatial = stack.mean(axis=0)
+        mean_frame_spatial = stack.mean(axis=2)
         std_spat = np.std(mean_frame_spatial)
 
         mean_intensities.append(mean_val)
@@ -212,15 +216,15 @@ def plot_saturation_results(powers, means, std_t, fit_params=None):
 
 
 def main():
-    power_setpoints = [5, 10, 20, 50, 75, 100, 125, 150, 200, 250]
-    if not NEW_MEASUREMENT:
-        powers, means, std_t = read_txt(old_Measurement_Path)
-    else:
+    power_setpoints = [5, 10, 20, 50, 75, 100, 125, 150, 200, 250, 300, 350]
+    if NEW_MEASUREMENT:
         try:
+            # settle_time_s = 3600
+            # num_frames = 10000
 
-            settle_time_s = 3600
-            num_frames = 10000
-            exposure_time_s = 0.01
+            settle_time_s = 120
+            num_frames = 1000
+            exposure_time_s = 0.005
 
             binning_amount = 1
 
@@ -228,7 +232,7 @@ def main():
             laser = NovantaLaserWrapper(port='COM3')
 
             # Preserved spatial setup
-            roi, _, _ = pci.get_spacial_params(binning_amount, (128, 1050, 1000))
+            roi, _, _ = pci.get_spacial_params(binning_amount, (200, 1010, 1200))
             cam = pci.connect_cam(roi, binning_amount, forced_exposure=exposure_time_s)
             powers, means, std_t, std_s = run_saturation_sweep(
                 laser=laser,
@@ -238,11 +242,10 @@ def main():
                 num_frames=num_frames,
                 roi=roi
             )
-
         finally:
             laser.close()
-
-
+    else:
+        powers, means, std_t = read_txt(old_Measurement_Path)
 
     popt, perr = fit_saturation_curve(powers, means, std_t)
     I_max, P_sat, I_bg = popt

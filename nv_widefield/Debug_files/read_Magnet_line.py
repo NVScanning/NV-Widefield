@@ -8,42 +8,41 @@ from vary_Y_ODMR import wire_b_field
 import connection_setup as cs
 import matplotlib.patches as patches
 
-import scipy.ndimage as ndi
-# Maintain directory path expansions
-# import sys
-# sys.path.append(os.path.abspath("..."))
-# import nv_widefield.helper_classes.odmr_plotting as oPlot
+
+"""
+Plot ODMRs from a line region in a 2D measurement (N x 1 rectangle)
+
+Select measurement by date and time
+select axis along which to slice, as well as the indices of the start/stop along this axis
+and the singular index of the other axis
+
+All main params have a comment explaining what it does
+"""
 
 
-
-# Parameters
-# date = "2026-07-17"
-# # time = "14-10-59" # high field single dip with weird trends in middle pixels
-# # time = "15-16-49" #
-# # time = "15-23-28" # super noisy low brightness measurement of zero-field
-# # time = "15-40-31" #
-# time = "16-50-33"
 
 date = "2026-10-19"
 time = "14-13-09"
-target_idx = 20  # The specific spatial x-index to extract across all y's
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-max_peaks = 2
-plot_ODMR_fits = True
-fit_fn = False
-use_offaxis_binning = False
-fixed_B = False
-plot_Vline = False
-plot_dip_centers = False
+target_idx = 20  # The specific spatial x-index to extract across all y's
 
 diff_start_idx = 0
 diff_end_idx = 39
 every_nth_idx = 2
-labelled_dip_idx = -1
 
-offset = 0.003
-I_applied = 1
+plot_ODMR_fits = True # true to plot the lorentzian fit on top of the ODMR data
+fit_Br_fn = False # True to fit a 1/r B-r relationship to the B determined from ODMRs along this slice (mostly for B from a wire measurements)
+use_offaxis_binning = False # True to add the entire row/column of the non-slice axis to gain SNR in the case of a symmetric measurement, False to use one pixel
+fixed_B = False # True to have a set B offset, False to let it autofit
+plot_Vline = False # True to plot vertical lines for the dip-centers on the first ODMR
+plot_dip_centers = False # True to plot red dots at the dip-centers of the fitted ODMR
+
+max_peaks = 2 # limit the autofit code to get max_peaks dips
+labelled_dip_idx = -1 # which dip to use for the dip-r relationship graph
+
+offset = 0.003 # vertical space between adjacent ODMRs
+I_applied = 1 # currentee applied when fitting 1/r relationship of B from current in a wire
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
     """
@@ -394,7 +393,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     plt.show()
     if len(dip_centers_ghz) > 0 and plot_dip_centers:
         plot_dip_vs_axis(fitted_axis_positions, dip_centers_ghz, udip_centers, fixed_axis_val)
-    if len(B_fitted) > 0 and fit_fn:
+    if len(B_fitted) > 0 and fit_Br_fn:
         fit_and_plot_b_vs_axis(fitted_axis_positions, B_fitted, uB_fitted, fixed_axis_val)
 
 

@@ -18,6 +18,13 @@ import widefield_odmr as wODMR
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
 
+"""
+bin together pixels in a square region, and compare multiple regions from a widefield measurement
+
+Useful to check that B is varying at all and improve SNR without forcing a low resolution measurement 
+from significant pixel binning on the whole dataset
+"""
+
 NEW_MEASUREMENT = False  # Set to True for hardware run, False to read old widefield measurement
 roi_width = 8
 

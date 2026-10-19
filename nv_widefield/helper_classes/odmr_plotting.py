@@ -13,6 +13,10 @@ import nv_setup.cw_odmr.Lorentzian_fit as lFit
 """
 Lots of plotting code gets used in various placed, but is all quite similar, so has been
 compiled into one file to always use when plotting
+
+
+In some cases, where a small use-case-specific change to the plotting was required, 
+I wrote a plot method in the specific file rather than bringing it here
 """
 
 
