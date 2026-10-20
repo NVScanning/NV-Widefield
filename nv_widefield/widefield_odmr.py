@@ -21,7 +21,27 @@ when a postprocessing binning that's >1 is set, it will only save the binned mea
 #   Potential features:
 #   do translation + widefield, to capture larger structures, atm we're limited to laser focus point size ~15um
 
-time0 = time.time()
+# params
+camera_binning = 1  # built-int pco camera binning, can only be 1,2,4
+post_processing_binning = 1
+focus_point_size = 200  # in physical (unbinned) pixels, diameter of circle of laser point
+focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
+
+# center_x, center_y, width_x, width_y = 1024,900,128,1536
+
+# TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
+n_windows_per_point = 5  # n readouts to increase certainty without overexposing
+amp_dbm = -10  # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
+dwell = 0.04  # seconds - time between setting a frequency on fn generator and reading value
+n_iter = 20  # integer >=1
+# frequency parameters
+f_center = 2.87e9  # Hz, generally near 2.87GHz
+span = 0.5e9  # Hz, range of frequencies to sample
+N = 251  # num points in the frequency space to sample
+
+max_peaks = 4
+
+
 
 def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None, y_space=None) -> np.ndarray:
     point_duration_s = cam.exposure_time * n_windows
@@ -71,26 +91,6 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
 
 
 def main():
-    # params
-    camera_binning = 1 # built-int pco camera binning, can only be 1,2,4
-    post_processing_binning = 1
-    focus_point_size = 160  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
-
-    # center_x, center_y, width_x, width_y = 1024,900,128,1536
-
-    # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
-    n_windows_per_point = 20 # n readouts to increase certainty without overexposing
-    amp_dbm = -10 # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
-    dwell =  0.04 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 50 # integer >=1
-    # frequency parameters
-    f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.5e9 # Hz, range of frequencies to sample
-    N = 251 # num points in the frequency space to sample
-
-    max_peaks = 4
-
     roi, x_space, y_space = pci.get_spacial_params(camera_binning,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi, x_space, y_space = pci.get_roi(camera_binning, center_x, center_y, width_x, width_y)
     # roi=(1,1,pci.camera_resolution//camera_binning,pci.camera_resolution//camera_binning)
@@ -106,7 +106,7 @@ def main():
     if len(x_space) % post_processing_binning != 0:
         raise ValueError("postprocessing binning is not a divisor of the focus point size after camera binning")
 
-    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, 0.005), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space))
+    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, 0.05), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space))
 
     print("Frequency sweeping done")
     if post_processing_binning > 1:
