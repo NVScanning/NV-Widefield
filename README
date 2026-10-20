@@ -1,8 +1,8 @@
-This directory (cw_odmr) is sorta irrelevant (I think). These use the mfli lock-in with photodiode
-which isn't really used anymore
+The cw_odmr directory is sorta irrelevant (I think). These use the mfli lock-in with photodiode
+which is mostly just used forr the Fraunhofer OLED-illumination samples
 
-in the nv_setup there's an cw_odmr directory with an ODMR measurement file for taking ODMRs with a
-single photon counting module (SPCM)
+in the nv_setup directory there's an cw_odmr subdirectory with an ODMR measurement file for taking ODMRs with a
+single photon counting module (SPCM), as well as a Lorentzian_fit file which is used in nv_setup and in nv_widefield
 
 nv_widefield directory is where all code using PCO camera is held, there is the main widefield_odmr
 file which takes ODMR of each pixel independently, as well as many debug files which do some binning

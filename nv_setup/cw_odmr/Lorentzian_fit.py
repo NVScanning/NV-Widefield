@@ -167,7 +167,12 @@ def subtract_blurred_ODMR(freqs, R_vals, Gaussian_sigma=None):
     # Blur the R_vals array with a set gaussian blur, and subtract this blurred value from the original array
     # To ensure positive numbers and approximate relative contrast, the averaged value gets added back
 
-    df = abs(freqs[1] - freqs[0])
+    # freqs is array of freqs (units don't matter)
+    # R_vals is the one-dimensional ODMR array as a fn of frequency
+    # Gaussian_sigma is the filtering sigma in num samples
+
+
+    df = freqs[1] - freqs[0]
     freq_range = freqs[-1] - freqs[0]
     if Gaussian_sigma is not None:
         filtering_sigma = Gaussian_sigma
@@ -179,7 +184,11 @@ def subtract_blurred_ODMR(freqs, R_vals, Gaussian_sigma=None):
     return R_vals - filtered_counts + np.mean(filtered_counts)
 
 def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_fit = None):
-    # freqs in GHz
+    # freqs array of frequencies in GHz
+    # R_vals is the one-dimensional ODMR array as a fn of frequency
+    # max_peaks is the max number of peaks that will be fitted to teh ODMR
+    # default_fit is combined p0 and peaks that will be used instead of the initial param guessing
+    #   usually came from the analysis of a binned version of the measurement
 
     if default_fit is None:
         p0, peaks = guess_initial_params(freqs, R_vals, max_peaks=max_peaks)
@@ -226,6 +235,13 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
 
 
 def check_bound_proximity(popt, bounds, threshold=0.05, param_names=None):
+    # checks if any params are near the bounds, and prints out if so
+
+    # popt is the fitted params from curvefit
+    # bounds is bounds passed into curvefit
+    # threshold is how close to the bounds a param must be to get flagged
+    # param_names is a list of strings to have clearer printouts of the params
+
     lb, ub = np.asarray(bounds[0]), np.asarray(bounds[1])
     popt = np.asarray(popt)
 
@@ -247,6 +263,8 @@ def check_bound_proximity(popt, bounds, threshold=0.05, param_names=None):
     return flagged, rel_pos
 
 def get_dip_params(popt):
+    # converts the fitted params from curvefit into clearly defined contrast, FWHM, and dip center(dip_freq) for each dip
+
     c0, c1 = popt[-2], popt[-1]
 
     contrasts = []
@@ -269,7 +287,10 @@ def get_dip_params(popt):
         FWHMs.append(FWHM)
         dip_Freqs.append(f0)
     return contrasts, FWHMs, dip_Freqs # prop, GHz, GHz
+
+
 def get_dip_uncertainties(pcov):
+    # converts fitted covariance matrix from curvefit to the error in FWHMs and dip center(dip_freq) for each dip
     perr = np.sqrt(np.diag(pcov))
     n_dips = (len(perr) - 2) // 3
 
@@ -284,17 +305,33 @@ def get_dip_uncertainties(pcov):
         err_FWHMs.append(2.0 * perr[idx_gamma])
 
     return err_FWHMs, err_dip_Freqs
+
+
+def print_SNR(snrs, freqs):
+    # prints the SNR for each dip
+    # freqs in GHz
+
+    snr = np.mean(snrs)
+    for (freq, snr_val) in zip(freqs, snrs):
+        print(f"At frequency {freq:.4f} GHz: snr = {snr_val:.3}")
+
+    print(f"SNR avg: {snr:.3}")
+
 def print_contrast_snr(contrasts, snrs, dip_Freqs):
+    # prints the contrasts, snrs, and dip center(dip_freq) in a clearly formatted way
     for (freq, snr_val, contr_val) in zip(dip_Freqs, snrs, contrasts):
         print(f"At frequency {freq:.4f} GHz: Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
     print(f"SNR avg: {np.mean(snrs):.3}, contrast avg: {np.mean(contrasts)*100:.3}%")
+
 def print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs):
+    # prints the contrasts, snrs, FWHMs, and dip center(dip_freq) in a clearly formatted way
     for (freq, snr_val, contr_val, FWHM) in zip(dip_Freqs, snrs, contrasts, FWHMs):
         print(f"At frequency {freq:.4f} GHz: FWHM = {FWHM * 1000:.1f} MHz, Contrast = {contr_val * 100:.3f}%, snr = {snr_val:.3}")
     print(f"SNR avg: {np.mean(snrs):.3f}, contrast avg: {np.mean(contrasts)*100:.3}%")
 
 def print_dip_params(popt):
-    # Prints FWHM, contrast, and frequency delta
+    # Prints FWHM, contrast for each dip
+    # prints frequency delta for each adjacent pair of frequencies, and its equivalent B field
     contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
 
     # Print summary lines
@@ -307,6 +344,13 @@ def print_dip_params(popt):
     return contrasts, FWHMs, dip_Freqs
 
 def get_SNRs(baseline, counts, freqs, popt):
+    # convert the fitted ODMR parameters to an SNR per-frequency
+
+    # baseline is the linear fitted background term
+    # counts is the brightness/coutns dependent on freqs
+    # freqs is the frequency array in Hz (I think)
+    # popt is the fitted parameters from curvefit
+
     noise_signal = counts - baseline
     c0, c1 = popt[-2], popt[-1]
 
@@ -333,24 +377,27 @@ def get_SNRs(baseline, counts, freqs, popt):
         snrs.append(signal / sigma)
     return snrs
 
-def print_SNR(snrs, freqs):
-    # expect freqs of the dips in GHz
-
-    snr = np.mean(snrs)
-    for (freq, snr_val) in zip(freqs, snrs):
-        print(f"At frequency {freq:.4f} GHz: snr = {snr_val:.3}")
-
-    print(f"SNR avg: {snr:.3}")
 
 # ============================
 # Lorentzian fitting (with baseline normalization)
 # ============================
 def analyze_data(freqs, counts, max_peaks,Gaussian_subtraction=False, Gaussian_sigma=None):
+    # fits a multi-lorentzian to an ODMR, taking into account the max allowed dips, as well as any gaussian subtraction
+
+    # freqs is the frequency array in Hz
+    # counts is the frequency-dependent brightness array
+    # max_peaks is an integer describing the max number of dips allowed to be fitted
+    # Gaussian_subtraction=True will subtract a gaussian blurred version of the ODMR from the raw signal for
+    #   (hopefully) easier analysis
+    # Gaussian_sigma is the sigma used in the gaussian blur, in number of samples, if None then a 2% of freq
+    #   range sigma is used
+
+
     # expects freqs in Hz
 
     if Gaussian_subtraction:
         counts = subtract_blurred_ODMR(freqs, counts, Gaussian_sigma)
-        # oPlot.plot_odmr(freqs, counts, "gaussian subtracted ODMR signal")
+        oPlot.plot_odmr(freqs, counts, "gaussian subtracted ODMR signal")
 
     popt, pcov, peaks = fit_odmr_multi_lorentzian(freqs / 10 ** 9, counts, max_peaks=max_peaks)
     fitted_counts = multi_lorentzian(freqs / 10 ** 9, *popt)
