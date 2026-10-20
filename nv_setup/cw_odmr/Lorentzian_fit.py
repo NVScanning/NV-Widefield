@@ -58,7 +58,12 @@ def multi_lorentzian(f, *params):
     return y
 
 def guess_initial_params(freqs, vals, max_peaks=None):
-    # freqs in GHz
+    # takes an ODMR and returns params to be used as an initial guess for curvefitting, as well as dip indices
+
+    # freqs is array of frequencies in GHz
+    # vals is the freq-dependent brightness/counts array
+    # max_peaks is the max number of dips allowed to be fitted to an ODMR
+
     df = abs(freqs[1]-freqs[0])
 
     freq_range = freqs[-1]-freqs[0]
@@ -166,6 +171,7 @@ def guess_initial_params(freqs, vals, max_peaks=None):
 def subtract_blurred_ODMR(freqs, R_vals, Gaussian_sigma=None):
     # Blur the R_vals array with a set gaussian blur, and subtract this blurred value from the original array
     # To ensure positive numbers and approximate relative contrast, the averaged value gets added back
+    # returns an ODMR with similar brightness scale, but without background trends
 
     # freqs is array of freqs (units don't matter)
     # R_vals is the one-dimensional ODMR array as a fn of frequency
@@ -184,6 +190,8 @@ def subtract_blurred_ODMR(freqs, R_vals, Gaussian_sigma=None):
     return R_vals - filtered_counts + np.mean(filtered_counts)
 
 def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_fit = None):
+    # takes an ODMR, and returns the curvefitted params, covariance, and dip indices
+
     # freqs array of frequencies in GHz
     # R_vals is the one-dimensional ODMR array as a fn of frequency
     # max_peaks is the max number of peaks that will be fitted to teh ODMR
@@ -236,6 +244,7 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
 
 def check_bound_proximity(popt, bounds, threshold=0.05, param_names=None):
     # checks if any params are near the bounds, and prints out if so
+    # returns which params are close to bound and how close in relative position
 
     # popt is the fitted params from curvefit
     # bounds is bounds passed into curvefit
@@ -264,6 +273,7 @@ def check_bound_proximity(popt, bounds, threshold=0.05, param_names=None):
 
 def get_dip_params(popt):
     # converts the fitted params from curvefit into clearly defined contrast, FWHM, and dip center(dip_freq) for each dip
+
 
     c0, c1 = popt[-2], popt[-1]
 
@@ -332,6 +342,8 @@ def print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs):
 def print_dip_params(popt):
     # Prints FWHM, contrast for each dip
     # prints frequency delta for each adjacent pair of frequencies, and its equivalent B field
+    # also returns the contrasts, FWHMs, and dip centers(dip_freqs)
+
     contrasts, FWHMs, dip_Freqs = get_dip_params(popt)
 
     # Print summary lines
@@ -383,6 +395,7 @@ def get_SNRs(baseline, counts, freqs, popt):
 # ============================
 def analyze_data(freqs, counts, max_peaks,Gaussian_subtraction=False, Gaussian_sigma=None):
     # fits a multi-lorentzian to an ODMR, taking into account the max allowed dips, as well as any gaussian subtraction
+    # returns the fitted params and covariance matrix, normalized counts, lorentzian fitted to the norm, and the baseline array
 
     # freqs is the frequency array in Hz
     # counts is the frequency-dependent brightness array
@@ -397,7 +410,7 @@ def analyze_data(freqs, counts, max_peaks,Gaussian_subtraction=False, Gaussian_s
 
     if Gaussian_subtraction:
         counts = subtract_blurred_ODMR(freqs, counts, Gaussian_sigma)
-        oPlot.plot_odmr(freqs, counts, "gaussian subtracted ODMR signal")
+        # oPlot.plot_odmr(freqs, counts, "gaussian subtracted ODMR signal")
 
     popt, pcov, peaks = fit_odmr_multi_lorentzian(freqs / 10 ** 9, counts, max_peaks=max_peaks)
     fitted_counts = multi_lorentzian(freqs / 10 ** 9, *popt)
@@ -426,6 +439,7 @@ def analyze_data(freqs, counts, max_peaks,Gaussian_subtraction=False, Gaussian_s
 
 
 def params_to_B(popt):
+    # convert the fitted lorentzian params to a magnetic field scalar
     delta_freq = 0
     _, _, dip_Freqs = get_dip_params(popt)
     # print_SNR(baseline, counts, freqs / 10 ** 9, popt)
@@ -438,6 +452,12 @@ def params_to_B(popt):
     return delta_freq / (2 * cs.gamma_e)  # in T
 
 def odmr_to_delta_freq(counts, freqs, max_peaks=4):
+    # convert a counts array to a frequency delta between dips by fitting a lorentzian
+
+    # counts is a 2D array of freq-dependent counts/brightness
+    # freqs is the array of frequencies in Hz
+    # max_peaks is the max number of dips that will be fitted to the ODMR
+
     delta_freq = 0
     # max_peaks = 2 # nominally 4, try 2 if the middle dips r too small to see
     popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True)
@@ -454,6 +474,13 @@ def odmr_to_delta_freq(counts, freqs, max_peaks=4):
     return delta_freq
 
 def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
+    # Convert a 3D array of freq-dependent counts over 2D space to a B scalar at each point in space
+    # pixels which are too dark or couldn't fit get added to a problem_points array which is also returned
+
+    # x_ and y_points are arrays for the the x and y axis of the FOV in mm
+    # counts_2D is the 3D freq-dependent array of counts in 2D space
+    # freqs is the frequencies in Hz
+    # max_peaks is the max number of dips that are allowed to be fitted to an ODMR
 
     # TODO: convert this fitting to be on the GPU with JAXFit
     # TODO: find a way to have a background term that's shared between nearby pixels
@@ -497,6 +524,17 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
 
 
 def counts_to_B_Z_bin_init_params(x_points, y_points, counts_2D, freqs, max_peaks=4, binning_num=1):
+    # Convert a 3D array of freq-dependent counts over 2D space to a B scalar at each point in space, but use
+    # analysis of a binned measurement as the initial guess to (hopefully) improve analysis time
+    # pixels which are too dark or couldn't fit get added to a problem_points array which is also returned
+
+    # x_ and y_points are arrays for the the x and y axis of the FOV in mm
+    # counts_2D is the 3D freq-dependent array of counts in 2D space
+    # freqs is the frequencies in Hz
+    # max_peaks is the max number of dips that are allowed to be fitted to an ODMR
+    # binning_num is the sqrt(num pixels) to be binned together for the initial guesses
+    #   binning_num x binning_num area gets binned together
+
     if len(x_points) % binning_num != 0 or len(y_points) % binning_num != 0:
         raise ValueError("binning_num is not an even divisior of axis sizes")
 
@@ -521,6 +559,12 @@ def counts_to_B_Z_bin_init_params(x_points, y_points, counts_2D, freqs, max_peak
     return B_Z_overall, problem_points
 
 def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
+    # fit lorentzians to a 3D array of freq-dependent counts over 2D space and return the SNRs and contrasts for each pixel
+
+    # x_ and y_points are arrays for the the x and y axis of the FOV in mm
+    # counts_2D is the 3D freq-dependent array of counts in 2D space
+    # freqs is the frequencies in Hz
+    # max_peaks is the max number of dips that are allowed to be fitted to an ODMR
 
     all_snrs = np.zeros((x_points.shape[0], y_points.shape[0], max_peaks))
     all_contrasts = np.zeros((x_points.shape[0], y_points.shape[0], max_peaks))
@@ -534,6 +578,12 @@ def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
 
 
 def ODMR_to_SNR_contr(counts, freqs, max_peaks):
+    # fit a lorentzian to freq-dependent counts and return the SNRs and contrasts of each dip
+
+    # counts is thefreq-dependent array of counts/brightness
+    # freqs is the frequencies in Hz
+    # max_peaks is the max number of dips that are allowed to be fitted to an ODMR
+
     popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks)
     contrasts, _, _ = get_dip_params(popt)
     try:
@@ -549,6 +599,17 @@ def ODMR_to_SNR_contr(counts, freqs, max_peaks):
 
 
 def counts_to_SNR_contrast_init_params(x_points, y_points, counts_2D, freqs, max_peaks=4, binning_num=1):
+    # fit lorentzians to a 3D array of freq-dependent counts over 2D space and return the SNRs and contrasts for
+    # each pixel, but use analysis of a binned measurement for initial params to (hopefully) improve analysis time
+
+    # x_ and y_points are arrays for the the x and y axis of the FOV in mm
+    # counts_2D is the 3D freq-dependent array of counts in 2D space
+    # freqs is the frequencies in Hz
+    # max_peaks is the max number of dips that are allowed to be fitted to an ODMR
+    # binning_num is the sqrt(num pixels) to be binned together for the initial guesses
+    #   binning_num x binning_num area gets binned together
+
+
     if len(x_points) % binning_num != 0 or len(y_points) % binning_num != 0:
         raise ValueError("binning_num is not an even divisior of axis sizes")
 
