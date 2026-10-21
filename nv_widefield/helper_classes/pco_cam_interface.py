@@ -19,6 +19,9 @@ to starting a new recording
 
 There is old code from dark frame subtraction that does not get used, if you run this file as main, you'll get a
 dark frame recorded, make sure to delete the file at dark_frame_path or it will add uncertainty to your measurements
+
+Whenever you change the setup by adding a beam expansion/contraction lens pair, the expansion ratio must be written
+into the code here, or the converted physical space array will not correspond to reality
 """
 
 # Constants

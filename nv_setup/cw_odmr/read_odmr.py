@@ -21,7 +21,7 @@ import nv_widefield.helper_classes.odmr_plotting as oPlot
 
 
 """
-this file is to read npy/z files created by cw_odmr
+this file is to read npy/z files created from each ODMR measurement 
 
 Simply paste in the date and time of the file as it's stored in /NVCFM_Data/date and it will display it
 change max_peaks for the lorentzian fitting for any ODMRs to be fitted
@@ -37,9 +37,9 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-10-19" # YYYY-MM-DD
-time = "14-13-09"   # hh-mm_ss
-max_peaks = 3
+date = "2026-10-21" # YYYY-MM-DD
+time = "15-16-42"   # hh-mm_ss
+max_peaks = 4
 fft_point_measurement = False
 subtract_blurred_ODMR = True
 
@@ -157,9 +157,9 @@ def handle_scanned_ODMR(filepath):
                 print(problem_points)
             oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
-            # oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
-            oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
-                                                print_saving=True, Bmap=B_Z_overall)
+            oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+            # oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
+            #                                     print_saving=True, Bmap=B_Z_overall)
 
         try:
             # Parse the input string into integers
@@ -175,11 +175,14 @@ def handle_scanned_ODMR(filepath):
                 continue
 
             counts = counts_2D[y_ind, x_ind]
-            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
-            Lfit.print_dip_params(popt)
-            # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
-            # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
-            oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+            try:
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+                Lfit.print_dip_params(popt)
+                # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+                # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
+                oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+            except Exception as e:
+                print("analyzing ODMR raised error:", e)
         except ValueError:
             print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4').")
 
@@ -199,16 +202,19 @@ def handle_point_ODMR(filepath):
         freqs, counts = data["x"], data["y"]
         oPlot.plot_odmr(freqs, counts)
 
-        popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+        try:
+            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
 
-        # Lfit.print_dip_params(popt)
-        snrs = Lfit.get_SNRs(baseline, counts, freqs / 10 ** 9, popt)
+            # Lfit.print_dip_params(popt)
+            snrs = Lfit.get_SNRs(baseline, counts, freqs / 10 ** 9, popt)
 
-        contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+            contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
 
-        # Lfit.print_SNR(snrs, dip_Freqs)
-        Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
-        oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+            # Lfit.print_SNR(snrs, dip_Freqs)
+            Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
+            oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+        except Exception as e:
+            print("there was an error reading ODMR", e)
     else:
         data = np.load(filepath + ".npy")
         counts = data
@@ -284,9 +290,9 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                     print(problem_points)
                 oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
-                # oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
-                oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
-                                                    print_saving=True, Bmap=B_Z_overall)
+                oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+                # oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
+                #                                     print_saving=True, Bmap=B_Z_overall)
 
             except Exception as e:
                 print("Trying to parse fit with binningl caused an error:", e)
@@ -300,9 +306,9 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                 print(problem_points)
             oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
-            # oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
-            oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
-                                                print_saving=True, Bmap=B_Z_overall)
+            oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+            # oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
+            #                                     print_saving=True, Bmap=B_Z_overall)
         elif user_input.lower().startswith("bin"):
             try:
                 numbers = re.findall(r'\d+', user_input)
@@ -340,19 +346,19 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
 
                 B_Z_saved = B_Z_overall[y_ind, x_ind]
                 counts = counts_2D[y_ind, x_ind]
-                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks,
-                                                                                   Gaussian_subtraction=True)
-                # print(f"B_Z was saved in the file as {B_Z_saved:.3}")
-                # Lfit.print_dip_params(popt)
-                # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
-                # Lfit.print_SNR(baseline, counts, freqs / 10 ** 9, popt)
+                try:
+                    popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks,
+                                                                                   Gaussian_subtraction=True, Gaussian_sigma=25)
+                    print(f"B_Z was saved in the file as {B_Z_saved:.3}")
+                    contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+                    snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
+                    Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
 
-                # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
-                # snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
-                # Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
-
-                oPlot.plot_odmr(freqs, counts, "raw ODMR data")
-                oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm, popt)
+                    oPlot.plot_odmr(freqs, counts, "raw ODMR data for (x,y)={},{}".format(x_ind, y_ind))
+                    oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm, popt)
+                except Exception as e:
+                    print("analyzing data raised error:", e)
+                    oPlot.plot_odmr(freqs, counts, "raw ODMR data for (x,y)={},{}".format(x_ind, y_ind))
             except ValueError as e:
                 print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4'). Threw:", e)
 

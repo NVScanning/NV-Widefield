@@ -12,12 +12,17 @@ import helper_classes.odmr_plotting as oPlot
 Vary laser power and measure the stability of the brightness coming out (through the NV fluorescence)
 
 This then fits a saturation curve to determine the power at which the NVs are saturated with light 
+
+Once you take a measurement, copy the entire console printout into a text file, and save it in the 
+old_Measurement_Path variable to be able to replot after the fact
 """
 
 NEW_MEASUREMENT = False  # Set to True for hardware run, False to parse log_text
 
-old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM Data\\2026-08-25\\saturation_sweep_02-58-54.txt"
-old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM Data\\2026-09-22\\saturation_sweep_03-26-29.txt" # focused onto smaller point
+old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-08-25\\saturation_sweep_02-58-54.txt"
+old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-09-22\\saturation_sweep_03-26-29.txt" # focused onto smaller point
+old_Measurement_Path = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data\\2026-10-20\\saturation_sweep_04-27-32.txt" # extended up to 350mW
+
 
 def read_txt(txt_path):
     if not os.path.exists(txt_path):
@@ -38,7 +43,7 @@ def read_txt(txt_path):
 
             power_match = power_pattern.search(line_str)
             if power_match:
-                current_power = float(power_match.group(1))
+                current_power = set_to_applied_power(float(power_match.group(1)))
                 continue
 
             stats_match = stats_pattern.search(line_str)
@@ -219,11 +224,11 @@ def main():
     power_setpoints = [5, 10, 20, 50, 75, 100, 125, 150, 200, 250, 300, 350]
     if NEW_MEASUREMENT:
         try:
-            # settle_time_s = 3600
-            # num_frames = 10000
+            settle_time_s = 3600
+            num_frames = 10000
 
-            settle_time_s = 120
-            num_frames = 1000
+            # settle_time_s = 120
+            # num_frames = 1000
             exposure_time_s = 0.005
 
             binning_amount = 1

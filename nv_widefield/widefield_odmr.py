@@ -30,10 +30,10 @@ focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of 
 # center_x, center_y, width_x, width_y = 1024,900,128,1536
 
 # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
-n_windows_per_point = 5  # n readouts to increase certainty without overexposing
+n_windows_per_point = 20  # n readouts to increase certainty without overexposing
 amp_dbm = -10  # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
 dwell = 0.04  # seconds - time between setting a frequency on fn generator and reading value
-n_iter = 20  # integer >=1
+n_iter = 1000  # integer >=1
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
 span = 0.5e9  # Hz, range of frequencies to sample
@@ -68,7 +68,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
 
     prev_path = oPlot.get_newfile_dir("temp_", print_saving=False)
     with open(prev_path, "a", encoding="utf-8") as f:
-        f.write("temp file so no errors come up when deleting")
+        f.write("temp file so some file exists when deleting previous 'measurement'")
 
     for i in range(n_iter):
         # brightnesses[i,:,:,:] = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2, t0)
@@ -106,7 +106,7 @@ def main():
     if len(x_space) % post_processing_binning != 0:
         raise ValueError("postprocessing binning is not a divisor of the focus point size after camera binning")
 
-    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, 0.05), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space))
+    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, 0.005), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space))
 
     print("Frequency sweeping done")
     if post_processing_binning > 1:

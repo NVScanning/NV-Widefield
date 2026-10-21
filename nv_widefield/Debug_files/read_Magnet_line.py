@@ -21,15 +21,15 @@ All main params have a comment explaining what it does
 
 
 
-date = "2026-10-19"
-time = "14-13-09"
+date = "2026-10-21"
+time = "15-57-41"
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-target_idx = 20  # The specific spatial x-index to extract across all y's
+target_idx = 44  # The specific spatial x-index to extract across all y's
 
-diff_start_idx = 0
-diff_end_idx = 39
-every_nth_idx = 2
+diff_start_idx = 48
+diff_end_idx = 95
+every_nth_idx = 3
 
 plot_ODMR_fits = True # true to plot the lorentzian fit on top of the ODMR data
 fit_Br_fn = False # True to fit a 1/r B-r relationship to the B determined from ODMRs along this slice (mostly for B from a wire measurements)
@@ -38,10 +38,10 @@ fixed_B = False # True to have a set B offset, False to let it autofit
 plot_Vline = False # True to plot vertical lines for the dip-centers on the first ODMR
 plot_dip_centers = False # True to plot red dots at the dip-centers of the fitted ODMR
 
-max_peaks = 2 # limit the autofit code to get max_peaks dips
+max_peaks = 4 # limit the autofit code to get max_peaks dips
 labelled_dip_idx = -1 # which dip to use for the dip-r relationship graph
 
-offset = 0.003 # vertical space between adjacent ODMRs
+offset = 0.006 # vertical space between adjacent ODMRs
 I_applied = 1 # currentee applied when fitting 1/r relationship of B from current in a wire
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
@@ -266,33 +266,36 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
 
 
         if (idx == start_idx and plot_Vline):
-            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True)
-            contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
-            for freq in dip_Freqs:
-                plt.axvline(
-                    x=freq, # change index to choose which dip to plot a vline for
-                    color='red',
-                    linestyle='--',
-                    linewidth=1.2,
-                    alpha=0.7
-                    # ,
-                    # label=f'{freq:.4f} GHz'
-                )
+            try:
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=False)
+                contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+                for freq in dip_Freqs:
+                    plt.axvline(
+                        x=freq, # change index to choose which dip to plot a vline for
+                        color='red',
+                        linestyle='--',
+                        linewidth=1.2,
+                        alpha=0.7
+                        # ,
+                        # label=f'{freq:.4f} GHz'
+                    )
 
-            # plt.axvline(
-            #     x=dip_Freqs[labelled_dip_idx], # change index to choose which dip to plot a vline for
-            #     color='red',
-            #     linestyle='--',
-            #     linewidth=1.2,
-            #     alpha=0.7,
-            #     label=f'{dip_Freqs[-1]:.4f} GHz'
-            # )
+                # plt.axvline(
+                #     x=dip_Freqs[labelled_dip_idx], # change index to choose which dip to plot a vline for
+                #     color='red',
+                #     linestyle='--',
+                #     linewidth=1.2,
+                #     alpha=0.7,
+                #     label=f'{dip_Freqs[-1]:.4f} GHz'
+                # )
+            except:
+                print("fitting didn't work for start_idx, not getting Vlines plotted")
 
         if plot_ODMR_fits:
             try:
                 # Fit the ODMR trace and retrieve fit parameters along with the model curve
                 # If your Lfit signature differs, adjust this call accordingly
-                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True)
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True, Gaussian_sigma=25)
                 contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
                 uFWHMs, udip_Freqs = Lfit.get_dip_uncertainties(pcov)
                 snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
@@ -304,7 +307,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                     freqs / 1e9,
                     counts_norm + offset*(idx-start_idx)/every_nth_idx,
                     # label=f"{slice_axis}={axis_pos*1000:.1f}um, avg_val={np.mean(counts):.1e}",
-                    label=f"{slice_axis}={axis_pos*1000:.1f}um",
+                    label=f"{slice_axis}={axis_pos*1000:.1f}um, idx={idx}",
                     # label=f"avg_val={np.mean(counts):.1e}",
                     color=colors[idx-start_idx],
                     linewidth=1,
@@ -354,7 +357,16 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
 
             except Exception as fit_error:
                 # Catch fitting failures gracefully to avoid halting the full spatial sweep
-                print(f"[Warning] Fit failed for y = {axis_pos*1000:.1f} um: {fit_error}")
+                print(f"[Warning] Fit failed for y={axis_pos*1000:.1f} um with error: {fit_error}, plotting rescaled ODMR instead")
+                plt.plot(
+                    freqs / 1e9,
+                    counts / max(counts) + offset*(idx-start_idx)/every_nth_idx,
+                    label=f"y={axis_pos*1000:.1f} um",
+                    # label=f"{slice_axis}={axis_pos*1000:.1f}um, avg_val={np.mean(counts):.1e}",
+                    color=colors[idx-start_idx],
+                    linewidth=1.5,
+                    alpha=0.85
+                )
         else:
             plt.plot(
                 freqs / 1e9,
@@ -379,9 +391,9 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     plt.legend(loc="center left")
 
     if slice_axis == "x":
-        plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val*1000:.1f} um)", fontsize=13)
+        plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val*1000:.1f}um, idx={target_idx})", fontsize=13)
     else:
-        plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val*1000:.1f} um)", fontsize=13)
+        plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val*1000:.1f}um), idx={target_idx}", fontsize=13)
     # plt.xlim(2.87,2.93)
     # plt.ylim(0.997, 1 + len(z_sweep_results.items())*0.0002)
     # plt.grid(True, linestyle="--", alpha=0.5)
