@@ -1,9 +1,11 @@
 # from json.decoder import NaN
+from typing import Any
 
 import numpy as np
 import scipy
 import scipy.ndimage as ndi
-from numpy import dtype, float64, ndarray
+from numpy import dtype, float64, ndarray, signedinteger
+from numpy._typing import _32Bit, _64Bit
 from scipy.optimize import curve_fit
 import connection_setup as cs
 from scipy.signal import find_peaks, peak_widths
@@ -27,9 +29,13 @@ dip_range field, which is the min and max frequencies in GHz that will get a dip
 An additional component is to ignore dark pixels, below some threshold brightness, done with the brightnes_factor field
 """
 
-dip_range = (2.69,3.05) # GHz
+dip_range = (2.75,2.99) # GHz
 brightness_factor = 0.05 # unitless, 0<_<1, proportion of max brightness, below which pixels are automatically ignored
-
+fine_sigma_GHz = 0.005 # sigma for gaussian blur in GHz
+dip_separation_Ghz = 0.006 # minimal separation between autofitted dips in GHz
+d2_prominence_factor = 0.15 # factor for the minimal prominence of a dip of ODMR 2nd derivative
+background_sigma_GHz = 0.05 # sigma for gaussian blur of background in Hz
+contrast_cutoff_ratio = 0.05
 
 # ============================
 # Fitting helper functions
@@ -64,7 +70,7 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
     df = abs(freqs[1] - freqs[0])  # in GHz
 
     # 1. Use a strict, narrow smoothing window (~3 MHz) to preserve doublet inflections
-    fine_sigma = max(1.0, 0.005 / df) # sigma is in num samples, this is 3MHz converted to num samples
+    fine_sigma = max(1.0, fine_sigma_GHz / df) # sigma is in num samples, this is 3MHz converted to num samples
     filtered_vals = ndi.gaussian_filter(vals, sigma=fine_sigma)
 
     # Calculate second derivative for peak detection
@@ -78,11 +84,11 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
     # oPlot.plot_odmr(freqs*10**9, filtered_d2, f"gaussian filtered ODMR 2nd derivative with sigma={fine_sigma:.2f}") # print the 2nd derivative filtered ODMR
 
     max_d2 = np.max(filtered_d2)
-    min_dist_pts = max(1, int(0.006 / df))  # ~6 MHz minimum separation between seeds
+    min_dist_pts = max(1, int(dip_separation_Ghz / df))  # ~6 MHz minimum separation between seeds
 
     peaks_d2, props_d2 = find_peaks(
         filtered_d2,
-        prominence=0.15 * max_d2,
+        prominence=d2_prominence_factor * max_d2,
         distance=min_dist_pts
     )
 
@@ -101,12 +107,15 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
     for (peak, prominence, width) in zip(peaks, peak_prominences, peak_widths):
         fwhm_GHZ = width * df
         if fwhm_GHZ > 0.05:
+            # TODO: change this threshold, because for high B its wide, but for low B it should be closer to 0.01
             split_offset_pts = max(2, int(fwhm_GHZ / df))  # fwhm splitting seed
             p1 = max(0, peak - split_offset_pts)
             p2 = min(len(freqs) - 1, peak + split_offset_pts)
             new_peaks.extend([p1, p2])
         else:
             new_peaks.append(peak)
+
+    peaks = new_peaks
 
 
     # Fallback if no peaks detected
@@ -140,7 +149,7 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
     init_params.extend([c0, c1])
 
     init_params, peaks = prune_weak_dips(init_params, peaks,0.1)
-    init_params, peaks = filter_symmetric_nv_pairs(init_params, peaks, f_center=2.87)
+    init_params, peaks = prune_asymmetric_dip_pairs(init_params, peaks, f_center=2.87)
 
 
     # # Sort and cull by prominence if now exceeding max_peaks
@@ -153,7 +162,7 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
     return np.array(init_params), peaks
 
 
-def refine_seed_to_local_min(vals, seed_idx, search_radius_pts):
+def move_dips_to_local_min(vals, seed_idx, search_radius_pts):
     """
     Finds the index of the minimum value in `vals` within ±search_radius_pts of seed_idx.
     """
@@ -164,69 +173,83 @@ def refine_seed_to_local_min(vals, seed_idx, search_radius_pts):
     refined_idx = start_idx + np.argmin(vals[start_idx:end_idx])
     return refined_idx
 
-def prune_weak_dips(popt, peaks, contrast_cutoff_ratio=0.10):
-    """
-    Strips out fitted Lorentzian components whose amplitude is below
-    contrast_cutoff_ratio relative to the deepest fitted dip.
-    """
+def prune_weak_dips(popt, peaks, contr_ratio=0.10):
+    # Filters out dips with too low of a contrast, relative to the deepest dip
+
+    # popt is the multi_lorentzian parameters
+    # peaks is the indices of the guessed peaks
+    # contr_ratio is the minimal contrast factor relative to the deepest dip that will be allowed
+
     n_peaks = len(peaks)
-    # amps = np.array([abs(popt[3 * i]) for i in range(n_peaks)])
     contrasts, _, _ = get_dip_params(popt)
     contrasts = np.asarray(contrasts)
     max_contr = np.max(contrasts)
 
-    minimal_contrast = contrast_cutoff_ratio * max_contr
+    minimal_contrast = contr_ratio * max_contr
 
     valid_mask = contrasts >= minimal_contrast
     valid_indices = np.where(valid_mask)[0]
 
-    pruned_popt = []
-    for idx in valid_indices:
-        pruned_popt.extend(popt[3 * idx: 3 * idx + 3])
-
+    pruned_popt = prune_popt(popt, valid_indices)
     pruned_peaks = np.array(peaks)[valid_mask]
-    # Append slope and offset
-    pruned_popt.extend(popt[-2:])
+
     return np.array(pruned_popt), pruned_peaks
 
-def prun_wide_dips(popt, peaks, freqs, dip_range):
-    valid_mask = (freqs[peaks] >= dip_range[0]) & (freqs[peaks] <= dip_range[1])
+def prune_wide_dips(popt, peaks, dip_range):
+    # Filters out Lorentzian dips that are too far from the allowed range
+
+    # popt is the multi_lorentzian parameters
+    # peaks is the indices of the guessed peaks
+    # freqs is the frequency array in GHz
+    # dip_range is the lower and upper bound of allowed freqs, a tuple in GHz
+
+    _, _, dip_Freqs = get_dip_params(popt)
+    dip_Freqs = np.asarray(dip_Freqs)
+
+    valid_mask = (dip_Freqs >= dip_range[0]) & (dip_Freqs <= dip_range[1])
     valid_indices = np.where(valid_mask)[0]
 
+    pruned_popt = prune_popt(popt, valid_indices)
+    pruned_peaks = np.array(peaks)[valid_mask]
+
+    return np.array(pruned_popt), pruned_peaks
+
+
+def prune_popt(popt, valid_indices: ndarray[tuple[Any, ...], dtype[signedinteger[_32Bit | _64Bit]]]) -> list[Any]:
     pruned_popt = []
     for idx in valid_indices:
         pruned_popt.extend(popt[3 * idx: 3 * idx + 3])
-
-    pruned_peaks = np.array(peaks)[valid_mask]
-    # Append slope and offset
+    # Append linear baseline parameters (slope, offset)
     pruned_popt.extend(popt[-2:])
-    return np.array(pruned_popt), pruned_peaks
+    return pruned_popt
 
-def filter_symmetric_nv_pairs(popt, peaks, f_center=2.87):
-    """
-    Filters out fitted Lorentzian components that do not form symmetric pairs
-    around 2.87 GHz within a combined FWHM threshold.
-    """
+
+def prune_asymmetric_dip_pairs(popt, peaks, f_center=2.87):
+    # Filters out fitted Lorentzian components that do not form symmetric pairs around f_center
+
+    # popt is the multi_lorentzian parameters
+    # peaks is the indices of the guessed peaks
+    # f_center is the center frequency (2.87GHz) in GHz
+
     n_peaks = len(peaks)
     if n_peaks == 0:
         return np.asarray(popt, dtype=float), np.asarray(peaks)
 
-    # Extract dip frequencies f0 and gammas
-    freqs_0 = np.array([popt[3 * i + 1] for i in range(n_peaks)])
-    gammas = np.array([popt[3 * i + 2] for i in range(n_peaks)])
-    fwhms = 2.0 * gammas
+    _, FWHMs, dip_Freqs = get_dip_params(popt)
+    FWHMs = np.asarray(FWHMs)
+    dip_Freqs = np.asarray(dip_Freqs)
 
-    freq_margin = 0.01 # 10MHz largin to the center
+    freq_margin = 0.01 # 10MHz margin to the center
     # Separate into lower and upper Zeeman transitions relative to 2.87 GHz
-    lower_indices = np.where(freqs_0 < f_center + freq_margin)[0]
-    upper_indices = np.where(freqs_0 > f_center + freq_margin)[0]
+    lower_indices = np.where(dip_Freqs < f_center + FWHMs)[0]
+    upper_indices = np.where(dip_Freqs > f_center)[0]
 
     valid_peak_indices = set()
 
     # Attempt to find a symmetric partner for each lower dip
     for l_idx in lower_indices:
-        f_l = freqs_0[l_idx]
-        fwhm_l = fwhms[l_idx]
+        f_l = dip_Freqs[l_idx]
+        fwhm_l = FWHMs[l_idx]
 
         best_partner = None
         min_asym = float("inf")
@@ -235,8 +258,8 @@ def filter_symmetric_nv_pairs(popt, peaks, f_center=2.87):
             if u_idx in valid_peak_indices:
                 continue
 
-            f_u = freqs_0[u_idx]
-            fwhm_u = fwhms[u_idx]
+            f_u = dip_Freqs[u_idx]
+            fwhm_u = FWHMs[u_idx]
 
             # Measure center point deviation from 2.87 GHz
             center_freq = (f_l + f_u) / 2.0
@@ -258,12 +281,7 @@ def filter_symmetric_nv_pairs(popt, peaks, f_center=2.87):
     valid_mask = np.array([i in valid_peak_indices for i in range(n_peaks)])
     valid_indices = np.where(valid_mask)[0]
 
-    pruned_popt = []
-    for idx in valid_indices:
-        pruned_popt.extend(popt[3 * idx : 3 * idx + 3])
-
-    # Append linear baseline parameters (slope, offset)
-    pruned_popt.extend(popt[-2:])
+    pruned_popt = prune_popt(popt, valid_indices)
 
     pruned_peaks = np.array(peaks)[valid_mask]
 
@@ -274,7 +292,7 @@ def subtract_blurred_ODMR(freqs, R_vals, Gaussian_sigma=None):
     # To ensure positive numbers and approximate relative contrast, the averaged value gets added back
     # returns an ODMR with similar brightness scale, but without background trends
 
-    # freqs is array of freqs (units don't matter)
+    # freqs is array of freqs in Hz
     # R_vals is the one-dimensional ODMR array as a fn of frequency
     # Gaussian_sigma is the filtering sigma in num samples
 
@@ -284,7 +302,9 @@ def subtract_blurred_ODMR(freqs, R_vals, Gaussian_sigma=None):
     if Gaussian_sigma is not None:
         filtering_sigma = Gaussian_sigma
     else:
-        filtering_sigma = 0.02 * freq_range / df  # this is num samples, not freq space, sigma is 2% of frequency range
+        # filtering_sigma = 0.02 * freq_range / df  # this is num samples, not freq space, sigma is 2% of frequency range
+        filtering_sigma = background_sigma_GHz * 1e9 / df  # this is num samples, not freq space
+        #
 
     filtered_counts = ndi.gaussian_filter(R_vals, sigma=filtering_sigma)
 
@@ -319,32 +339,35 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
         upper += [0, f0 + 0.005, min(3 * g0,0.025)]
         params.extend([f"A{i}",f"f{i}",f"g{i}"])
 
-    # lower += [R_vals.min() - 1, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
-    # upper += [R_vals.max()*1.1,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
-    # lower += [p0[-2]*0.8, -0.05*max(R_vals)/(freqs[-1]-freqs[0])]
-    # upper += [p0[-2]*1.2,  0.05*max(R_vals)/(freqs[-1]-freqs[0])]
+
+    # offset must be within 15% of maxcounts
+    # slope may be +/- 10%
     lower += [p0[-2]-0.15*max(R_vals), p0[-1]-0.1*max(R_vals)]
     upper += [p0[-2]+0.15*max(R_vals), p0[-1]+0.1*max(R_vals)]
-    params.extend(["slope","offset"])
+    params.extend(["offset","slope"])
 
     try:
         popt, pcov = curve_fit(
             multi_lorentzian, freqs, R_vals,
             p0=p0, bounds=(lower, upper), maxfev=3000
-            # ,ftol=0.001, xtol=0.001) # Note: these make convergence quicker, but lose accuracy
+            ,ftol=0.001, xtol=0.001 # Note: these make convergence quicker, but lose accuracy
         )
         # check_bound_proximity(popt, (lower, upper), threshold=0.05, param_names=params) # useful to know if fitting code is flexible enough, gets annoying with non-ODMR sweeps
 
-        popt, peaks = prun_wide_dips(popt, peaks, freqs, dip_range)
-        popt, peaks = prune_weak_dips(popt, peaks, 0.05)
-        popt, peaks = filter_symmetric_nv_pairs(popt, peaks, f_center=2.87)
+        popt, peaks = prune_wide_dips(popt, peaks, dip_range)
+        popt, peaks = prune_weak_dips(popt, peaks, contrast_cutoff_ratio)
+        popt, peaks = prune_asymmetric_dip_pairs(popt, peaks, f_center=2.87)
 
 
         popt, pcov = curve_fit(
             multi_lorentzian, freqs, R_vals,
             p0=popt, maxfev=3000
-            # ,ftol=0.001, xtol=0.001) # Note: these make convergence quicker, but lose accuracy
+            # ,ftol=0.001, xtol=0.001 # Note: these make convergence quicker, but lose accuracy
         )
+
+        popt, peaks = prune_wide_dips(popt, peaks, dip_range)
+        # popt, peaks = prune_weak_dips(popt, peaks, contrast_cutoff_ratio)
+        # popt, peaks = prune_asymmetric_dip_pairs(popt, peaks, f_center=2.87)
         return popt, pcov, peaks
     except Exception as e:
         # do smth to tell abt the error maybe idk
@@ -579,7 +602,7 @@ def odmr_to_delta_freq(counts, freqs, max_peaks=4):
     delta_freq = 0
     # max_peaks = 2 # nominally 4, try 2 if the middle dips r too small to see
     try:
-        popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True, Gaussian_sigma=25)
+        popt, pcov, counts_norm, fitted_norm, baseline = analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True)
         _, _, dip_Freqs = get_dip_params(popt)
         # print_SNR(baseline, counts, freqs / 10 ** 9, popt)
         # oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)

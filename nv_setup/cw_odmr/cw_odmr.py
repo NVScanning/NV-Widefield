@@ -28,12 +28,30 @@ import Lorentzian_fit as Lfit
 import QUA_interface as QUAi
 
 """
-This sweeps a range of RF frequencies, while kepeing 532nm light constant, and position constant
+This sweeps a range of RF frequencies, while keeping 532nm light constant, and position constant
 
 This is made to work with the SPCM (single photon counting module) which is read by the QM (quantum machine)
 
 Note: 20kcounts is the limit for the SPCM, if you see this then decrease brightness or exposure time
 """
+
+# -------------------------
+# Parameters
+# -------------------------
+readout_len_ns = int(50 * u.us)  # 50 us is near the max with a 0ND filtering on the 5mW laser (I think)
+n_windows_per_point = 50  # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
+amp_dbm = -5  # anything bigger than -10 does nothing (Hayden)
+# Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
+# Larger amp means dips are more visible, but also get wider so you lose frequency resolution
+
+dwell = 0.01  # seconds - time between setting a frequency on fn generator and reading value
+n_iter = 1
+# frequency parameters
+f_center = 2.87e9  # Hz, generally near 2.87GHz
+span = 0.15e9  # Hz, range of frequencies to sample
+N = 51  # num points in the frequency space to sample
+max_peaks = 2
+
 
 # -------------------------
 # Frequency sweep
@@ -82,21 +100,6 @@ def measure_odmr(sg, job, freqs, dwell, point_duration_s, n_iter: int = 1) -> np
 
 def main():
 
-    # -------------------------
-    # Parameters
-    # -------------------------
-    readout_len_ns = int(50 * u.us) # 50 us is near the max with a 0ND filtering on the 5mW laser (I think)
-    n_windows_per_point = 50 # n readouts to increase certainty without hitting the SPCM limit of ~20K (is M?) points
-    amp_dbm = -5 #anything bigger than -10 does nothing (Hayden)
-    # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
-    # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
-
-    dwell =  0.01 # seconds - time between setting a frequency on fn generator and reading value
-    n_iter = 1
-    # frequency parameters
-    f_center = 2.87e9 # Hz, generally near 2.87GHz
-    span = 0.15e9 # Hz, range of frequencies to sample
-    N = 51 # num points in the frequency space to sample
 
     # connect to RF src
     sg = cs.connect_sg386(cs.sg_resource)
@@ -128,7 +131,6 @@ def main():
 
 
     # Calculating space between dips
-    max_peaks = 2
     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
     Lfit.print_dip_params(popt)
     # contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
