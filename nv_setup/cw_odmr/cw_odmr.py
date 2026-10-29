@@ -22,7 +22,8 @@ import sys
 sys.path.append(os.path.abspath(".."))
 import connection_setup as cs
 sys.path.append(os.path.abspath("..."))
-import nv_widefield.odmr_plotting as oPlot
+import nv_widefield.helper_classes.odmr_plotting as oPlot
+import nv_widefield.helper_classes.file_interface as iFile
 
 import Lorentzian_fit as Lfit
 import QUA_interface as QUAi
@@ -127,7 +128,7 @@ def main():
     oPlot.plot_odmr(freqs, counts)
 
     # Save data in folder with its date
-    oPlot.save_point_odmr_measurement(counts, freqs)
+    iFile.save_point_odmr_measurement(counts, freqs)
 
 
     # Calculating space between dips

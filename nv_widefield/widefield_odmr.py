@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(".."))
 import helper_classes.pco_cam_interface as pci
 import helper_classes.odmr_plotting as oPlot
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
+import nv_widefield.helper_classes.file_interface as iFile
 
 """
 Use every pixel read from the camera as it's own sensor in its own independent ODMR
@@ -84,7 +85,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
         brightnesses_result += brightnesses_partial / (n_iter * 2)
 
 
-        prev_path = oPlot.overwrite_2D_odmr_measurement(x_space, y_space, freqs, brightnesses_result/(i+1)*n_iter, prev_path, print_saving=False)
+        prev_path = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, brightnesses_result/(i+1)*n_iter, prev_path, print_saving=False)
 
     # sys.stdout.write(f"\r\033[KODMR finished, took {time.time()-t0:.0f}s, saved in filepath: {prev_path}\n") # Clear progress bar
     sys.stdout.write(f"\r\033[KODMR finished, took {time.time() - t0:.0f}s\n")  # Clear progress bar
@@ -112,20 +113,39 @@ def main():
     counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, exposure_time), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space))
 
     print("Frequency sweeping done")
+    
+
+    params = {
+        "binning_amount": camera_binning,
+        "post_processing_binning": post_processing_binning,
+        "focus_point_size": focus_point_size,
+        "focus_point_centre_x": focus_point_centre_x,
+        "focus_point_centre_y": focus_point_centre_y,
+        "roi": roi,
+        "exposure_time": exposure_time,
+        "n_windows_per_point": n_windows_per_point,
+        "amp_dbm": amp_dbm,
+        "dwell": dwell,
+        "n_iter": n_iter,
+        "f_center": f_center,
+        "span": span,
+        "N": N
+    }
+    
     if post_processing_binning > 1:
         print(f"now binning {post_processing_binning}x{post_processing_binning} area and converting odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)/post_processing_binning**2:.0f}s")
         binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, post_processing_binning, x_space, y_space)
-        prev_path = oPlot.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path, False)
+        prev_path = iFile.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path, False)
         B_Z_binned, _ = Lfit.counts_to_B_Z(x_binned, y_binned, binned_counts, freqs, max_peaks=max_peaks)
         print("Conversion done, saving and plotting")
-        _ = oPlot.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path,True, B_Z_binned)
+        _ = iFile.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path,True, B_Z_binned)
         oPlot.plot_magnet_image(x_binned, y_binned, B_Z_binned)
     else:
-        prev_path = oPlot.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, True     )
+        prev_path = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, True     )
         print(f"now converting raw odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)}s")
         B_Z_overall, _ = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs, max_peaks=max_peaks)
         print("Conversion done, saving and plotting")
-        _ = oPlot.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, print_saving=True ,Bmap=B_Z_overall)
+        _ = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, print_saving=True ,Bmap=B_Z_overall)
         oPlot.plot_magnet_image(x_space, y_space, B_Z_overall)
 
 

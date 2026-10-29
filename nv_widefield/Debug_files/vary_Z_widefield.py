@@ -18,6 +18,7 @@ import helper_classes.pco_cam_interface as pci
 import helper_classes.odmr_plotting as oPlot
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 import Debug_files.read_Magnet_line as rml
+import nv_widefield.helper_classes.file_interface as iFile
 
 
 new_Measurement = False
@@ -142,7 +143,7 @@ def measure_widefield_odmr_at_z(
         )[:, :, ::-1]
 
         current_avg = np.sum(brightnesses, axis=0) / (i * 2 + 2)
-        prev_path = oPlot.overwrite_2D_odmr_measurement(
+        prev_path = iFile.overwrite_2D_odmr_measurement(
             x_space, y_space, freqs, current_avg, prev_path, print_saving=False
         )
 
@@ -199,22 +200,22 @@ def run_widefield_z_sweep(
             binned_counts, x_binned, y_binned = pci.bin_counts(
                 counts_2D, post_processing_binning, x_space, y_space
             )
-            prev_path = oPlot.overwrite_2D_odmr_measurement(
+            prev_path = iFile.overwrite_2D_odmr_measurement(
                 x_binned, y_binned, freqs, binned_counts, prev_path, False
             )
             B_Z_binned, _ = Lfit.counts_to_B_Z(
                 x_binned, y_binned, binned_counts, freqs, max_peaks=max_peaks
             )
-            oPlot.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_binned, binned_counts)
+            iFile.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_binned, binned_counts)
             oPlot.plot_magnet_image(x_binned, y_binned, B_Z_binned, title=f"Bmap at z={z_pos:.5f} mm")
         else:
-            prev_path = oPlot.overwrite_2D_odmr_measurement(
+            prev_path = iFile.overwrite_2D_odmr_measurement(
                 x_space, y_space, freqs, counts_2D, prev_path, False
             )
             B_Z_overall, _ = Lfit.counts_to_B_Z(
                 x_space, y_space, counts_2D, freqs, max_peaks=max_peaks
             )
-            oPlot.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
+            iFile.save_2D_odmr_measurement(x_space, y_space, freqs, B_Z_overall, counts_2D)
             oPlot.plot_magnet_image(x_space, y_space, B_Z_overall, title=f"Bmap at z={z_pos:.5f} mm")
 
 

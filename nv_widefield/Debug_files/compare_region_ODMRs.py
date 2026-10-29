@@ -14,6 +14,7 @@ sys.path.append(os.path.abspath(".."))
 import connection_setup as cs
 import helper_classes.pco_cam_interface as pci
 import helper_classes.odmr_plotting as oPlot
+import nv_widefield.helper_classes.file_interface as iFile
 import widefield_odmr as wODMR
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
@@ -292,7 +293,7 @@ def main():
 
         try:
             counts_2D, prev_path = wODMR.measure_odmr(cam, sg, freqs, dwell, n_windows_per_point, n_iter, x_space, y_space)
-            # _ = oPlot.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, print_saving=True)
+            # _ = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, print_saving=True)
         finally:
             cs.enable_sg386(sg, enable=False)
             cam.close()

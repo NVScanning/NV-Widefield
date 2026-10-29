@@ -5,8 +5,6 @@ import matplotlib
 import numpy as np
 from numpy import dtype, float64, ndarray
 from typing import Any
-import datetime
-import os
 
 import nv_setup.cw_odmr.Lorentzian_fit as lFit
 
@@ -144,6 +142,7 @@ def plot_fitted_data(freqs, I_norm, fit_norm, popt=None):
     plt.show()
 
 
+<<<<<<< HEAD
 def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
                                 freqs: ndarray[tuple[Any, ...], dtype[float64]]):
     save_path = get_newfile_dir("")
@@ -192,6 +191,8 @@ def get_newfile_dir(prefix, print_saving=True):
         print(f"Saving as: {prefix}cw_odmr_{timestamp}.npz in directory: {directory}")
     return save_path
 
+=======
+>>>>>>> e5e1de8 (moved file saving to its own helper file.)
 def plot_windows_odmrs(N_windows_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], windows_sweep_results):
     plt.figure(figsize=(10, 6))
     colors = plt.cm.plasma(np.linspace(0, 0.85, N_windows_steps))

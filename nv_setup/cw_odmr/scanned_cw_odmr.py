@@ -37,7 +37,8 @@ import connection_setup as cs
 import Lorentzian_fit as Lfit
 import QUA_interface as QUAi
 sys.path.append(os.path.abspath("..."))
-import nv_widefield.odmr_plotting as oPlot
+import nv_widefield.helper_classes.odmr_plotting as oPlot
+import nv_widefield.helper_classes.file_interface as iFile
 
 """
 This uses a single point sensor (SPCM), and scans over x-y, measuring an ODMR at each point
@@ -161,7 +162,7 @@ def main():
     print("following indices couldn't fit properly:")
     print(problem_points)
     oPlot.plot_dFreq_image(x_points, y_points, B_Z_overall)
-    oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+    iFile.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
 
 if __name__ == "__main__":
     main()

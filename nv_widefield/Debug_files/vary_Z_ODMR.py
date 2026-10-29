@@ -16,6 +16,7 @@ import helper_classes.pco_cam_interface as pci
 import helper_classes.odmr_plotting as oPlot
 import helper_classes.optimization_plotting as optPlot
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
+import nv_widefield.helper_classes.file_interface as iFile
 import pco
 
 
@@ -208,7 +209,7 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
         counts = measure_binned_odmr_at_z(
             cam, sg, freqs, freq_dwell, point_duration_s, n_windows=n_windows, n_iter=n_iter
         )
-        oPlot.save_point_odmr_measurement(counts, freqs)
+        iFile.save_point_odmr_measurement(counts, freqs)
         z_sweep_results[z_pos] = counts
 
         # Run Lorentzian curve fitting on current data

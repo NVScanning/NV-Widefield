@@ -17,6 +17,7 @@ import widefield_binned as wbODMR
 import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 import helper_classes.odmr_plotting as oPlot
 import helper_classes.optimization_plotting as optPlot
+import nv_widefield.helper_classes.file_interface as iFile
 
 
 from uncertainties import ufloat
@@ -206,7 +207,7 @@ def vary_exposure_time():
         print(f"\nAnalyzing SNR&contrast from ODMR for {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200:.0f}s")
         snrs, contrasts = Lfit.counts_to_SNR_contrast(x_space, y_space, counts_2D, freqs, max_peaks)
 
-        oPlot.save_2D_odmr_snr_contrast(x_space, y_space, freqs, snrs, contrasts, counts_2D)
+        iFile.save_2D_odmr_snr_contrast(x_space, y_space, freqs, snrs, contrasts, counts_2D)
 
         overall_avg_snr = ufloat(np.mean(snrs), np.std(snrs))
         overall_avg_contrast = ufloat(np.mean(contrasts), np.std(contrasts))

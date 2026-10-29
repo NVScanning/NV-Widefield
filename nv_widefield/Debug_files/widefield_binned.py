@@ -15,6 +15,7 @@ import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 sys.path.append(os.path.abspath(".."))
 import helper_classes.pco_cam_interface as pci
 import helper_classes.odmr_plotting as oPlot
+import nv_widefield.helper_classes.file_interface as iFile
 import helper_classes.Log as Log
 
 """
@@ -31,11 +32,15 @@ binning_amount = 1  # built-int pco camera binning, can only be 1,2,4
 focus_point_size = 200  # in pixels, approximate width of image taken, must be >=32 after binning
 focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
 
+<<<<<<< HEAD
 exposure_time = 0.01 # in S or None to autoexpose
+=======
+exposure_time = 0.02 # in S or None to autoexpose
+>>>>>>> e5e1de8 (moved file saving to its own helper file.)
 
 # center_x, center_y, width_x, width_y = 1110,1215,128,1536
 
-n_windows_per_point = 3 # n readouts to increase certainty without overexposing
+n_windows_per_point = 1 # n readouts to increase certainty without overexposing
 amp_dbm = -10  # anything bigger than -10 does nothing (Hayden)
 # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
 # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
@@ -114,7 +119,23 @@ def main():
 
     oPlot.plot_odmr(freqs, counts)
 
-    oPlot.save_point_odmr_measurement(counts, freqs)
+    params = {
+        "binning_amount": binning_amount,
+        "focus_point_size": focus_point_size,
+        "focus_point_centre_x": focus_point_centre_x,
+        "focus_point_centre_y": focus_point_centre_y,
+        "roi": roi,
+        "exposure_time": exposure_time,
+        "n_windows_per_point": n_windows_per_point,
+        "amp_dbm": amp_dbm,
+        "dwell": dwell,
+        "n_iter": n_iter,
+        "f_center": f_center,
+        "span": span,
+        "N": N
+    }
+
+    iFile.save_point_odmr_measurement(counts, freqs, **params)
 
 
 

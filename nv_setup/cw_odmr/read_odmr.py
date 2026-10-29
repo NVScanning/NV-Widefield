@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import os
 from os import listdir
 from os.path import isfile, join
+import json
 
 from numpy import dtype, ndarray, float64
 from uncertainties import ufloat
@@ -18,6 +19,7 @@ import helper_classes.pco_cam_interface as pci
 import sys
 sys.path.append(os.path.abspath("..."))
 import nv_widefield.helper_classes.odmr_plotting as oPlot
+import nv_widefield.helper_classes.file_interface as iFile
 
 
 """
@@ -196,10 +198,21 @@ def handle_point_ODMR(filepath):
     elif (date == "2026-05-13") & (time > "15-02-05"):
         is_freq_saved = True
 
+    are_params_saved = False
+    if (date > "2026-10-29"):
+        are_params_saved = True
+    elif (date == "2026-10-29") & (time > "15-00-00"):
+        are_params_saved = True
+
     # filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "cw_odmr_" + time)
     if (is_freq_saved):
         data = np.load(filepath + ".npz")
-        freqs, counts = data["x"], data["y"]
+        if are_params_saved:
+            freqs, counts = data["x"], data["y"]
+            params = json.loads(str(data["params"].item()))
+            iFile.print_params(params)
+        else:
+            freqs, counts = data["x"], data["y"]
         oPlot.plot_odmr(freqs, counts)
 
         try:
@@ -290,8 +303,8 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                     print(problem_points)
                 oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
-                oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
-                # oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
+                iFile.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+                # iFile.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
                 #                                     print_saving=True, Bmap=B_Z_overall)
 
             except Exception as e:
@@ -306,8 +319,8 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                 print(problem_points)
             oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
-            oPlot.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
-            # oPlot.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
+            iFile.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+            # iFile.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
             #                                     print_saving=True, Bmap=B_Z_overall)
         elif user_input.lower().startswith("bin"):
             try:
@@ -322,7 +335,7 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                     print(problem_points)
                 oPlot.plot_magnet_image(x_binned, y_binned, B_Z_overall)
 
-                oPlot.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_overall, binned_counts)
+                iFile.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_overall, binned_counts)
 
                 counts_2D = binned_counts
                 x_points, y_points = x_binned, y_binned
