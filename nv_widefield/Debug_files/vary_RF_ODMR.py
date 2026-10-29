@@ -22,9 +22,6 @@ measure ODMRs at a variety of RF powers, then plot SNR, contrast as a fn of appl
 Much of this code was combined from previously written code for varying Z
 """
 
-amp_name = ""
-# amp_name = "SAM100"
-# amp_name = "ZHL-2W"
 
 MAX_PEAKS = 8
 
@@ -40,7 +37,7 @@ n_iter = 1
 
 # Frequency Sweep Space Configuration
 f_center = 2.87e9
-span = 0.8e9
+span = 0.08e9
 N_freqs = 51
 
 # RF Power Amplitude Sweep Parameters
@@ -50,6 +47,9 @@ N_amp_steps = 6  # Total power increments to evaluate
 
 roi = None
 
+# amp_name = ""
+# amp_name = "SAM100"
+amp_name = "ZHL-2W"
 
 def measure_binned_odmr_at_power(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
     """Executes a dual-directional frequency sweep and returns a 1D binned array of brightness per second."""
@@ -183,9 +183,10 @@ def measure_power_dependency(cam: Camera, sg: Any, freq_dwell: float,
             "roi": roi,
             "exposure_time": cam.exposure_time,
             "n_windows_per_point": n_windows_per_point,
+            "n_iter": n_iter,
             "amp_dbm": amp_val,
             "freq_dwell": freq_dwell,
-            "n_iter": n_iter,
+            "power_dwell": power_dwell,
             "f_center": f_center,
             "span": span,
             "N_freqs": N_freqs,

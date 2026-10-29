@@ -123,9 +123,9 @@ def main():
         "roi": roi,
         "exposure_time": exposure_time,
         "n_windows_per_point": n_windows_per_point,
+        "n_iter": n_iter,
         "amp_dbm": amp_dbm,
         "dwell": dwell,
-        "n_iter": n_iter,
         "f_center": f_center,
         "span": span,
         "N": N

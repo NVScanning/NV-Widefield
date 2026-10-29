@@ -14,7 +14,16 @@ def print_params(params):
     print("Printing saved params:")
     print("="*40)
     for key, value in params.items():
-        print(f"{key}: {value} ")
+        if key == "f_center" or key == "span":
+            print(f"{key}: {value/1e9} GHz")
+        elif key.endswith("dwell") or key.endswith("time"):
+            print(f"{key}: {value} s")
+        elif key.contains("dbm"):
+            print(f"{key}: {value} dBm")
+        elif key.contains("binning"):
+            print(f"{key}: {value}x{value}")
+        else:
+            print(f"{key}: {value}")
     print("="*40)
     print("")
 
