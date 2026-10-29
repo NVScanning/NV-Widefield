@@ -129,7 +129,7 @@ class LaserDashboardGUI:
         if match:
             # print("regex matched, raw_val: ", raw_val, "taking float of ", match.group(0))
             return float(match.group(0))
-        print("[DEBUG] no regex match, returning 0 for raw_val: ", raw_val)
+        print(f"[DEBUG] t={time.time() - self.start_time} no regex match, returning 0 for raw_val:{raw_val}")
         return 0.0
 
     def _poll_telemetry(self):

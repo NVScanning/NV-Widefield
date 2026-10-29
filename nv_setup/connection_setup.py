@@ -14,6 +14,13 @@ x_mID = 90335875
 y_mID = 90335876
 z_mID = 90335877 # s/n of the z motor
 
+# TODO: use the sg386 bulit-in sweep function, rather than manually sweeping through freqs, should be better
+# and reduce the required dwell time
+
+
+# TODO: save all params when taking a widefield measurement, possibly a fn that takes in an arbitrary number of args
+# and it saves a header file with all of them, like a printout of: variable name=value
+
 
 
 def connect_sg386(resource: str, timeout_ms: int = 5000):
@@ -36,8 +43,8 @@ def enable_sg386(sg, amp_dbm: float = -10.0, enable: bool = True):
     # Below -30dB I see no result, above -10dB the ZHL amp can't output more power
     # Above -2,-3 dB, the SAM100 definitely burns the silver paint, above -5 it can, depending on tension put on the connector
 
-    if amp_dbm > -8: # -8 is a few db below SAM100 problem, and ZHL can't output enough power
-        raise Exception("RF amplitude too high, risk of burning solder, must be < -8dB")
+    if amp_dbm > -8: # -8 is a few dBm below SAM100 problem, and ZHL can't output enough power
+        raise Exception("RF amplitude too high, risk of burning solder, must be < -8dBm")
 
     sg.write(f"AMPR {amp_dbm}")
     sg.write(f"ENBR {1 if enable else 0}")

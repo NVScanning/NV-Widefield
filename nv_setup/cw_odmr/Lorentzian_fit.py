@@ -29,7 +29,7 @@ dip_range field, which is the min and max frequencies in GHz that will get a dip
 An additional component is to ignore dark pixels, below some threshold brightness, done with the brightnes_factor field
 """
 
-dip_range = (2.75,2.99) # GHz
+dip_range = (2.65,3.09) # GHz
 brightness_factor = 0.05 # unitless, 0<_<1, proportion of max brightness, below which pixels are automatically ignored
 fine_sigma_GHz = 0.005 # sigma for gaussian blur in GHz
 dip_separation_Ghz = 0.006 # minimal separation between autofitted dips in GHz

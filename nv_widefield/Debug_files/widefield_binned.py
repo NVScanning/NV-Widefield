@@ -31,21 +31,24 @@ binning_amount = 1  # built-int pco camera binning, can only be 1,2,4
 focus_point_size = 200  # in pixels, approximate width of image taken, must be >=32 after binning
 focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
 
+exposure_time = None # in S or None to autoexpose
+
 # center_x, center_y, width_x, width_y = 1110,1215,128,1536
 
-n_windows_per_point = 2  # n readouts to increase certainty without overexposing
+n_windows_per_point = 3 # n readouts to increase certainty without overexposing
 amp_dbm = -10  # anything bigger than -10 does nothing (Hayden)
 # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
 # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
 dwell = 0.04  # seconds - time between setting a frequency on fn generator and reading value
-n_iter = 1
+n_iter = 2
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
-span = 0.5e9  # Hz, range of frequencies to sample
+span = 0.6e9  # Hz, range of frequencies to sample
 N = 101  # num points in the frequency space to sample
 
-max_peaks = 3
+max_peaks = 2
+randomize_freq_order = False # False to sweep freqs in ascending then descending order, True to randomize each iteration
 
 # f_center = 5.3e9 # Hz, generally near 2.87GHz
 # span = 0.3e9 # Hz, range of frequencies to sample
@@ -76,8 +79,8 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarra
         # pci.read_image(cam,n_windows) # ignore = first image - it has higher intensity for some reason
         # Log.log("after reading image, before sweeping freqs")
         Log.log("Sweeping freqs:")
-        brightnesses[i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2, t0)
-        brightnesses[n_iter + i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1, t0)[::-1]
+        brightnesses[i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2, t0, randomize_freq_order)
+        brightnesses[n_iter + i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1, t0, randomize_freq_order)[::-1]
 
         # brightnesses[i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2, t0)[::-1]
         # brightnesses[n_iter + i] = pci.sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2 + 1, t0)
@@ -107,7 +110,7 @@ def main():
     # f_end = f_center + span
     # print(f"Frequency range from {f_start/1e9:.3f} to {f_end/1e9:.3f}GHz")
 
-    counts = pci.run_odmr_measurement((roi, binning_amount,0.05), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+    counts = pci.run_odmr_measurement((roi, binning_amount, exposure_time), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
     oPlot.plot_odmr(freqs, counts)
 

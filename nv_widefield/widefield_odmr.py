@@ -27,20 +27,23 @@ post_processing_binning = 1
 focus_point_size = 200  # in physical (unbinned) pixels, diameter of circle of laser point
 focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
 
+exposure_time = 0.01 # in S or None to autoexpose
+
 # center_x, center_y, width_x, width_y = 1024,900,128,1536
 
 # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
 n_windows_per_point = 20  # n readouts to increase certainty without overexposing
 amp_dbm = -10  # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
 dwell = 0.04  # seconds - time between setting a frequency on fn generator and reading value
-n_iter = 1000  # integer >=1
+n_iter = 400  # integer >=1
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
-span = 0.5e9  # Hz, range of frequencies to sample
-N = 251  # num points in the frequency space to sample
+span = 0.6e9  # Hz, range of frequencies to sample
+N = 301  # num points in the frequency space to sample
 
 max_peaks = 4
 
+randomize_freq_order = False # False to sweep freqs in ascending then descending order, True to randomize each iteration
 
 
 def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None, y_space=None) -> np.ndarray:
@@ -74,10 +77,10 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
         # brightnesses[i,:,:,:] = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2, t0)
         # brightnesses[n_iter + i,:,:,:] = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1, t0)[:, :,::-1]
 
-        brightnesses_partial = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2, t0)
+        brightnesses_partial = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter * 2, i * 2, t0, randomize_freq_order=randomize_freq_order)
         brightnesses_result += brightnesses_partial / (n_iter * 2)
 
-        brightnesses_partial = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1, t0)[:, :,::-1]
+        brightnesses_partial = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1, t0, randomize_freq_order=randomize_freq_order)[:, :,::-1]
         brightnesses_result += brightnesses_partial / (n_iter * 2)
 
 
@@ -106,7 +109,7 @@ def main():
     if len(x_space) % post_processing_binning != 0:
         raise ValueError("postprocessing binning is not a divisor of the focus point size after camera binning")
 
-    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, 0.005), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space))
+    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, exposure_time), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space))
 
     print("Frequency sweeping done")
     if post_processing_binning > 1:

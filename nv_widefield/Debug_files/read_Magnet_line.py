@@ -21,15 +21,15 @@ All main params have a comment explaining what it does
 
 
 
-date = "2026-10-21"
-time = "15-57-41"
+date = "2026-10-28"
+time = "15-40-14"
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-target_idx = 44  # The specific spatial x-index to extract across all y's
+target_idx =48  # The specific spatial x-index to extract across all y's
 
-diff_start_idx = 48
-diff_end_idx = 95
-every_nth_idx = 3
+diff_start_idx = 24
+diff_end_idx = 72
+every_nth_idx = 2
 
 plot_ODMR_fits = True # true to plot the lorentzian fit on top of the ODMR data
 fit_Br_fn = False # True to fit a 1/r B-r relationship to the B determined from ODMRs along this slice (mostly for B from a wire measurements)
@@ -41,7 +41,7 @@ plot_dip_centers = False # True to plot red dots at the dip-centers of the fitte
 max_peaks = 4 # limit the autofit code to get max_peaks dips
 labelled_dip_idx = -1 # which dip to use for the dip-r relationship graph
 
-offset = 0.006 # vertical space between adjacent ODMRs
+offset = 0.005 # vertical space between adjacent ODMRs
 I_applied = 1 # currentee applied when fitting 1/r relationship of B from current in a wire
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
@@ -227,7 +227,7 @@ def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
     plt.show()
 
 def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
-    print("There should be ", (end_idx-start_idx+1)//every_nth_idx, "ODMRS plotted")
+    print("There should be ", (end_idx//every_nth_idx-start_idx//every_nth_idx+1), "ODMRS plotted")
     plt.figure(figsize=(10, 6), layout="constrained")
     # plt.figure(figsize=(20, 12), layout="constrained")
 
@@ -237,7 +237,6 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     B_fitted = []
     uB_fitted = []
 
-    # Use plasma colormap matching previous scripts
     colors = plt.cm.plasma(np.linspace(0, 1, end_idx-start_idx+1))
 
 
@@ -248,26 +247,13 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
             # print(f"skipping over index={idx}")
             continue
 
-        if not (idx % every_nth_idx == 0):
+        if not ((idx-start_idx) % every_nth_idx == 0):
             continue
-
-        # if idx == 13 or idx==14 or idx == 11 or idx==12:
-        #     continue
-
-        # if (idx == 0 or idx == 10) or (idx == 14 or idx == 28):
-        #     continue
-
-        # max_counts = np.max(counts)
-        # normalized_counts = counts / max_counts if max_counts > 0 else counts
-
-        # Alternatively, uncomment to stack with a vertical offset if traces overlap heavily:
-        # y_data = normalized_counts + 0.05 * idx
-        # y_data = normalized_counts
 
 
         if (idx == start_idx and plot_Vline):
             try:
-                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=False)
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True)
                 contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
                 for freq in dip_Freqs:
                     plt.axvline(
@@ -295,7 +281,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
             try:
                 # Fit the ODMR trace and retrieve fit parameters along with the model curve
                 # If your Lfit signature differs, adjust this call accordingly
-                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True, Gaussian_sigma=25)
+                popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True)
                 contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
                 uFWHMs, udip_Freqs = Lfit.get_dip_uncertainties(pcov)
                 snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
@@ -306,8 +292,8 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 plt.plot(
                     freqs / 1e9,
                     counts_norm + offset*(idx-start_idx)/every_nth_idx,
-                    # label=f"{slice_axis}={axis_pos*1000:.1f}um, avg_val={np.mean(counts):.1e}",
-                    label=f"{slice_axis}={axis_pos*1000:.1f}um, idx={idx}",
+                    label=f"{slice_axis}={axis_pos*1000:.1f}um, avg_val={np.mean(counts):.1e}",
+                    # label=f"{slice_axis}={axis_pos*1000:.1f}um, idx={idx}",
                     # label=f"avg_val={np.mean(counts):.1e}",
                     color=colors[idx-start_idx],
                     linewidth=1,
@@ -325,7 +311,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                     alpha=1
                 )
 
-                # Calculate center frequency and dip minimum point coordinate
+                # Calculate the dip minimum point coordinate
                 # dip_center = dip_Freqs[labelled_dip_idx]
                 dip_minimum_vals = []
                 for dip_freq in dip_Freqs:
@@ -377,12 +363,6 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
                 linewidth=1.5,
                 alpha=0.85
             )
-
-
-        # handles, labels = plt.get_legend_handles_labels()
-        # # sort both labels and handles by labels
-        # labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
-        # plt.legend(handles, labels)
 
 
 
@@ -442,24 +422,6 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
     # Plot high-contrast indicators for the sliced region
     # axvline spans the full height of the axes
     if not use_offaxis_binning:
-        # if slice_axis == "x":
-        #     plt.axhline(
-        #         y=slice_axis_coord*1000,
-        #         color='black',
-        #         linestyle=':',
-        #         linewidth=5.0,
-        #         label=f"Slice line (y = {slice_axis_coord*1000:.1f} um)",
-        #         zorder=10
-        #     )
-        # else:
-        #     plt.axvline(
-        #         x=slice_axis_coord*1000,
-        #         color='black',
-        #         linestyle=':',
-        #         linewidth=5.0,
-        #         label=f"Slice line (x = {slice_axis_coord*1000:.1f} um)",
-        #         zorder=10
-        #     )
 
         if slice_axis == "x":
             bottom_left_x = x_space[diff_start_idx]
@@ -481,37 +443,6 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
             facecolor="none"
         )
         ax.add_patch(rect)
-        # ax_img.text(
-        #     cx_spatial,
-        #     bottom_left_y + w_spatial_y + (0.02 * w_spatial_y),
-        #     f"R{idx}",
-        #     color="black",
-        #     fontsize=10,
-        #     weight="bold",
-        #     ha="center",
-        #     va="bottom",
-        # )
-
-    # plt.axvline(
-    #     x=slice_axis_coord,
-    #     color='black',
-    #     linestyle=':',
-    #     linewidth=5.0,
-    #     label=f"Slice line (x = {slice_axis_coord:.4f} mm)",
-    #     zorder=10
-    # )
-
-    # # Optional: Highlight the terminals of the vertical scan
-    # plt.scatter(
-    #     [slice_axis_coord, slice_axis_coord],
-    #     [y_space[0], y_space[-1]],
-    #     color='cyan',
-    #     edgecolors='black',
-    #     s=80,
-    #     zorder=11
-    # )
-
-    # plt.gca().invert_yaxis()  # Maintain spatial match to physical sensor layout
 
     plt.colorbar(mesh, label=r'$\partial$ B (mT)')
     plt.xlabel(r'x space ($\mu$m)')
@@ -546,8 +477,6 @@ def main():
     secondary_points = x_points if slice_axis == "x" else y_points
 
     # Check bounds of target x-slice
-    # if target_x_idx >= len(x_points) or target_x_idx < 0:
-    #     raise IndexError(f"Specified x index {target_x_idx} is out of bounds for x space of size {len(x_points)}")
     if target_idx >= len(primary_points) or target_idx < 0:
         raise IndexError(f"Specified index {target_idx} is out of bounds for the selection.")
 
@@ -556,17 +485,9 @@ def main():
     if not use_offaxis_binning:
         print(f"Slicing spatial data along x_index={target_idx} (x={actual_x_val:.4f} mm)")
 
-    # Slice out all Y-scans for the single specified X-coordinate
+    # Slice out all off-axis-scans for the single specified main axis-coordinate
     # Structure: { y_coordinate_val: 1D array of counts across frequencies }
     slice_results = {}
-    # for y_idx, y_val in enumerate(y_points):
-    #     # Slice format extracts [X_fixed, Y_current, all_frequencies]
-    #     slice_results[y_val] = counts_2D[target_idx, y_idx, :]
-    # for secondary_idx, secondary_val in enumerate(secondary_points):
-    #     if slice_axis == "x":
-    #         slice_results[secondary_val] = counts_2D[target_idx, secondary_idx, :]
-    #     else:
-    #         slice_results[secondary_val] = counts_2D[secondary_idx, target_idx, :]
     for secondary_idx, secondary_val in enumerate(secondary_points):
         if use_offaxis_binning:
             # Average across the entire orthogonal axis (axis 0 if slicing x, axis 1 if slicing y)
@@ -582,20 +503,11 @@ def main():
                 slice_results[secondary_val] = counts_2D[secondary_idx, target_idx, :]
 
     # Run the plot routine
-    # oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
     plot_magnet_with_slice(x_points, y_points, B_Z_overall, target_idx)
     plot_odmrs(freqs, slice_results, actual_x_val,
                diff_start_idx,
                diff_end_idx)
 
-    # plot_odmr_differences(
-    #     freqs,
-    #     y_points,
-    #     counts_2D,
-    #     target_idx,
-    #     diff_start_idx,
-    #     diff_end_idx
-    # )
 
 if __name__ == "__main__":
     main()
