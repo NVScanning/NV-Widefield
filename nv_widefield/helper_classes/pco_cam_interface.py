@@ -328,59 +328,61 @@ def bin_counts(counts_2D, binning_num, x_space, y_space):
 
 
 
-def sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter, iteration, t0=None) -> npt.NDArray[np.float64]:
-    point_duration_s = cam.exposure_time * n_windows
-    brightness = np.zeros((freqs.size))
-    _ = read_image(cam, n_windows) # ignore first image
-    for j, f in enumerate(freqs):
-        # Log.log("at freq " + str(np.round(f/10**9,2)) + "GHz, updating progress")
-        if t0 is not None:
-            cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f, time.time()-t0)
-        else:
-            cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f, None)
-        # Log.log("setting new freq on signal gen")
-        sg.write(f"FREQ {float(f)}")
-        # Log.log("sleeping " + str(dwell) + "s")
-        time.sleep(dwell)
-        Log.log("reading image")
-        image = read_image(cam, n_windows)
-        Log.log("binning image")
-        all_counts = bin_image(image)
-        # pci.plot_image(image)
-        # Log.log("saving binned value")
-        brightness[j]=(all_counts / point_duration_s)
-    return brightness
+# def sweep_freqs_binned(cam, sg, dwell, freqs, n_windows, n_iter, iteration, t0=None) -> npt.NDArray[np.float64]:
+#     point_duration_s = cam.exposure_time * n_windows
+#     brightness = np.zeros((freqs.size))
+#     _ = read_image(cam, n_windows) # ignore first image
+#     for j, f in enumerate(freqs):
+#         # Log.log("at freq " + str(np.round(f/10**9,2)) + "GHz, updating progress")
+#         if t0 is not None:
+#             cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f, time.time()-t0)
+#         else:
+#             cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f, None)
+#         # Log.log("setting new freq on signal gen")
+#         sg.write(f"FREQ {float(f)}")
+#         # Log.log("sleeping " + str(dwell) + "s")
+#         time.sleep(dwell)
+#         Log.log("reading image")
+#         image = read_image(cam, n_windows)
+#         Log.log("binning image")
+#         all_counts = bin_image(image)
+#         # pci.plot_image(image)
+#         # Log.log("saving binned value")
+#         brightness[j]=(all_counts / point_duration_s)
+#     return brightness
 
 
-def sweep_freqs(cam, sg, dwell, freqs, n_windows, n_iter, iteration, t0=None) -> npt.NDArray[np.float64]:
-    point_duration_s = cam.exposure_time * n_windows
-    image = read_image(cam,1) # Throw out first image, it's often too bright
-    brightnesses = np.zeros((image.shape[0], image.shape[1], freqs.size)) # should be n_iter*2 when reversing as well
-    for j, f in enumerate(freqs):
-        # Log.log("at freq " + str(np.round(f/10**9,2)) + "GHz, updating progress")
-        if t0 is not None:
-            cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f, time.time()-t0)
-        else:
-            cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f, None)
-        # Log.log("setting new freq on signal gen")
-        sg.write(f"FREQ {float(f)}")
-        # Log.log("sleeping " + str(dwell) + "s")
-        time.sleep(dwell)
-        Log.log("reading image")
-        image = read_image(cam, n_windows)
-        Log.log("saving image in array")
-        # pci.plot_image(image)
-        brightnesses[:,:,j] =(image / point_duration_s)
-    return brightnesses
+# def sweep_freqs(cam, sg, dwell, freqs, n_windows, n_iter, iteration, t0=None) -> npt.NDArray[np.float64]:
+#     point_duration_s = cam.exposure_time * n_windows
+#     image = read_image(cam,1) # Throw out first image, it's often too bright
+#     brightnesses = np.zeros((image.shape[0], image.shape[1], freqs.size)) # should be n_iter*2 when reversing as well
+#     for j, f in enumerate(freqs):
+#         # Log.log("at freq " + str(np.round(f/10**9,2)) + "GHz, updating progress")
+#         if t0 is not None:
+#             cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f, time.time()-t0)
+#         else:
+#             cs.print_odmr_progress(iteration * len(freqs) + j, len(freqs) * n_iter, iteration, f, None)
+#         # Log.log("setting new freq on signal gen")
+#         sg.write(f"FREQ {float(f)}")
+#         # Log.log("sleeping " + str(dwell) + "s")
+#         time.sleep(dwell)
+#         Log.log("reading image")
+#         image = read_image(cam, n_windows)
+#         Log.log("saving image in array")
+#         # pci.plot_image(image)
+#         brightnesses[:,:,j] =(image / point_duration_s)
+#     return brightnesses
 
 
 # Another method would be to use ring buffer constantly recording, and simply collect images
 # after having set the frequency and waiting for a new image, so no trigger is required
-# TODO: check how long it takes for the cam.image() method to return, this should only be data transfer time (no blocking)
 
 def sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iteration, t0=None, randomize_freq_order = False) -> npt.NDArray[np.float64]:
     n_freqs = freqs.size
     execution_order = np.random.permutation(n_freqs) if randomize_freq_order else np.arange(n_freqs)
+
+    if not randomize_freq_order:
+        cs.load_freq_list(sg, freqs)
 
     point_duration_s = cam.exposure_time * n_windows
     cam.record(mode="ring buffer", number_of_images=4)
@@ -402,7 +404,12 @@ def sweep_freqs_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iteration, t0=
 
         # Log.log("setting new freq on signal gen")
         # supposedly this value will wrap around so I shouldn't get an index-out-of-bounds error when using it to get img
-        sg.write(f"FREQ {float(f)}")
+        # sg.write(f"FREQ {float(f)}")
+        if randomize_freq_order:
+            sg.write(f"FREQ {float(f)}")
+        else:
+            cs.step_freq(sg, dwell)
+
         cam.wait_for_new_image() # wait for new image, to be sure recorded ones are it's only for this frequency
         # If i don't wait, i'm blurring the lines between freqs, adding a bit of x uncertainty, maybe its worth it for the speed
         curr_img_num = cam.recorded_image_count
@@ -433,10 +440,14 @@ def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iterati
     n_freqs = freqs.size
     execution_order = np.random.permutation(n_freqs) if randomize_freq_order else np.arange(n_freqs)
 
+    if not randomize_freq_order:
+        cs.load_freq_list(sg, freqs)
+
 
     point_duration_s = cam.exposure_time * n_windows
     cam.record(mode="ring buffer", number_of_images=4)
-    time.sleep(dwell*3) # camera heats slightly
+    time.sleep(1) # camera heats slightly
+
     cam.wait_for_new_image()
     # image, dict = cam.image(image_index=-1) # Ignore first image
     # cam.wait_for_new_image()
@@ -459,7 +470,14 @@ def sweep_freqs_binned_ringBuf(cam, sg, dwell, freqs, n_windows, n_iter, iterati
 
         # Log.log("setting new freq on signal gen")
         # supposedly this value will wrap around so I shouldn't get an index-out-of-bounds error when using it to get img
-        sg.write(f"FREQ {float(f)}")
+
+        # sg.write(f"FREQ {float(f)}")
+
+        if randomize_freq_order:
+            sg.write(f"FREQ {float(f)}")
+        else:
+            cs.step_freq(sg, dwell)
+
         cam.wait_for_new_image() # wait for new image, to be sure recorded ones are it's only for this frequency
         # If i don't wait, i'm blurring the lines between freqs, adding a bit of x uncertainty, maybe its worth it for the speed
 

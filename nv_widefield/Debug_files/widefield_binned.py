@@ -31,7 +31,7 @@ binning_amount = 1  # built-int pco camera binning, can only be 1,2,4
 focus_point_size = 200  # in pixels, approximate width of image taken, must be >=32 after binning
 focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
 
-exposure_time = None # in S or None to autoexpose
+exposure_time = 0.01 # in S or None to autoexpose
 
 # center_x, center_y, width_x, width_y = 1110,1215,128,1536
 
@@ -40,14 +40,14 @@ amp_dbm = -10  # anything bigger than -10 does nothing (Hayden)
 # Always use with 28V on the amplifier, amp_dbm ~30 is the lowest you can set while still seeing the zero-field dips
 # Larger amp means dips are more visible, but also get wider so you lose frequency resolution
 
-dwell = 0.04  # seconds - time between setting a frequency on fn generator and reading value
-n_iter = 2
+dwell = 0.01  # seconds - time between setting a frequency on fn generator and reading value
+n_iter = 1
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
-span = 0.6e9  # Hz, range of frequencies to sample
+span = 0.1e9  # Hz, range of frequencies to sample
 N = 101  # num points in the frequency space to sample
 
-max_peaks = 2
+max_peaks = 3
 randomize_freq_order = False # False to sweep freqs in ascending then descending order, True to randomize each iteration
 
 # f_center = 5.3e9 # Hz, generally near 2.87GHz
@@ -116,20 +116,22 @@ def main():
 
     oPlot.save_point_odmr_measurement(counts, freqs)
 
-    popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks, Gaussian_subtraction=True, Gaussian_sigma=15)
-    # Lfit.print_dip_params(popt)
-    contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
 
 
     try:
+        popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks,
+                                                                           Gaussian_subtraction=True)
+        # Lfit.print_dip_params(popt)
+        contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+
         snrs = Lfit.get_SNRs(baseline, counts, freqs/10**9, popt)
         # Lfit.print_SNR(snrs, dip_Freqs)
         # Lfit.print_contrast_snr(contrasts, snrs, dip_Freqs)
         Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
-    except ValueError as e:
+        oPlot.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+    except Exception as e:
         # do nothing cuz printing snr didnt work
-        print("getting SNR failed: " + str(e))
-    oPlot.plot_fitted_data(freqs/10**9, counts_norm, fitted_norm)
+        print("Fitting ODMR failed " + str(e))
 
 
 

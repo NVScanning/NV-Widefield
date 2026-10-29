@@ -37,9 +37,9 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-10-26" # YYYY-MM-DD
-time = "11-38-56"   # hh-mm_ss
-max_peaks = 2
+date = "2026-10-29" # YYYY-MM-DD
+time = "11-52-43"   # hh-mm_ss
+max_peaks = 3
 fft_point_measurement = False # when reading a point ODMR, if True then perform an FFT of it
 subtract_blurred_ODMR = True # when reading a point ODMR, if True then subtract a gaussian blurred
 subtract_gaussian_sigma = None # when subtracting a gaussian ODMR, this is the sigma to use (None or num samples)
@@ -203,7 +203,7 @@ def handle_point_ODMR(filepath):
         oPlot.plot_odmr(freqs, counts)
 
         try:
-            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks)
+            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks,Gaussian_subtraction=subtract_blurred_ODMR)
 
             # Lfit.print_dip_params(popt)
             snrs = Lfit.get_SNRs(baseline, counts, freqs / 10 ** 9, popt)
@@ -227,8 +227,8 @@ def handle_point_ODMR(filepath):
 
         plot_freq_filtered_ODMR(fft, fft_freqs, freqs)
 
-    if subtract_blurred_ODMR:
-        oPlot.plot_odmr(freqs, Lfit.subtract_blurred_ODMR(freqs, counts, Gaussian_sigma=subtract_gaussian_sigma), title="ODMR with subtracted gaussian blurred")
+    # if subtract_blurred_ODMR:
+    #     oPlot.plot_odmr(freqs, Lfit.subtract_blurred_ODMR(freqs, counts, Gaussian_sigma=subtract_gaussian_sigma), title="ODMR with subtracted gaussian blurred")
 
 
 def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[Any]] | Any, counts_2D, filepath: str, freqs,

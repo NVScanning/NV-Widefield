@@ -171,6 +171,7 @@ def overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, prev_pat
 def save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D):
     save_path = get_newfile_dir("widefield_")
     np.savez(save_path, x=x_points, y=y_points, f=freqs, magnet=B_Z_overall, odmrs=counts_2D)
+    # cs.save_measurement("run_001.npz", data, freq=1e3, gain=20, sample="A3")
 
 def save_2D_odmr_snr_contrast(x_points, y_points, freqs, SNR_overall, contrasts_overall, counts_2D):
     save_path = get_newfile_dir("snr_contr_")
