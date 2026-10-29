@@ -142,57 +142,7 @@ def plot_fitted_data(freqs, I_norm, fit_norm, popt=None):
     plt.show()
 
 
-<<<<<<< HEAD
-def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
-                                freqs: ndarray[tuple[Any, ...], dtype[float64]]):
-    save_path = get_newfile_dir("")
-    np.savez(save_path, x=freqs, y=counts)
 
-def overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, prev_path, print_saving=True, Bmap=None):
-    time.sleep(2) # make sure new directory is different from old, so you don't overwrite then delete the new one
-    new_path = get_newfile_dir("widefield_", print_saving=print_saving)
-    # if Bmap is not None:
-    #     np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=Bmap, odmrs=counts_2D)
-    # else:
-    #     np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=np.zeros((len(x_points),len(y_points))), odmrs=counts_2D)
-    if Bmap is None:
-        Bmap = np.zeros((len(x_points),len(y_points)))
-        Bmap.fill(np.nan)
-    np.savez(new_path, x=x_points, y=y_points, f=freqs, magnet=Bmap, odmrs=counts_2D)
-    try:
-        os.remove(prev_path)
-        if print_saving:
-            print(f"Deleted old file {prev_path}")
-    except Exception as e:
-        print("trying to delete old file caused an error:", e)
-    return new_path
-
-def save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D):
-    save_path = get_newfile_dir("widefield_")
-    np.savez(save_path, x=x_points, y=y_points, f=freqs, magnet=B_Z_overall, odmrs=counts_2D)
-    # cs.save_measurement("run_001.npz", data, freq=1e3, gain=20, sample="A3")
-
-def save_2D_odmr_snr_contrast(x_points, y_points, freqs, SNR_overall, contrasts_overall, counts_2D):
-    save_path = get_newfile_dir("snr_contr_")
-    np.savez(save_path, x=x_points, y=y_points, f=freqs, snr=SNR_overall, contr=contrasts_overall, odmrs=counts_2D)
-
-
-
-def get_newfile_dir(prefix, print_saving=True):
-    now = datetime.datetime.now()
-    datestamp = now.strftime("%Y-%m-%d")
-    timestamp = now.strftime("%H-%M-%S")
-    project_root = "C:\\Users\\NVCFM\\Desktop"
-    directory = os.path.join(project_root, "NVCFM_Data", datestamp)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    save_path = os.path.join(directory, f"{prefix}cw_odmr_{timestamp}.npz")
-    if print_saving:
-        print(f"Saving as: {prefix}cw_odmr_{timestamp}.npz in directory: {directory}")
-    return save_path
-
-=======
->>>>>>> e5e1de8 (moved file saving to its own helper file.)
 def plot_windows_odmrs(N_windows_steps: int, freqs: ndarray[tuple[Any, ...], dtype[float64]], windows_sweep_results):
     plt.figure(figsize=(10, 6))
     colors = plt.cm.plasma(np.linspace(0, 0.85, N_windows_steps))

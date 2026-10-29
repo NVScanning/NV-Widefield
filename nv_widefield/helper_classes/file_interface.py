@@ -10,33 +10,20 @@ from pathlib import Path
 
 
 def print_params(params):
+    print("")
     print("Printing saved params:")
+    print("="*40)
     for key, value in params.items():
         print(f"{key}: {value} ")
-    print("="*20)
+    print("="*40)
     print("")
-
-def _enc(o):
-    return o.tolist() if hasattr(o, "tolist") else str(o)
-
-# def save_measurement(path, data, **params):
-#     meta = json.dumps(params, default=_enc)
-#     np.savez(path, data=data, params=meta)
-#     Path(path).with_suffix(".json").write_text(meta)
-
-def load_measurement(path):
-    with np.load(path) as f:
-        return f["data"], json.loads(str(f["params"]))
-
 
 
 def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
                                 freqs: ndarray[tuple[Any, ...], dtype[float64]], **params):
     save_path = get_newfile_dir("")
-    # meta = json.dumps(params, default=_enc)
     meta = json.dumps(params, default=lambda o: o.tolist() if hasattr(o, "tolist") else str(o))
     np.savez(save_path, x=freqs, y=counts, params=meta)
-    # Path(save_path).with_suffix(".json").write_text(meta)
 
 
 

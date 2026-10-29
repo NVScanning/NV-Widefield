@@ -24,23 +24,23 @@ when a postprocessing binning that's >1 is set, it will only save the binned mea
 
 # params
 camera_binning = 1  # built-int pco camera binning, can only be 1,2,4
-post_processing_binning = 1
+post_processing_binning = 4
 focus_point_size = 200  # in physical (unbinned) pixels, diameter of circle of laser point
 focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
 
-exposure_time = 0.01 # in S or None to autoexpose
+exposure_time = 0.1 # in S or None to autoexpose
 
 # center_x, center_y, width_x, width_y = 1024,900,128,1536
 
 # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
-n_windows_per_point = 20  # n readouts to increase certainty without overexposing
+n_windows_per_point = 5  # n readouts to increase certainty without overexposing
 amp_dbm = -10  # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
-dwell = 0.04  # seconds - time between setting a frequency on fn generator and reading value
-n_iter = 400  # integer >=1
+dwell = 0.01  # seconds - time between setting a frequency on fn generator and reading value
+n_iter = 5  # integer >=1
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
-span = 0.6e9  # Hz, range of frequencies to sample
-N = 301  # num points in the frequency space to sample
+span = 0.1e9  # Hz, range of frequencies to sample
+N = 101  # num points in the frequency space to sample
 
 max_peaks = 4
 
@@ -70,7 +70,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
     # TODO: change it so that instead of saving every iteration, it just adds as it shows up to have a smaller buffer size
     brightnesses_result = np.zeros((image.shape[0], image.shape[1], freqs.size))  # should be n_iter*2 when reversing as well
 
-    prev_path = oPlot.get_newfile_dir("temp_", print_saving=False)
+    prev_path = iFile.get_newfile_dir("temp_", print_saving=False)
     with open(prev_path, "a", encoding="utf-8") as f:
         f.write("temp file so some file exists when deleting previous 'measurement'")
 
@@ -135,17 +135,17 @@ def main():
     if post_processing_binning > 1:
         print(f"now binning {post_processing_binning}x{post_processing_binning} area and converting odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)/post_processing_binning**2:.0f}s")
         binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, post_processing_binning, x_space, y_space)
-        prev_path = iFile.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path, False)
+        prev_path = iFile.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path, print_saving=False, **params)
         B_Z_binned, _ = Lfit.counts_to_B_Z(x_binned, y_binned, binned_counts, freqs, max_peaks=max_peaks)
         print("Conversion done, saving and plotting")
-        _ = iFile.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path,True, B_Z_binned)
+        _ = iFile.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path,print_saving=True, Bmap=B_Z_binned, **params)
         oPlot.plot_magnet_image(x_binned, y_binned, B_Z_binned)
     else:
-        prev_path = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, True     )
+        prev_path = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, print_saving=True, **params)
         print(f"now converting raw odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)}s")
         B_Z_overall, _ = Lfit.counts_to_B_Z(x_space, y_space, counts_2D, freqs, max_peaks=max_peaks)
         print("Conversion done, saving and plotting")
-        _ = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, print_saving=True ,Bmap=B_Z_overall)
+        _ = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, counts_2D, prev_path, print_saving=True ,Bmap=B_Z_overall, **params)
         oPlot.plot_magnet_image(x_space, y_space, B_Z_overall)
 
 

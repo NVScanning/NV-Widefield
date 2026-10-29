@@ -32,11 +32,7 @@ binning_amount = 1  # built-int pco camera binning, can only be 1,2,4
 focus_point_size = 200  # in pixels, approximate width of image taken, must be >=32 after binning
 focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
 
-<<<<<<< HEAD
-exposure_time = 0.01 # in S or None to autoexpose
-=======
 exposure_time = 0.02 # in S or None to autoexpose
->>>>>>> e5e1de8 (moved file saving to its own helper file.)
 
 # center_x, center_y, width_x, width_y = 1110,1215,128,1536
 

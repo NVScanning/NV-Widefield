@@ -40,7 +40,7 @@ it's possible there were mistakes in the code, so be aware of where things are s
 
 # Params to change
 date = "2026-10-29" # YYYY-MM-DD
-time = "11-52-43"   # hh-mm_ss
+time = "16-09-57"   # hh-mm_ss
 max_peaks = 3
 fft_point_measurement = False # when reading a point ODMR, if True then perform an FFT of it
 subtract_blurred_ODMR = True # when reading a point ODMR, if True then subtract a gaussian blurred
@@ -80,15 +80,8 @@ def main():
 
 
 def handle_widefield_ODMR(filepath: str):
-    # Below code is to determine if magnetic field data is saved or not
-    is_B_saved = False
-    if (date > "2026-05-19"):
-        is_B_saved = True
-    elif (date == "2026-05-19") & (time > "11-00-00"):
-        is_B_saved = True
-
-    B_Z_overall, counts_2D, freqs, x_points, y_points = read_in_widefield_data(filepath, is_B_saved)
-    widfield_user_interaction_loop(B_Z_overall, counts_2D, filepath, freqs, x_points, y_points)
+    B_Z_overall, counts_2D, freqs, x_points, y_points, params = read_in_widefield_data(filepath, is_B_saved(date, time))
+    widfield_user_interaction_loop(B_Z_overall, counts_2D, filepath, freqs, x_points, y_points, params=params)
 
 
 def handle_snr_contr(filepath: str):
@@ -103,26 +96,31 @@ def handle_snr_contr(filepath: str):
     snrs = data["snrs"]
     contrasts = data["contr"]
 
+    if are_params_saved(date, time):
+        params = json.loads(str(data["params"].item()))
+        iFile.print_params(params)
+
     overall_avg_snr = ufloat(np.mean(snrs), np.std(snrs))
     overall_avg_contrast = ufloat(np.mean(contrasts), np.std(contrasts))
     print(f"Overall average SNR:{overall_avg_snr:.2u}, average contrast:{overall_avg_contrast * 100:.2u}%")
 
 
 def handle_scanned_ODMR(filepath):
-    # Below code is to determine if magnetic field data is saved or not
-    is_B_saved = False
-    if (date > "2026-05-19"):
-        is_B_saved = True
-    elif (date == "2026-05-19") & (time > "11-00-00"):
-        is_B_saved = True
+
 
     plt.figure(figsize=(8, 5))
 
     data = np.load(filepath + ".npz")
-
     x_points, y_points, freqs, counts_2D = data["x"], data["y"], data["f"], data["odmrs"]
 
-    if is_B_saved:
+    if are_params_saved(date, time):
+        params = json.loads(str(data["params"].item()))
+        iFile.print_params(params)
+
+
+    B_saved = is_B_saved(date, time)
+
+    if B_saved:
         B_Z_overall = data["magnet"]
         oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
     else:
@@ -191,28 +189,16 @@ def handle_scanned_ODMR(filepath):
 
 def handle_point_ODMR(filepath):
     # single point measurement
-    # Because its in YY-MM-DD we can do:
-    is_freq_saved = False
-    if (date > "2026-05-13"):
-        is_freq_saved = True
-    elif (date == "2026-05-13") & (time > "15-02-05"):
-        is_freq_saved = True
 
-    are_params_saved = False
-    if (date > "2026-10-29"):
-        are_params_saved = True
-    elif (date == "2026-10-29") & (time > "15-00-00"):
-        are_params_saved = True
+
 
     # filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "cw_odmr_" + time)
-    if (is_freq_saved):
+    if is_freq_saved(date, time):
         data = np.load(filepath + ".npz")
-        if are_params_saved:
-            freqs, counts = data["x"], data["y"]
+        freqs, counts = data["x"], data["y"]
+        if are_params_saved(date, time):
             params = json.loads(str(data["params"].item()))
             iFile.print_params(params)
-        else:
-            freqs, counts = data["x"], data["y"]
         oPlot.plot_odmr(freqs, counts)
 
         try:
@@ -245,7 +231,7 @@ def handle_point_ODMR(filepath):
 
 
 def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[Any]] | Any, counts_2D, filepath: str, freqs,
-                                   x_points, y_points):
+                                   x_points, y_points, params={}):
     # --- User Interaction Loop ---
     print("\n" + "=" * 40)
     print("Spatial scan complete. Select a pixel to view its 1D ODMR spectrum.")
@@ -303,7 +289,7 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                     print(problem_points)
                 oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
-                iFile.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+                iFile.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D, **params)
                 # iFile.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
                 #                                     print_saving=True, Bmap=B_Z_overall)
 
@@ -319,7 +305,7 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                 print(problem_points)
             oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
 
-            iFile.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D)
+            iFile.save_2D_odmr_measurement(x_points, y_points, freqs, B_Z_overall, counts_2D, **params)
             # iFile.overwrite_2D_odmr_measurement(x_points, y_points, freqs, counts_2D, filepath + ".npz",
             #                                     print_saving=True, Bmap=B_Z_overall)
         elif user_input.lower().startswith("bin"):
@@ -335,7 +321,11 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                     print(problem_points)
                 oPlot.plot_magnet_image(x_binned, y_binned, B_Z_overall)
 
-                iFile.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_overall, binned_counts)
+                if  are_params_saved(date, time):
+                    params["post_processing_binning"] = params["post_processing_binning"] * numbers[-1]
+
+
+                iFile.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_overall, binned_counts, **params)
 
                 counts_2D = binned_counts
                 x_points, y_points = x_binned, y_binned
@@ -376,13 +366,17 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                 print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4'). Threw:", e)
 
 
-def read_in_widefield_data(filepath: str, is_B_saved: bool) -> tuple[Any, Any, Any, Any, Any]:
+def read_in_widefield_data(filepath: str, is_B_saved: bool) -> tuple[Any, Any, Any, Any, Any, Any]:
     data = np.load(filepath + ".npz")
 
-    x_points = data["x"]
-    y_points = data["y"]
-    freqs = data["f"]
-    counts_2D = data["odmrs"]
+    x_points, y_points, freqs, counts_2D = data["x"], data["y"], data["f"], data["odmrs"]
+
+    if are_params_saved(date, time):
+        params = json.loads(str(data["params"].item()))
+        iFile.print_params(params)
+    else:
+        params = {}
+
     if is_B_saved:
         B_Z_overall = data["magnet"]
         # freq_deltas = np.zeros_like(B_Z_overall)
@@ -397,7 +391,7 @@ def read_in_widefield_data(filepath: str, is_B_saved: bool) -> tuple[Any, Any, A
         freq_deltas = data["deltas"]
         B_Z_overall = np.zeros_like(freq_deltas)
         oPlot.plot_dFreq_image(x_points, y_points, freq_deltas)
-    return B_Z_overall, counts_2D, freqs, x_points, y_points
+    return B_Z_overall, counts_2D, freqs, x_points, y_points, params
 
 
 
@@ -428,6 +422,35 @@ def plot_freq_filtered_ODMR(fft, fft_freqs, freqs: ndarray[tuple[Any, ...], dtyp
     counts_reconstructed = np.real(scipy.fft.ifft(fft_filtered))
     oPlot.plot_odmr(freqs, counts_reconstructed)
 
+
+def are_params_saved(date, time):
+    are_params_saved = False
+    if (date > "2026-10-29"):
+        are_params_saved = True
+    elif (date == "2026-10-29") & (time > "15-00-00"):
+        are_params_saved = True
+
+    return are_params_saved
+
+def is_freq_saved(date, time):
+    # Because its in YY-MM-DD we can do:
+    is_freq_saved = False
+    if (date > "2026-05-13"):
+        is_freq_saved = True
+    elif (date == "2026-05-13") & (time > "15-02-05"):
+        is_freq_saved = True
+
+    return is_freq_saved
+
+def is_B_saved(date, time):
+    # Below code is to determine if magnetic field data is saved or not
+    is_B_saved = False
+    if (date > "2026-05-19"):
+        is_B_saved = True
+    elif (date == "2026-05-19") & (time > "11-00-00"):
+        is_B_saved = True
+
+    return is_B_saved
 
 if __name__ == "__main__":
     main()
