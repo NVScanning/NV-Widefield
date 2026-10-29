@@ -29,14 +29,14 @@ dip_range field, which is the min and max frequencies in GHz that will get a dip
 An additional component is to ignore dark pixels, below some threshold brightness, done with the brightnes_factor field
 """
 
-dip_range = (2.75,2.99) # GHz
+dip_range = (2.65,3.09) # GHz
 brightness_factor = 0.05 # unitless, 0<_<1, proportion of max brightness, below which pixels are automatically ignored
-fine_sigma_GHz = 0.005 # sigma for gaussian blur in GHz
+fine_sigma_GHz = 0.001 # sigma for gaussian blur in GHz
 dip_separation_Ghz = 0.006 # minimal separation between autofitted dips in GHz
 d2_prominence_factor = 0.15 # factor for the minimal prominence of a dip of ODMR 2nd derivative
 background_sigma_GHz = 0.05 # sigma for gaussian blur of background in Hz
-contrast_cutoff_ratio = 0.05
-
+contrast_cutoff_ratio = 0.015 # will prune dips that are less amplitude than this factor times the largest dip
+max_dip_FWHM = 0.04 # any dip with FWHM greater than this will be split into multiple
 # ============================
 # Fitting helper functions
 # ============================
@@ -97,16 +97,17 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
     # Mask valid frequency range
     valid_mask = (freqs[peaks_d2] >= dip_range[0]) & (freqs[peaks_d2] <= dip_range[1])
     peaks = peaks_d2[valid_mask]
+    peak_search_radii = np.ones_like(np.asarray(peaks))*int(0.005/df)
 
-
-
+    peaks = move_dips_to_local_mins(filtered_vals, peaks, peak_search_radii)
+    freqs_peaks = freqs[peaks]
     peak_prominences,_,_ = scipy.signal.peak_prominences(-filtered_vals, peaks)
     peak_widths,_,_,_ = scipy.signal.peak_widths(-filtered_vals, peaks, rel_height=0.5)
     new_peaks = []
 
     for (peak, prominence, width) in zip(peaks, peak_prominences, peak_widths):
         fwhm_GHZ = width * df
-        if fwhm_GHZ > 0.05:
+        if fwhm_GHZ > max_dip_FWHM:
             # TODO: change this threshold, because for high B its wide, but for low B it should be closer to 0.01
             split_offset_pts = max(2, int(fwhm_GHZ / df))  # fwhm splitting seed
             p1 = max(0, peak - split_offset_pts)
@@ -129,7 +130,18 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
     c0 = np.mean(vals) - c1 * freqs[len(freqs) // 2]
 
     # TODO: improve this baseline linear guess, because if the ends of the ODMRs go down in brightness
-    #  (which they often do), then the estimates get all shit
+    #  (which they often do), then the estimates get all bad
+
+
+    # peaks = move_dips_to_local_mins(filtered_vals, peaks, peak_search_radii)
+    # freqs_peaks = freqs[peaks]
+    # peak_prominences,_,_ = scipy.signal.peak_prominences(-filtered_vals, peaks)
+    # # Sort and cull by prominence if now exceeding max_peaks
+    # if max_peaks is not None and len(peaks) > max_peaks:
+    #     top_idx = np.argsort(peak_prominences)[-max_peaks:]
+    #     peaks = np.sort(peaks[top_idx])
+
+
     init_params = []
     peak_prominences,_,_ = scipy.signal.peak_prominences(-filtered_vals, peaks)
     peak_widths,_,_,_ = scipy.signal.peak_widths(-filtered_vals, peaks, rel_height=0.5)
@@ -142,27 +154,27 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
         if width == 0:
             gamma = 0.01
         else:
-            # gamma = width * df/2
-            gamma = 0.01
+            gamma = width * df/2
+            # gamma = 0.01
         init_params.extend([amp, f0, gamma])
 
     init_params.extend([c0, c1])
 
-    init_params, peaks = prune_weak_dips(init_params, peaks,0.1)
+    init_params, peaks = prune_weak_dips(init_params, peaks,contrast_cutoff_ratio)
     init_params, peaks = prune_asymmetric_dip_pairs(init_params, peaks, f_center=2.87)
 
 
-    # # Sort and cull by prominence if now exceeding max_peaks
-    # if max_peaks is not None and len(peaks) > max_peaks:
-    #     # Calculate depth at peak indices relative to baseline
-    #     depths = [abs(vals[p] - np.median(vals)) for p in peaks]
-    #     top_idx = np.argsort(depths)[-max_peaks:]
-    #     peaks = np.sort(peaks[top_idx])
-
     return np.array(init_params), peaks
 
+def move_dips_to_local_mins(vals, seed_idxs, search_radii_pts):
+    refined_idxs = []
+    for (seed_idx,search_radius_pts) in zip(seed_idxs, search_radii_pts):
+        refined_idxs.append(move_dip_to_local_min(vals, seed_idx, search_radius_pts))
 
-def move_dips_to_local_min(vals, seed_idx, search_radius_pts):
+    return refined_idxs
+
+
+def move_dip_to_local_min(vals, seed_idx, search_radius_pts):
     """
     Finds the index of the minimum value in `vals` within ±search_radius_pts of seed_idx.
     """
@@ -335,7 +347,7 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
     params = []
     for i in range(n_peaks):
         A0, f0, g0 = p0[3*i:3*i+3]
-        lower += [-abs(A0*3), f0 - 0.005, 0.002]
+        lower += [-abs(A0*3), f0 - 0.005, 0.001]
         upper += [0, f0 + 0.005, min(3 * g0,0.025)]
         params.extend([f"A{i}",f"f{i}",f"g{i}"])
 
@@ -508,17 +520,17 @@ def get_SNRs(baseline, counts, freqs, popt):
     dip_params = popt[:3 * n_dips].reshape(n_dips, 3)
     off_mask = np.ones_like(freqs, dtype=bool)
 
-    k_exclude = 1  # was previously 3.0
+    k_exclude = 2  # was previously 3.0
     for A, f0, gamma in dip_params:
         FWHM = 2.0 * gamma
         off_mask &= (np.abs(freqs - f0) > (k_exclude * FWHM))
 
     if np.count_nonzero(off_mask) < max(5, 0.1 * len(freqs)):
 
-        raise ValueError("Off-resonance region too small. Decrease k_exclude or widen sweep range.")
+        raise ValueError(f"Off-resonance region too small. Decrease k_exclude or widen sweep range,{n_dips} dips fitted")
 
     sigma = np.std(noise_signal[off_mask], ddof=1)
-    # print(f"sigma of background : {sigma:.3} kcps, which is ~{sigma / c0 * 100:.3}%")
+    print(f"sigma of background : {sigma:.3} kcps, which is ~{sigma / c0 * 100:.3}%")
 
     snrs = []
     for i, (A, f0, gamma) in enumerate(dip_params, start=1):

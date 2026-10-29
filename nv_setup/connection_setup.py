@@ -5,6 +5,8 @@ sys.path.append(os.path.abspath("."))
 import APT.thorlabs_apt as apt
 import numpy as np
 import time
+import json
+from pathlib import Path
 
 # Constants
 gamma_e = 28.02 #GHz/T linear term in zeeman splitting for NV centres
@@ -15,6 +17,50 @@ y_mID = 90335876
 z_mID = 90335877 # s/n of the z motor
 
 
+# TODO: save all params when taking a widefield measurement, possibly a fn that takes in an arbitrary number of args
+# and it saves a header file with all of them, like a printout of: variable name=value
+
+
+def _enc(o):
+    return o.tolist() if hasattr(o, "tolist") else str(o)
+
+def save_measurement(path, data, **params):
+    meta = json.dumps(params, default=_enc)
+    np.savez(path, data=data, params=meta)
+    Path(path).with_suffix(".json").write_text(meta)
+
+def load_measurement(path):
+    with np.load(path) as f:
+        return f["data"], json.loads(str(f["params"]))
+
+
+def load_freq_list(sg, freqs_hz):
+    n = len(freqs_hz)
+    if int(sg.query(f"LSTC? {n}")) != 1:
+        raise RuntimeError("List creation failed")
+    unchanged = ",".join(["N"] * 14)
+    for i, f in enumerate(freqs_hz):
+        sg.write(f"LSTP {i},{f:.6f},{unchanged}")
+    sg.write("LSTE 1")
+    sg.write("LSTR")
+    sg.query("*OPC?")
+    err = int(sg.query("LERR?"))
+    if err != 0:
+        raise RuntimeError(f"SG386 error {err}")
+
+def reset_list(sg):
+    sg.write("LSTR")
+
+def step_freq(sg, settle_s: float = 0.008):
+    sg.write("*TRG")
+    time.sleep(settle_s)
+
+    # new_freq = sg.query("FREQ?")
+    # print("stepped freq on generator, new freq:", new_freq)
+
+def delete_list(sg):
+    sg.write("LSTE 0")
+    sg.write("LSTD")
 
 def connect_sg386(resource: str, timeout_ms: int = 5000):
     # sg386 is the RF generator
@@ -36,8 +82,8 @@ def enable_sg386(sg, amp_dbm: float = -10.0, enable: bool = True):
     # Below -30dB I see no result, above -10dB the ZHL amp can't output more power
     # Above -2,-3 dB, the SAM100 definitely burns the silver paint, above -5 it can, depending on tension put on the connector
 
-    if amp_dbm > -8: # -8 is a few db below SAM100 problem, and ZHL can't output enough power
-        raise Exception("RF amplitude too high, risk of burning solder, must be < -8dB")
+    if amp_dbm > -8: # -8 is a few dBm below SAM100 problem, and ZHL can't output enough power
+        raise Exception("RF amplitude too high, risk of burning solder, must be < -8dBm")
 
     sg.write(f"AMPR {amp_dbm}")
     sg.write(f"ENBR {1 if enable else 0}")
