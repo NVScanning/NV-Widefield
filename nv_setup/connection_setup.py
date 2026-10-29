@@ -16,6 +16,13 @@ x_mID = 90335875
 y_mID = 90335876
 z_mID = 90335877 # s/n of the z motor
 
+# TODO: use the sg386 bulit-in sweep function, rather than manually sweeping through freqs, should be better
+# and reduce the required dwell time
+
+
+# TODO: save all params when taking a widefield measurement, possibly a fn that takes in an arbitrary number of args
+# and it saves a header file with all of them, like a printout of: variable name=value
+
 
 # TODO: save all params when taking a widefield measurement, possibly a fn that takes in an arbitrary number of args
 # and it saves a header file with all of them, like a printout of: variable name=value
