@@ -19,6 +19,31 @@ import nv_widefield.helper_classes.file_interface as iFile
 measure ODMRs at a variety of camera ROI widths, then plot SNR, contrast as a fn of spatial window size
 """
 
+# Params
+binning_amount = 1
+focus_point_centre_x, focus_point_centre_y = 880, 1070
+
+n_windows_per_point = 1
+freq_dwell = 0.04
+settle_dwell = 0.00  # Settle interval following a camera ROI re-allocation step
+n_iter = 15
+
+# Frequency Sweep Space Configuration
+f_center = 2.87e9
+span = 0.3e9
+N_freqs = 151
+
+# Camera ROI Width Sweep Parameters
+width_min = 100  # pixels
+width_max = 1000  # pixels
+N_width_steps = 5
+roi_width_range = np.linspace(width_min, width_max, N_width_steps, dtype=int)
+
+# Calculate operational frequency sweep coordinates
+_, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
+
+# Lock RF power to a safe constant reference level for the duration of the geometry sweep
+amp_dbm = -10.0
 
 def measure_binned_odmr_at_roi(cam, sg, freqs, dwell, point_duration_s, n_windows, n_iter=1):
     """Executes a dual-directional frequency sweep and returns a 1D binned array of brightness per second."""
@@ -34,36 +59,12 @@ def measure_binned_odmr_at_roi(cam, sg, freqs, dwell, point_duration_s, n_window
 
 
 def main():
-    binning_amount = 1
-    focus_point_centre_x, focus_point_centre_y = 880, 1070
-
-    n_windows_per_point = 1
-    freq_dwell = 0.04
-    settle_dwell = 0.00  # Settle interval following a camera ROI re-allocation step
-    n_iter = 15
-
-    # Frequency Sweep Space Configuration
-    f_center = 2.87e9
-    span = 0.3e9
-    N_freqs = 151
-
-    # Camera ROI Width Sweep Parameters
-    width_min = 100  # pixels
-    width_max = 1000  # pixels
-    N_width_steps = 5
-    roi_width_range = np.linspace(width_min, width_max, N_width_steps, dtype=int)
-
-    # Calculate operational frequency sweep coordinates
-    _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
-
-    # Lock RF power to a safe constant reference level for the duration of the geometry sweep
-    fixed_rf_power = -10.0
 
     roi, _, _ = pci.get_spacial_params(binning_amount, (width_min, focus_point_centre_x, focus_point_centre_y)) # Comment out to use previous image
     # roi = (1,1,pci.camera_resolution//binning_amount,pci.camera_resolution//binning_amount)
     # Pass functional loop array down to interface controller execution stack
     avg_contrasts, avg_snrs, evaluated_widths, roi_sweep_results = pci.run_odmr_measurement(
-        (None, binning_amount, 0.02), fixed_rf_power, measure_roi_dependency,
+        (None, binning_amount, 0.02), amp_dbm, measure_roi_dependency,
         (freq_dwell, freqs, n_iter, n_windows_per_point, settle_dwell, roi_width_range, binning_amount,
          focus_point_centre_x, focus_point_centre_y)
     )
@@ -147,7 +148,25 @@ def measure_roi_dependency(cam: Camera, sg: Any, freq_dwell: float,
         counts = measure_binned_odmr_at_roi(
             cam, sg, freqs, freq_dwell, point_duration_s, n_windows=n_windows, n_iter=n_iter
         )
-        iFile.save_point_odmr_measurement(counts, freqs)
+
+        params = {
+            "binning_amount": binning_amount,
+            "width_val": width_val,
+            "center_x": center_x,
+            "center_y": center_y,
+            "roi": new_roi,
+            "exposure_time": cam.exposure_time,
+            "n_windows_per_point": n_windows_per_point,
+            "amp_dbm": amp_dbm,
+            "dwell": freq_dwell,
+            "settle_dwell": settle_dwell,
+            "n_iter": n_iter,
+            "f_center": f_center,
+            "span": span,
+            "N_freqs": N_freqs
+        }
+
+        iFile.save_point_odmr_measurement(counts, freqs, **params)
         roi_sweep_results[int(width_val)] = counts
 
         try:

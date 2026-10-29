@@ -25,6 +25,26 @@ measure ODMRs at a variety of Y values, then plotting snr, contrast, and FWHM as
 Much of this code was combined from previously written code for varying Z
 """
 
+# params
+
+binning_amount = 2  # Hardware binning configuration (1, 2, or 4)
+# focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+# focus_point_centre_x, focus_point_centre_y = 930,770 # in pixels, center point of the laser point
+focus_point_size = 512  # in physical (unbinned) pixels, diameter of circle of laser point
+focus_point_centre_x, focus_point_centre_y = 1110, 1215  # in pixels, center point of the laser point
+
+n_windows_per_point = 1
+amp_dbm = -10  # RF Generator Amplitude
+freq_dwell = 0.04  # Frequency switch recovery interval
+y_dwell = 1
+n_iter = 2  # Iterations at each z-step
+
+# Frequency Sweep Space Configuration
+f_center = 2.87e9  # Hz
+span = 0.15e9  # Hz
+N_freqs = 151  # Total frequency resolution steps
+
+
 
 roi = None
 max_peaks = 4
@@ -320,7 +340,26 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
         counts = measure_binned_odmr_at_y(
             cam, sg, freqs, freq_dwell, point_duration_s, n_windows=n_windows, n_iter=n_iter
         )
-        iFile.save_point_odmr_measurement(counts, freqs)
+
+        params = {
+            "binning_amount": binning_amount,
+            "focus_point_size": focus_point_size,
+            "focus_point_centre_x": focus_point_centre_x,
+            "focus_point_centre_y": focus_point_centre_y,
+            "roi": roi,
+            "exposure_time": cam.exposure_time,
+            "n_windows_per_point": n_windows_per_point,
+            "amp_dbm": amp_dbm,
+            "freq_dwell": freq_dwell,
+            "n_iter": n_iter,
+            "f_center": f_center,
+            "span": span,
+            "N_freqs": N_freqs,
+            "y_pos": y_pos,
+            "y_dwell": y_dwell,
+        }
+
+        iFile.save_point_odmr_measurement(counts, freqs, **params)
         y_sweep_results[y_pos] = counts
 
         # Run Lorentzian curve fitting on current data
@@ -353,22 +392,6 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
 
 def main():
     if new_Measurement:
-        binning_amount = 2  # Hardware binning configuration (1, 2, or 4)
-        # focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-        # focus_point_centre_x, focus_point_centre_y = 930,770 # in pixels, center point of the laser point
-        focus_point_size = 512  # in physical (unbinned) pixels, diameter of circle of laser point
-        focus_point_centre_x, focus_point_centre_y = 1110,1215 # in pixels, center point of the laser point
-
-        n_windows_per_point = 1
-        amp_dbm = -10  # RF Generator Amplitude
-        freq_dwell = 0.04  # Frequency switch recovery interval
-        y_dwell = 1
-        n_iter = 2 # Iterations at each z-step
-
-        # Frequency Sweep Space Configuration
-        f_center = 2.87e9  # Hz
-        span = 0.15e9  # Hz
-        N_freqs = 151  # Total frequency resolution steps
 
         # Y-Axis Step Parameters
         # y_center = 3.1625  # Target focus center
@@ -378,8 +401,7 @@ def main():
         # y_span = 0.15 # Distance range over sweep
         y_start = 6.32
         N_y_steps = 10  # Total step divisions to evaluate
-        y_stepsize = -0.01 #1um step
-
+        y_stepsize = -0.01  # 1um step
         # Calculate operational sweep coordinates
         _, _, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
         # _, _, y_range = cs.calc_sweep_range(y_center, y_span, N_y_steps)
@@ -392,6 +414,7 @@ def main():
         # HARDWARE INITIALIZATION
         # -------------------------------------------------------------
         y_motor, y_prev_position = cs.connect_motor(cs.y_mID)
+        global roi
         roi, _, _ = pci.get_spacial_params(binning_amount, (focus_point_size, focus_point_centre_x, focus_point_centre_y)) # Comment out to use previous image
         # roi = (1,1,pci.camera_resolution//binning_amount,pci.camera_resolution//binning_amount)
         if roi is not None:

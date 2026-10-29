@@ -26,6 +26,30 @@ measure ODMRs at a variety of Z values, then plot contrast and SNR as a fn of Z
 Much of this code was combined from previously written code by Gemini, then edited
 """
 
+# Params:
+binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
+focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+focus_point_centre_x, focus_point_centre_y = 1010, 1000  # 1090,1040 # in pixels, center point of the laser point
+
+n_windows_per_point = 2
+amp_dbm = -10  # RF Generator Amplitude
+freq_dwell = 0.04  # Frequency switch recovery interval
+z_dwell = 1
+n_iter = 2  # Iterations at each z-step
+
+# Frequency Sweep Space Configuration
+f_center = 2.87e9  # Hz
+span = 0.075e9  # Hz
+N_freqs = 51  # Total frequency resolution steps
+# f_center = 5.3e9  # Hz
+# span = 0.4e9  # Hz
+# N_freqs = 51  # Total frequency resolution steps
+
+# Z-Axis Step Parameters
+z_center = 3.54  # wire measurement # Target focus center
+# z_center = 3.49 #permalloy sample # Target focus center
+z_span = 0.08  # Distance range over sweep
+N_z_steps = 9  # Total step divisions to evaluate
 
 roi = None
 max_peaks = 3
@@ -49,30 +73,7 @@ def measure_binned_odmr_at_z(cam, sg, freqs, dwell, point_duration_s, n_windows,
 
 
 def main():
-    binning_amount = 1  # Hardware binning configuration (1, 2, or 4)
-    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-    focus_point_centre_x, focus_point_centre_y = 1010,1000 #1090,1040 # in pixels, center point of the laser point
-
-    n_windows_per_point = 2
-    amp_dbm = -10  # RF Generator Amplitude
-    freq_dwell = 0.04  # Frequency switch recovery interval
-    z_dwell = 1
-    n_iter = 2 # Iterations at each z-step
-
-    # Frequency Sweep Space Configuration
-    f_center = 2.87e9  # Hz
-    span = 0.075e9  # Hz
-    N_freqs = 51  # Total frequency resolution steps
-    # f_center = 5.3e9  # Hz
-    # span = 0.4e9  # Hz
-    # N_freqs = 51  # Total frequency resolution steps
-
-    # Z-Axis Step Parameters
-    z_center = 3.54 #wire measurement # Target focus center
-    # z_center = 3.49 #permalloy sample # Target focus center
-    z_span = 0.08 # Distance range over sweep
-    N_z_steps = 9     # Total step divisions to evaluate
-
+    global N_z_steps
     # Calculate operational sweep coordinates
     f_start, f_end, freqs = cs.calc_sweep_range(f_center, span, N_freqs)
     z_start, z_end, z_range = cs.calc_sweep_range(z_center, z_span, N_z_steps)
@@ -85,6 +86,7 @@ def main():
     # HARDWARE INITIALIZATION
     # -------------------------------------------------------------
     z_motor, z_prev_position = cs.connect_motor(cs.z_mID)
+    global roi
     roi, _, _ = pci.get_spacial_params(binning_amount, (focus_point_size, focus_point_centre_x, focus_point_centre_y)) # Comment out to use previous image
     # roi = (1,1,pci.camera_resolution//binning_amount,pci.camera_resolution//binning_amount)
     if roi is not None:
@@ -209,7 +211,26 @@ def measure_ODMRs(cam: Camera, sg: float, freq_dwell: float,
         counts = measure_binned_odmr_at_z(
             cam, sg, freqs, freq_dwell, point_duration_s, n_windows=n_windows, n_iter=n_iter
         )
-        iFile.save_point_odmr_measurement(counts, freqs)
+
+        params = {
+            "binning_amount": binning_amount,
+            "focus_point_size": focus_point_size,
+            "focus_point_centre_x": focus_point_centre_x,
+            "focus_point_centre_y": focus_point_centre_y,
+            "roi": roi,
+            "exposure_time": cam.exposure_time,
+            "n_windows_per_point": n_windows_per_point,
+            "amp_dbm": amp_dbm,
+            "freq_dwell": freq_dwell,
+            "n_iter": n_iter,
+            "f_center": f_center,
+            "span": span,
+            "N_freqs": N_freqs,
+            "z_pos": z_pos,
+            "z_dwell": z_dwell,
+        }
+
+        iFile.save_point_odmr_measurement(counts, freqs, **params)
         z_sweep_results[z_pos] = counts
 
         # Run Lorentzian curve fitting on current data
