@@ -4,3 +4,5 @@
 /nv_setup/nv_env/
 /cw_odmr/odmr_env/
 */__pycache__/*
+__pycache__/
+*.pyc
