@@ -39,16 +39,15 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-10-29" # YYYY-MM-DD
-time = "16-34-30"   # hh-mm_ss
-max_peaks = 3
+date = "2026-10-30" # YYYY-MM-DD
+time = "14-39-12"   # hh-mm_ss
+max_peaks = 4
 fft_point_measurement = False # when reading a point ODMR, if True then perform an FFT of it
 subtract_blurred_ODMR = True # when reading a point ODMR, if True then subtract a gaussian blurred
 subtract_gaussian_sigma = None # when subtracting a gaussian ODMR, this is the sigma to use (None or num samples)
 
 def main():
-    desktop_dir = "C:\\Users\\NVCFM\\Desktop"
-    directory = os.path.join(desktop_dir, "NVCFM_Data", date)
+    directory = os.path.join(iFile.desktop_dir, "NVCFM_Data", date)
     onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))]  # list of strings of filenames
     match = [item for item in onlyfiles if "cw_odmr_" + time in item] # filter to only have files with '"cw_odmr" + date'
 
@@ -58,80 +57,44 @@ def main():
 
     # assume only one file has the exact same time to the second
     if match[0].startswith("cw_odmr"):
-        filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "cw_odmr_" + time)
-        handle_point_ODMR(filepath)
+        handle_point_ODMR(date, time)
 
     elif match[0].startswith("scanned"):
         # is widefield
-        filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "scanned_cw_odmr_" + time)
-        handle_scanned_ODMR(filepath)
+        handle_scanned_ODMR(date, time)
 
     elif match[0].startswith("snr_contr_"):
-        filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "snr_contr_cw_odmr_" + time)
-        handle_snr_contr(filepath)
+        handle_snr_contr(date, time)
 
     elif match[0].startswith("widefield"):
         # is widefield
-        filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "widefield_cw_odmr_" + time)
-        handle_widefield_ODMR(filepath)
+        handle_widefield_ODMR(date, time)
 
     else:
         print("file has wrong prefix", match[0])
 
 
-def handle_widefield_ODMR(filepath: str):
-    B_Z_overall, counts_2D, freqs, x_points, y_points, params = read_in_widefield_data(filepath, is_B_saved(date, time))
-    widfield_user_interaction_loop(B_Z_overall, counts_2D, filepath, freqs, x_points, y_points, params=params)
+def handle_widefield_ODMR(date, time):
+    B_Z_overall, counts_2D, freqs, x_points, y_points, params = iFile.read_in_widefield_data(date, time)
+    widfield_user_interaction_loop(B_Z_overall, counts_2D, freqs, x_points, y_points, params=params)
 
 
-def handle_snr_contr(filepath: str):
-    plt.figure(figsize=(8, 5))
+def handle_snr_contr(date, time):
 
-    data = np.load(filepath + ".npz")
-
-    # x_points = data["x"]
-    # y_points = data["y"]
-    # freqs = data["f"]
-    # counts_2D = data["odmrs"]
-    snrs = data["snrs"]
-    contrasts = data["contr"]
-
-    if are_params_saved(date, time):
-        params = json.loads(str(data["params"].item()))
-        iFile.print_params(params)
+    contrasts, snrs = iFile.read_snr_contr(date, time)
 
     overall_avg_snr = ufloat(np.mean(snrs), np.std(snrs))
     overall_avg_contrast = ufloat(np.mean(contrasts), np.std(contrasts))
     print(f"Overall average SNR:{overall_avg_snr:.2u}, average contrast:{overall_avg_contrast * 100:.2u}%")
 
 
-def handle_scanned_ODMR(filepath):
 
 
-    plt.figure(figsize=(8, 5))
-
-    data = np.load(filepath + ".npz")
-    x_points, y_points, freqs, counts_2D = data["x"], data["y"], data["f"], data["odmrs"]
-
-    if are_params_saved(date, time):
-        params = json.loads(str(data["params"].item()))
-        iFile.print_params(params)
+def handle_scanned_ODMR(date, time):
 
 
-    B_saved = is_B_saved(date, time)
 
-    if B_saved:
-        B_Z_overall = data["magnet"]
-        oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
-    else:
-
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ext = [x_points.min(), x_points.max(), y_points.min(), y_points.max()]
-        ax.set_xlabel("x space (mm)")
-        ax.set_ylabel("x space (mm)")
-
-        freq_deltas = data["deltas"]
-        oPlot.plot_dFreq_image(x_points, y_points, freq_deltas)
+    counts_2D, freqs, x_points, y_points = iFile.read_scanned_ODMR(date, time)
 
     # --- User Interaction Loop ---
     print("\n" + "=" * 40)
@@ -187,39 +150,28 @@ def handle_scanned_ODMR(filepath):
             print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4').")
 
 
-def handle_point_ODMR(filepath):
+
+
+def handle_point_ODMR(date, time):
     # single point measurement
 
-
-
     # filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "cw_odmr_" + time)
-    if is_freq_saved(date, time):
-        data = np.load(filepath + ".npz")
-        freqs, counts = data["x"], data["y"]
-        if are_params_saved(date, time):
-            params = json.loads(str(data["params"].item()))
-            iFile.print_params(params)
-        oPlot.plot_odmr(freqs, counts)
+    counts, freqs, params = iFile.read_point_ODMR()
+    oPlot.plot_odmr(freqs, counts)
 
-        try:
-            popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks,Gaussian_subtraction=subtract_blurred_ODMR)
+    try:
+        popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks,Gaussian_subtraction=subtract_blurred_ODMR)
 
-            # Lfit.print_dip_params(popt)
-            snrs = Lfit.get_SNRs(baseline, counts, freqs / 10 ** 9, popt)
+        # Lfit.print_dip_params(popt)
+        snrs = Lfit.get_SNRs(baseline, counts, freqs / 10 ** 9, popt)
 
-            contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
+        contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
 
-            # Lfit.print_SNR(snrs, dip_Freqs)
-            Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
-            oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
-        except Exception as e:
-            print("there was an error reading ODMR", e)
-    else:
-        data = np.load(filepath + ".npy")
-        counts = data
-        freqs = np.linspace(2.67, 3.07, len(counts), endpoint=True)
-        print("Old file being read, frequency data is guessed and cannot be used for numerical analysis.")
-        oPlot.plot_odmr(freqs, counts)
+        # Lfit.print_SNR(snrs, dip_Freqs)
+        Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
+        oPlot.plot_fitted_data(freqs / 10 ** 9, counts_norm, fitted_norm)
+    except Exception as e:
+        print("there was an error reading ODMR", e)
 
     if fft_point_measurement:
         fft, fft_freqs = perform_FFT(counts, freqs)
@@ -230,7 +182,9 @@ def handle_point_ODMR(filepath):
     #     oPlot.plot_odmr(freqs, Lfit.subtract_blurred_ODMR(freqs, counts, Gaussian_sigma=subtract_gaussian_sigma), title="ODMR with subtracted gaussian blurred")
 
 
-def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[Any]] | Any, counts_2D, filepath: str, freqs,
+
+
+def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[Any]] | Any, counts_2D, freqs,
                                    x_points, y_points, params={}):
     # --- User Interaction Loop ---
     print("\n" + "=" * 40)
@@ -294,7 +248,7 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                 #                                     print_saving=True, Bmap=B_Z_overall)
 
             except Exception as e:
-                print("Trying to parse fit with binningl caused an error:", e)
+                print("Trying to parse fit with binning caused an error:", e)
                 break
         elif user_input.lower() == "reanalyze":
             print("Reanalyzing, will write new file")
@@ -321,14 +275,19 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                     print(problem_points)
                 oPlot.plot_magnet_image(x_binned, y_binned, B_Z_overall)
 
-                if  are_params_saved(date, time):
-                    params["post_processing_binning"] = params["post_processing_binning"] * numbers[-1]
+                if  iFile.are_params_saved(date, time):
+                    if params.get("post_processing_binning") is not None:
+                        params["post_processing_binning"] = params["post_processing_binning"] * numbers[-1]
+                    else:
+                        params["post_processing_binning"] = numbers[-1]
 
 
                 iFile.save_2D_odmr_measurement(x_binned, y_binned, freqs, B_Z_overall, binned_counts, **params)
 
                 counts_2D = binned_counts
                 x_points, y_points = x_binned, y_binned
+            except KeyError as e:
+                print("Trying to parse binning amount caused an error:", e)
 
             except Exception as e:
                 print("Trying to parse binning amount caused an error:", e)
@@ -352,7 +311,7 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
                 try:
                     popt, pcov, counts_norm, fitted_norm, baseline = Lfit.analyze_data(freqs, counts, max_peaks,
                                                                                    Gaussian_subtraction=True, Gaussian_sigma=subtract_gaussian_sigma)
-                    print(f"B_Z was saved in the file as {B_Z_saved:.3}")
+                    print(f"B_Z was saved in the file as {B_Z_saved*1000:.1f} mT")
                     contrasts, FWHMs, dip_Freqs = Lfit.get_dip_params(popt)
                     snrs = Lfit.get_SNRs(baseline, counts, freqs, popt)
                     Lfit.print_contrast_snr_FWHM(contrasts, snrs, FWHMs, dip_Freqs)
@@ -365,33 +324,6 @@ def widfield_user_interaction_loop(B_Z_overall: ndarray[tuple[int, int], dtype[A
             except ValueError as e:
                 print("Invalid format. Please enter two integers separated by a comma (e.g., '2, 4'). Threw:", e)
 
-
-def read_in_widefield_data(filepath: str, is_B_saved: bool) -> tuple[Any, Any, Any, Any, Any, Any]:
-    data = np.load(filepath + ".npz")
-
-    x_points, y_points, freqs, counts_2D = data["x"], data["y"], data["f"], data["odmrs"]
-
-    if are_params_saved(date, time):
-        params = json.loads(str(data["params"].item()))
-        iFile.print_params(params)
-    else:
-        params = {}
-
-    if is_B_saved:
-        B_Z_overall = data["magnet"]
-        # freq_deltas = np.zeros_like(B_Z_overall)
-        oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
-    else:
-        plt.figure(figsize=(8, 5))
-        fig, ax = plt.subplots(figsize=(8, 6))
-        ext = [x_points.min(), x_points.max(), y_points.min(), y_points.max()]
-        ax.set_xlabel("x space (mm)")
-        ax.set_ylabel("x space (mm)")
-
-        freq_deltas = data["deltas"]
-        B_Z_overall = np.zeros_like(freq_deltas)
-        oPlot.plot_dFreq_image(x_points, y_points, freq_deltas)
-    return B_Z_overall, counts_2D, freqs, x_points, y_points, params
 
 
 
@@ -422,35 +354,6 @@ def plot_freq_filtered_ODMR(fft, fft_freqs, freqs: ndarray[tuple[Any, ...], dtyp
     counts_reconstructed = np.real(scipy.fft.ifft(fft_filtered))
     oPlot.plot_odmr(freqs, counts_reconstructed)
 
-
-def are_params_saved(date, time):
-    are_params_saved = False
-    if (date > "2026-10-29"):
-        are_params_saved = True
-    elif (date == "2026-10-29") & (time > "15-00-00"):
-        are_params_saved = True
-
-    return are_params_saved
-
-def is_freq_saved(date, time):
-    # Because its in YY-MM-DD we can do:
-    is_freq_saved = False
-    if (date > "2026-05-13"):
-        is_freq_saved = True
-    elif (date == "2026-05-13") & (time > "15-02-05"):
-        is_freq_saved = True
-
-    return is_freq_saved
-
-def is_B_saved(date, time):
-    # Below code is to determine if magnetic field data is saved or not
-    is_B_saved = False
-    if (date > "2026-05-19"):
-        is_B_saved = True
-    elif (date == "2026-05-19") & (time > "11-00-00"):
-        is_B_saved = True
-
-    return is_B_saved
 
 if __name__ == "__main__":
     main()

@@ -9,6 +9,13 @@ import numpy as np
 from pathlib import Path
 
 
+import odmr_plotting as oPlot
+
+# CONSTANTS:
+desktop_dir = "C:\\Users\\NVCFM\\Desktop"
+
+
+
 def print_params(params):
     print("")
     print("Printing saved params:")
@@ -27,6 +34,80 @@ def print_params(params):
     print("="*40)
     print("")
 
+def read_in_widefield_data(date, time) -> tuple[Any, Any, Any, Any, Any, Any]:
+    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "widefield_cw_odmr_" + time)
+    data = np.load(filepath + ".npz")
+
+    x_points, y_points, freqs, counts_2D = data["x"], data["y"], data["f"], data["odmrs"]
+
+    if are_params_saved(date, time):
+        params = json.loads(str(data["params"].item()))
+        print_params(params)
+    else:
+        params = {}
+
+    if is_B_saved:
+        B_Z_overall = data["magnet"]
+        oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
+    else:
+        freq_deltas = data["deltas"]
+        B_Z_overall = np.zeros_like(freq_deltas)
+        oPlot.plot_dFreq_image(x_points, y_points, freq_deltas)
+    return B_Z_overall, counts_2D, freqs, x_points, y_points, params
+
+
+def read_snr_contr(date, time) -> tuple[Any, Any]:
+    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "snr_contr_cw_odmr_" + time)
+    data = np.load(filepath + ".npz")
+
+    # x_points = data["x"]
+    # y_points = data["y"]
+    # freqs = data["f"]
+    # counts_2D = data["odmrs"]
+    snrs = data["snrs"]
+    contrasts = data["contr"]
+
+    if are_params_saved(date, time):
+        params = json.loads(str(data["params"].item()))
+        print_params(params)
+    return contrasts, snrs
+
+def read_scanned_ODMR(date, time) -> tuple[Any, Any, Any, Any]:
+    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "scanned_cw_odmr_" + time)
+
+    data = np.load(filepath + ".npz")
+    x_points, y_points, freqs, counts_2D = data["x"], data["y"], data["f"], data["odmrs"]
+
+    if are_params_saved(date, time):
+        params = json.loads(str(data["params"].item()))
+        print_params(params)
+
+    B_saved = is_B_saved(date, time)
+
+    if B_saved:
+        B_Z_overall = data["magnet"]
+        oPlot.plot_magnet_image(x_points, y_points, B_Z_overall)
+    else:
+        freq_deltas = data["deltas"]
+        oPlot.plot_dFreq_image(x_points, y_points, freq_deltas)
+    return counts_2D, freqs, x_points, y_points
+
+def read_point_ODMR(date, time) -> tuple[Any, Any]:
+    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "cw_odmr_" + time)
+    data = np.load(filepath + ".npz")
+    if is_freq_saved(date, time):
+        freqs, counts = data["x"], data["y"]
+        if are_params_saved(date, time):
+            params = json.loads(str(data["params"].item()))
+            print_params(params)
+        else:
+            params = {}
+    else:
+        counts = data
+        freqs = np.linspace(2.67, 3.07, len(counts), endpoint=True)
+        params = {}
+        print("Old file being read, frequency data is guessed and cannot be used for numerical analysis.")
+    return counts, freqs, params
 
 def save_point_odmr_measurement(counts: ndarray[tuple[Any, ...], dtype[Any]],
                                 freqs: ndarray[tuple[Any, ...], dtype[float64]], **params):
@@ -80,3 +161,34 @@ def get_newfile_dir(prefix, print_saving=True):
     if print_saving:
         print(f"Saving as: {prefix}cw_odmr_{timestamp}.npz in directory: {directory}")
     return save_path
+
+
+
+def are_params_saved(date, time):
+    are_params_saved = False
+    if (date > "2026-10-29"):
+        are_params_saved = True
+    elif (date == "2026-10-29") & (time > "15-00-00"):
+        are_params_saved = True
+
+    return are_params_saved
+
+def is_freq_saved(date, time):
+    # Because its in YY-MM-DD we can do:
+    is_freq_saved = False
+    if (date > "2026-05-13"):
+        is_freq_saved = True
+    elif (date == "2026-05-13") & (time > "15-02-05"):
+        is_freq_saved = True
+
+    return is_freq_saved
+
+def is_B_saved(date, time):
+    # Below code is to determine if magnetic field data is saved or not
+    is_B_saved = False
+    if (date > "2026-05-19"):
+        is_B_saved = True
+    elif (date == "2026-05-19") & (time > "11-00-00"):
+        is_B_saved = True
+
+    return is_B_saved

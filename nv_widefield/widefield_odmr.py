@@ -33,21 +33,21 @@ exposure_time = 0.01 # in S or None to autoexpose
 # center_x, center_y, width_x, width_y = 1024,900,128,1536
 
 # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
-n_windows_per_point = 20  # n readouts to increase certainty without overexposing
+n_windows_per_point = 10  # n readouts to increase certainty without overexposing
 amp_dbm = -10  # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
 dwell = 0.01  # seconds - time between setting a frequency on fn generator and reading value
-n_iter = 100  # integer >=1
+n_iter = 50  # integer >=1
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
-span = 0.2e9  # Hz, range of frequencies to sample
-N = 201  # num points in the frequency space to sample
+span = 0.4e9  # Hz, range of frequencies to sample
+N = 401  # num points in the frequency space to sample
 
 max_peaks = 4
 
 randomize_freq_order = False # False to sweep freqs in ascending then descending order, True to randomize each iteration
 
 
-def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None, y_space=None) -> np.ndarray:
+def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None, y_space=None, params={}) -> np.ndarray:
     point_duration_s = cam.exposure_time * n_windows
     global exposure_time
     exposure_time = cam.exposure_time
@@ -86,8 +86,9 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
         brightnesses_partial = pci.sweep_freqs_ringBuf(cam, sg, dwell, freqs[::-1], n_windows, n_iter * 2, i * 2 + 1, t0, randomize_freq_order=randomize_freq_order)[:, :,::-1]
         brightnesses_result += brightnesses_partial / (n_iter * 2)
 
-
-        prev_path = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, brightnesses_result/(i+1)*n_iter, prev_path, print_saving=False)
+        if len(params) > 0:
+            params["n_iter"] = i+1
+        prev_path = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, brightnesses_result/(i+1)*n_iter, prev_path, print_saving=False, params=params)
 
     # sys.stdout.write(f"\r\033[KODMR finished, took {time.time()-t0:.0f}s, saved in filepath: {prev_path}\n") # Clear progress bar
     sys.stdout.write(f"\r\033[KODMR finished, took {time.time() - t0:.0f}s, saved in {prev_path}\n")  # Clear progress bar
@@ -109,14 +110,6 @@ def main():
     # print("Frequency range from ", f_start/1e9, " to ", f_end/1e9, " GHz")
     # point_duration_s = cam.exposure_time * n_windows_per_point
 
-    if len(x_space) % post_processing_binning != 0:
-        raise ValueError("postprocessing binning is not a divisor of the focus point size after camera binning")
-
-    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, exposure_time), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space))
-
-    print("Frequency sweeping done")
-    
-
     params = {
         "binning_amount": camera_binning,
         "post_processing_binning": post_processing_binning,
@@ -133,6 +126,15 @@ def main():
         "span": span,
         "N": N
     }
+
+    if len(x_space) % post_processing_binning != 0:
+        raise ValueError("postprocessing binning is not a divisor of the focus point size after camera binning")
+
+    counts_2D, prev_path = pci.run_odmr_measurement((roi, camera_binning, exposure_time), amp_dbm, measure_odmr, (freqs, dwell, n_windows_per_point, n_iter, x_space, y_space, params))
+
+    print("Frequency sweeping done")
+    
+
     
     if post_processing_binning > 1:
         print(f"now binning {post_processing_binning}x{post_processing_binning} area and converting odmrs to B deltas")
