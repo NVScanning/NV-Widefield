@@ -29,10 +29,10 @@ and now is used as a quick check for ODMR sensitivity
 
 # params
 binning_amount = 1  # built-int pco camera binning, can only be 1,2,4
-focus_point_size = 200  # in pixels, approximate width of image taken, must be >=32 after binning
+focus_point_size = 400  # in pixels, approximate width of image taken, must be >=32 after binning
 focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
 
-exposure_time = 0.02 # in S or None to autoexpose
+exposure_time = None # in S or None to autoexpose
 
 # center_x, center_y, width_x, width_y = 1110,1215,128,1536
 
@@ -60,6 +60,8 @@ randomize_freq_order = False # False to sweep freqs in ascending then descending
 
 def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1) -> np.ndarray:
     point_duration_s = cam.exposure_time * n_windows
+    global exposure_time
+    exposure_time = cam.exposure_time
     print(f"measuring binned ODMR with {n_iter} iteration(s), estimate time to completion"
           f" ~{(n_iter)*2 * ((len(freqs) + 1) * (dwell + point_duration_s) + 0.02):.0f}s")
     # seen=0

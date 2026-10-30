@@ -17,10 +17,10 @@ def print_params(params):
         if key == "f_center" or key == "span":
             print(f"{key}: {value/1e9} GHz")
         elif key.endswith("dwell") or key.endswith("time"):
-            print(f"{key}: {value} s")
-        elif key.contains("dbm"):
+            print(f"{key}: {value*1000:.1f} ms")
+        elif "dbm" in key:
             print(f"{key}: {value} dBm")
-        elif key.contains("binning"):
+        elif "binning" in key:
             print(f"{key}: {value}x{value}")
         else:
             print(f"{key}: {value}")

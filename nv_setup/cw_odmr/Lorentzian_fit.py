@@ -117,6 +117,7 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
             new_peaks.append(peak)
 
     peaks = new_peaks
+    freqs_peaks = freqs[peaks]
 
 
     # Fallback if no peaks detected
@@ -132,7 +133,7 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
     # TODO: improve this baseline linear guess, because if the ends of the ODMRs go down in brightness
     #  (which they often do), then the estimates get all bad
 
-
+    #
     # peaks = move_dips_to_local_mins(filtered_vals, peaks, peak_search_radii)
     # freqs_peaks = freqs[peaks]
     # peak_prominences,_,_ = scipy.signal.peak_prominences(-filtered_vals, peaks)
@@ -140,6 +141,14 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
     # if max_peaks is not None and len(peaks) > max_peaks:
     #     top_idx = np.argsort(peak_prominences)[-max_peaks:]
     #     peaks = np.sort(peaks[top_idx])
+
+    if max_peaks is not None and len(peaks) > max_peaks:
+        top_idx = np.argsort(peak_prominences)[-max_peaks:]
+        peaks_arr = np.asarray(peaks, dtype=int)
+        new_peaks = peaks_arr[top_idx]
+        peaks = np.sort(new_peaks)
+
+    freqs_peaks = freqs[peaks]
 
 
     init_params = []
@@ -361,7 +370,7 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
     try:
         popt, pcov = curve_fit(
             multi_lorentzian, freqs, R_vals,
-            p0=p0, bounds=(lower, upper), maxfev=3000
+            p0=p0, bounds=(lower, upper), maxfev=1000
             ,ftol=0.001, xtol=0.001 # Note: these make convergence quicker, but lose accuracy
         )
         # check_bound_proximity(popt, (lower, upper), threshold=0.05, param_names=params) # useful to know if fitting code is flexible enough, gets annoying with non-ODMR sweeps
@@ -373,7 +382,7 @@ def fit_odmr_multi_lorentzian(freqs, R_vals:np.ndarray, max_peaks=None, default_
 
         popt, pcov = curve_fit(
             multi_lorentzian, freqs, R_vals,
-            p0=popt, maxfev=3000
+            p0=popt, maxfev=3000 # maybe add in the upper and lower bounds again?
             # ,ftol=0.001, xtol=0.001 # Note: these make convergence quicker, but lose accuracy
         )
 

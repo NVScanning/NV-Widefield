@@ -34,16 +34,22 @@ the new array  as a separate measurement for 2D odmr analysis
 """
 ####  GLOBAL PARAMS
 
+# params
+focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
+n_windows = 7  # range exposure time from 2^(0,1,... n_windows-1)
 
 binning_amount = 4  # built-int pco camera binning, can only be 1,2,4
 focus_point_centre_x, focus_point_centre_y = 880, 1070 # in pixels, center point of the laser point
 amp_dbm = -10  # anything bigger than -10 does nothing (Hayden)
 dwell = 0.01  # seconds - time between setting a frequency on fn generator and reading value
 n_iter = 3
+exposure_time = 0.01
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
 span = 0.1e9  # Hz, range of frequencies to sample
 N = 51  # num points in the frequency space to sample
+
+
 max_peaks = 2 # TODO: make it able to detect the 4 peaks
 
 def find_best_z(cam, motor, z_range, dwell, point_duration_s, n_windows):
@@ -181,12 +187,6 @@ def vary_exposure_time():
     # do a series of image-ODMRs, but all with the same camera settings EXCEPT for num windows per point
     # num windows should range from 1-100, maybe logarithmic scale again?
 
-    # params
-    binning_amount = 1 # built-int pco camera binning, can only be 1,2,4
-    focus_point_size = 256  # in physical (unbinned) pixels, diameter of circle of laser point
-    n_windows = 7 # range exposure time from 2^(0,1,... n_windows-1)
-
-
     roi, x_space, y_space = pci.get_spacial_params(binning_amount,(focus_point_size, focus_point_centre_x, focus_point_centre_y))
     # roi=(1,1,pci.camera_resolution,pci.camera_resolution)
     print(f"Using the following roi: {roi} and binning a {binning_amount}x{binning_amount} region")
@@ -202,12 +202,28 @@ def vary_exposure_time():
 
         # cs.enable_sg386(sg, amp_dbm=amp_dbm, enable=True)
         # time.sleep(0.1) # why sleep for a whole second? (previous was 1)
-        counts_2D, _ = pci.run_odmr_measurement((roi, binning_amount, 0.01), amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
+        counts_2D, _ = pci.run_odmr_measurement((roi, binning_amount, exposure_time), amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
         print(f"\nAnalyzing SNR&contrast from ODMR for {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200:.0f}s")
         snrs, contrasts = Lfit.counts_to_SNR_contrast(x_space, y_space, counts_2D, freqs, max_peaks)
 
-        iFile.save_2D_odmr_snr_contrast(x_space, y_space, freqs, snrs, contrasts, counts_2D)
+        params = {
+            "binning_amount": binning_amount,
+            "post_processing_binning": 1,
+            "focus_point_size": focus_point_size,
+            "focus_point_centre_x": focus_point_centre_x,
+            "focus_point_centre_y": focus_point_centre_y,
+            "roi": roi,
+            "exposure_time": exposure_time,
+            "n_windows_per_point": n_windows_per_point,
+            "n_iter": n_iter,
+            "amp_dbm": amp_dbm,
+            "dwell": dwell,
+            "f_center": f_center,
+            "span": span,
+            "N": N
+        }
+        iFile.save_2D_odmr_snr_contrast(x_space, y_space, freqs, snrs, contrasts, counts_2D, **params)
 
         overall_avg_snr = ufloat(np.mean(snrs), np.std(snrs))
         overall_avg_contrast = ufloat(np.mean(contrasts), np.std(contrasts))

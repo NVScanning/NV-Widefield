@@ -24,23 +24,23 @@ when a postprocessing binning that's >1 is set, it will only save the binned mea
 
 # params
 camera_binning = 1  # built-int pco camera binning, can only be 1,2,4
-post_processing_binning = 4
-focus_point_size = 200  # in physical (unbinned) pixels, diameter of circle of laser point
+post_processing_binning = 1
+focus_point_size = 400  # in physical (unbinned) pixels, diameter of circle of laser point
 focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
 
-exposure_time = 0.1 # in S or None to autoexpose
+exposure_time = 0.01 # in S or None to autoexpose
 
 # center_x, center_y, width_x, width_y = 1024,900,128,1536
 
 # TODO: maybe make use of 2D-gaussian to determine centre of focus point automatically
-n_windows_per_point = 5  # n readouts to increase certainty without overexposing
+n_windows_per_point = 20  # n readouts to increase certainty without overexposing
 amp_dbm = -10  # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
 dwell = 0.01  # seconds - time between setting a frequency on fn generator and reading value
-n_iter = 5  # integer >=1
+n_iter = 100  # integer >=1
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
-span = 0.1e9  # Hz, range of frequencies to sample
-N = 101  # num points in the frequency space to sample
+span = 0.2e9  # Hz, range of frequencies to sample
+N = 201  # num points in the frequency space to sample
 
 max_peaks = 4
 
@@ -49,6 +49,8 @@ randomize_freq_order = False # False to sweep freqs in ascending then descending
 
 def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None, y_space=None) -> np.ndarray:
     point_duration_s = cam.exposure_time * n_windows
+    global exposure_time
+    exposure_time = cam.exposure_time
     print(f"measuring ODMR with {n_iter} iterations and {n_windows} windows, estimate time to completion "
           f"~{n_iter*2 * ((len(freqs) + 1) * (dwell + point_duration_s) + 0.2):.0f}s")
     # TODO: make an estimate that takes into account data transfer rate,
@@ -88,7 +90,7 @@ def measure_odmr(cam, sg, freqs, dwell, n_windows, n_iter: int = 1, x_space=None
         prev_path = iFile.overwrite_2D_odmr_measurement(x_space, y_space, freqs, brightnesses_result/(i+1)*n_iter, prev_path, print_saving=False)
 
     # sys.stdout.write(f"\r\033[KODMR finished, took {time.time()-t0:.0f}s, saved in filepath: {prev_path}\n") # Clear progress bar
-    sys.stdout.write(f"\r\033[KODMR finished, took {time.time() - t0:.0f}s\n")  # Clear progress bar
+    sys.stdout.write(f"\r\033[KODMR finished, took {time.time() - t0:.0f}s, saved in {prev_path}\n")  # Clear progress bar
     sys.stdout.flush()
     # return np.sum(brightnesses,axis=0)/(n_iter*2), prev_path
     return brightnesses_result, prev_path
@@ -133,7 +135,7 @@ def main():
     }
     
     if post_processing_binning > 1:
-        print(f"now binning {post_processing_binning}x{post_processing_binning} area and converting odmrs to B deltas, estimate time to completion ~{len(x_space)*len(y_space)/post_processing_binning**2:.0f}s")
+        print(f"now binning {post_processing_binning}x{post_processing_binning} area and converting odmrs to B deltas")
         binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, post_processing_binning, x_space, y_space)
         prev_path = iFile.overwrite_2D_odmr_measurement(x_binned, y_binned, freqs, binned_counts, prev_path, print_saving=False, **params)
         B_Z_binned, _ = Lfit.counts_to_B_Z(x_binned, y_binned, binned_counts, freqs, max_peaks=max_peaks)
