@@ -9,7 +9,7 @@ import numpy as np
 from pathlib import Path
 
 
-import odmr_plotting as oPlot
+import nv_widefield.helper_classes.odmr_plotting as oPlot
 
 # CONSTANTS:
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
@@ -34,7 +34,7 @@ def print_params(params):
     print("="*40)
     print("")
 
-def read_in_widefield_data(date, time) -> tuple[Any, Any, Any, Any, Any, Any]:
+def read_widefield_odmr(date, time) -> tuple[Any, Any, Any, Any, Any, Any]:
     filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "widefield_cw_odmr_" + time)
     data = np.load(filepath + ".npz")
 

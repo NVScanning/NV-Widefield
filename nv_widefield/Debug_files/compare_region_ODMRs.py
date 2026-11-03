@@ -32,9 +32,9 @@ roi_width = 8
 date = "2026-10-19" # YYYY-MM-DD
 time = "10-28-46"   # HH-MM-SS
 
-data_dir = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data"
-date_directory = os.path.join(data_dir, date)
-old_Measurement_Path = os.path.join(date_directory, "widefield_cw_odmr_"+time+".npz")
+# data_dir = "C:\\Users\\NVCFM\\Desktop\\NVCFM_Data"
+# date_directory = os.path.join(data_dir, date)
+# old_Measurement_Path = os.path.join(date_directory, "widefield_cw_odmr_"+time+".npz")
 
 def extract_region_odmrs(counts_3d, x_space, y_space, regions):
     """
@@ -300,12 +300,14 @@ def main():
 
     else:
 
-        data = np.load(old_Measurement_Path)
+        # data = np.load(old_Measurement_Path)
+        #
+        # x_space = data["x"]
+        # y_space = data["y"]
+        # freqs = data["f"]
+        # counts_2D = data["odmrs"]
 
-        x_space = data["x"]
-        y_space = data["y"]
-        freqs = data["f"]
-        counts_2D = data["odmrs"]
+        B_Z_overall, counts_2D, freqs, x_space, y_space, params = iFile.read_widefield_odmr(date, time)
         region_meta = region_to_metadata(x_space, y_space, target_regions)
         # mean_image = np.mean(counts_2D, axis=-1) # average along the freq axis
         # plot_regions(mean_image, x_space, y_space, region_meta)

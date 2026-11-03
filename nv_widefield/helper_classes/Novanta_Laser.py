@@ -15,6 +15,9 @@ Gemini-written code to get a GUI for the 250mW Novanta fiber laser
 Otherwise the only available interface is by sending text commands over serial
 """
 
+# TODO: compile this into a standalone exe file/smth of the sort to not need to have a python instance
+#  always open running this
+
 class LaserInterface:
     def __init__(self, port='COM3', baudrate=9600, timeout=1.0):
         self.ser = serial.Serial(port, baudrate=baudrate, timeout=timeout)

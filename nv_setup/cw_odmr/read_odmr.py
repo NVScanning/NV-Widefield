@@ -39,11 +39,11 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-10-30" # YYYY-MM-DD
-time = "14-39-12"   # hh-mm_ss
-max_peaks = 4
+date = "2026-11-03" # YYYY-MM-DD
+time = "16-07-03"   # hh-mm_ss
+max_peaks = 8
 fft_point_measurement = False # when reading a point ODMR, if True then perform an FFT of it
-subtract_blurred_ODMR = True # when reading a point ODMR, if True then subtract a gaussian blurred
+subtract_blurred_ODMR = False # when reading a point ODMR, if True then subtract a gaussian blurred
 subtract_gaussian_sigma = None # when subtracting a gaussian ODMR, this is the sigma to use (None or num samples)
 
 def main():
@@ -75,7 +75,7 @@ def main():
 
 
 def handle_widefield_ODMR(date, time):
-    B_Z_overall, counts_2D, freqs, x_points, y_points, params = iFile.read_in_widefield_data(date, time)
+    B_Z_overall, counts_2D, freqs, x_points, y_points, params = iFile.read_widefield_odmr(date, time)
     widfield_user_interaction_loop(B_Z_overall, counts_2D, freqs, x_points, y_points, params=params)
 
 

@@ -24,11 +24,11 @@ when a postprocessing binning that's >1 is set, it will only save the binned mea
 
 # params
 camera_binning = 1  # built-int pco camera binning, can only be 1,2,4
-post_processing_binning = 1
-focus_point_size = 400  # in physical (unbinned) pixels, diameter of circle of laser point
+post_processing_binning = 4
+focus_point_size = 600  # in physical (unbinned) pixels, diameter of circle of laser point
 focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
 
-exposure_time = 0.01 # in S or None to autoexpose
+exposure_time = 0.02 # in S or None to autoexpose
 
 # center_x, center_y, width_x, width_y = 1024,900,128,1536
 
@@ -36,11 +36,11 @@ exposure_time = 0.01 # in S or None to autoexpose
 n_windows_per_point = 10  # n readouts to increase certainty without overexposing
 amp_dbm = -10  # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
 dwell = 0.01  # seconds - time between setting a frequency on fn generator and reading value
-n_iter = 50  # integer >=1
+n_iter = 15  # integer >=1
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
-span = 0.4e9  # Hz, range of frequencies to sample
-N = 401  # num points in the frequency space to sample
+span = 0.5e9  # Hz, range of frequencies to sample
+N = 251  # num points in the frequency space to sample
 
 max_peaks = 4
 

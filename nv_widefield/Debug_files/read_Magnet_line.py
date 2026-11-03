@@ -8,6 +8,7 @@ from vary_Y_ODMR import wire_b_field
 import connection_setup as cs
 import matplotlib.patches as patches
 
+import nv_widefield.helper_classes.file_interface as iFile
 
 """
 Plot ODMRs from a line region in a 2D measurement (N x 1 rectangle)
@@ -21,14 +22,14 @@ All main params have a comment explaining what it does
 
 
 
-date = "2026-10-28"
-time = "15-40-14"
+date = "2026-11-03" # YYYY-MM-DD
+time = "16-07-03"   # hh-mm_ss
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-target_idx =48  # The specific spatial x-index to extract across all y's
+target_idx =75  # The specific spatial x-index to extract across all y's
 
-diff_start_idx = 24
-diff_end_idx = 72
+diff_start_idx = 30
+diff_end_idx = 70
 every_nth_idx = 2
 
 plot_ODMR_fits = True # true to plot the lorentzian fit on top of the ODMR data
@@ -41,8 +42,8 @@ plot_dip_centers = False # True to plot red dots at the dip-centers of the fitte
 max_peaks = 4 # limit the autofit code to get max_peaks dips
 labelled_dip_idx = -1 # which dip to use for the dip-r relationship graph
 
-offset = 0.005 # vertical space between adjacent ODMRs
-I_applied = 1 # currentee applied when fitting 1/r relationship of B from current in a wire
+offset = 0.003 # vertical space between adjacent ODMRs
+I_applied = 1 # current applied when fitting 1/r relationship of B from current in a wire
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
     """
@@ -343,12 +344,12 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
 
             except Exception as fit_error:
                 # Catch fitting failures gracefully to avoid halting the full spatial sweep
-                print(f"[Warning] Fit failed for y={axis_pos*1000:.1f} um with error: {fit_error}, plotting rescaled ODMR instead")
+                print(f"[Warning] Fit failed for y_idx={idx} with error: {fit_error}, plotting rescaled ODMR instead")
                 plt.plot(
                     freqs / 1e9,
                     counts / max(counts) + offset*(idx-start_idx)/every_nth_idx,
-                    label=f"y={axis_pos*1000:.1f} um",
-                    # label=f"{slice_axis}={axis_pos*1000:.1f}um, avg_val={np.mean(counts):.1e}",
+                    # label=f"y={axis_pos*1000:.1f} um",
+                    label=f"{slice_axis}={axis_pos*1000:.1f}um, avg_val={np.mean(counts):.1e}",
                     color=colors[idx-start_idx],
                     linewidth=1.5,
                     alpha=0.85
@@ -367,7 +368,7 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
 
 
     plt.xlabel("Frequency [GHz]", fontsize=12)
-    plt.ylabel("Normalized Brightness (arb units/s)", fontsize=12)
+    plt.ylabel("Normalized Brightness [unitless]", fontsize=12)
     plt.legend(loc="center left")
 
     if slice_axis == "x":
@@ -458,20 +459,21 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
 
 
 def main():
-
-    desktop_dir = "C:\\Users\\NVCFM\\Desktop"
-    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, f"widefield_cw_odmr_{time}.npz")
-
-    if not os.path.exists(filepath):
-        raise FileNotFoundError(f"Specified dataset could not be located at {filepath}")
-
-    # Load widefield acquisition structure
-    data = np.load(filepath)
-    x_points = data["x"]
-    y_points = data["y"]
-    freqs = data["f"]
-    B_Z_overall = data["magnet"]
-    counts_2D = data["odmrs"]  # Expected shape: (X_pixels, Y_pixels, Freq_points)
+    #
+    # desktop_dir = "C:\\Users\\NVCFM\\Desktop"
+    # filepath = os.path.join(desktop_dir, "NVCFM_Data", date, f"widefield_cw_odmr_{time}.npz")
+    #
+    # if not os.path.exists(filepath):
+    #     raise FileNotFoundError(f"Specified dataset could not be located at {filepath}")
+    #
+    # # Load widefield acquisition structure
+    # data = np.load(filepath)
+    # x_points = data["x"]
+    # y_points = data["y"]
+    # freqs = data["f"]
+    # B_Z_overall = data["magnet"]
+    # counts_2D = data["odmrs"]  # Expected shape: (X_pixels, Y_pixels, Freq_points)
+    B_Z_overall, counts_2D, freqs, x_points, y_points, params = iFile.read_widefield_odmr(date, time)
 
     primary_points = y_points if slice_axis == "x" else x_points
     secondary_points = x_points if slice_axis == "x" else y_points
