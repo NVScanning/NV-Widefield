@@ -42,7 +42,7 @@ background_sigma_GHz = 0.075 # sigma for gaussian blur of background in Hz
 contrast_cutoff_ratio = 0.015 # will prune dips that are less amplitude than this factor times the largest dip
 max_dip_FWHM = 0.1 # any dip with FWHM greater than this will be split into multiple
 FWHM_threshold = 0.075 # GHz threshold, dips with FWHM above this get deleted
-contr_FWHM_threshold = 0.005 # 1/GHZ, dips with contrast/FWHM below this get deleted
+contr_FWHM_threshold = 0.03 # 1/GHZ, dips with contrast/FWHM below this get deleted
 max_contr_ratio = 5 # 0<_<infty threshold for max allowed ratio between lowest and highest dip in a pair
 
 
