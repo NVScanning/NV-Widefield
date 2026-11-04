@@ -36,7 +36,7 @@ exposure_time = 0.02 # in S or None to autoexpose
 n_windows_per_point = 10  # n readouts to increase certainty without overexposing
 amp_dbm = -10  # from -30 to -10 work, higher gets more contrast but risks RF coupling, Amp at 28V
 dwell = 0.01  # seconds - time between setting a frequency on fn generator and reading value
-n_iter = 15  # integer >=1
+n_iter = 20  # integer >=1
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
 span = 0.5e9  # Hz, range of frequencies to sample

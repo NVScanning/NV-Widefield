@@ -29,7 +29,7 @@ and now is used as a quick check for ODMR sensitivity
 
 # params
 binning_amount = 1  # built-int pco camera binning, can only be 1,2,4
-focus_point_size = 800  # in pixels, approximate width of image taken, must be >=32 after binning
+focus_point_size = 600  # in pixels, approximate width of image taken, must be >=32 after binning
 focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
 
 exposure_time = None # in S or None to autoexpose

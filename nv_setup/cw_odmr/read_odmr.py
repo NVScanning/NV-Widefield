@@ -39,8 +39,8 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-11-03" # YYYY-MM-DD
-time = "16-07-03"   # hh-mm_ss
+date = "2026-11-04" # YYYY-MM-DD
+time = "09-45-03"   # hh-mm_ss
 max_peaks = 8
 fft_point_measurement = False # when reading a point ODMR, if True then perform an FFT of it
 subtract_blurred_ODMR = False # when reading a point ODMR, if True then subtract a gaussian blurred
@@ -156,7 +156,7 @@ def handle_point_ODMR(date, time):
     # single point measurement
 
     # filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "cw_odmr_" + time)
-    counts, freqs, params = iFile.read_point_ODMR()
+    counts, freqs, params = iFile.read_point_ODMR(date, time)
     oPlot.plot_odmr(freqs, counts)
 
     try:

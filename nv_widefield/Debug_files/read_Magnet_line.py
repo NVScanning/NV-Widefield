@@ -22,13 +22,13 @@ All main params have a comment explaining what it does
 
 
 
-date = "2026-11-03" # YYYY-MM-DD
-time = "16-07-03"   # hh-mm_ss
+date = "2026-11-04" # YYYY-MM-DD
+time = "09-45-03"   # hh-mm_ss
 slice_axis = "y"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-target_idx =75  # The specific spatial x-index to extract across all y's
+target_idx =35  # The specific spatial x-index to extract across all y's
 
-diff_start_idx = 30
+diff_start_idx = 20
 diff_end_idx = 70
 every_nth_idx = 2
 
@@ -39,10 +39,10 @@ fixed_B = False # True to have a set B offset, False to let it autofit
 plot_Vline = False # True to plot vertical lines for the dip-centers on the first ODMR
 plot_dip_centers = False # True to plot red dots at the dip-centers of the fitted ODMR
 
-max_peaks = 4 # limit the autofit code to get max_peaks dips
+max_peaks = 8 # limit the autofit code to get max_peaks dips
 labelled_dip_idx = -1 # which dip to use for the dip-r relationship graph
 
-offset = 0.003 # vertical space between adjacent ODMRs
+offset = 0.006 # vertical space between adjacent ODMRs
 I_applied = 1 # current applied when fitting 1/r relationship of B from current in a wire
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
