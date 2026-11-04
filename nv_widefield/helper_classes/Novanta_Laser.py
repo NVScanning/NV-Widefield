@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import serial
 import re
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
@@ -25,13 +25,17 @@ class LaserInterface:
 
     def send_command(self, cmd: str) -> str:
         with self.lock:
-            self.ser.reset_input_buffer()
-            self.ser.reset_output_buffer()
-            self.ser.write(f"{cmd.strip()}\r".encode('ascii'))
-            time.sleep(0.1)
-            response = self.ser.read_all().decode('ascii', errors='ignore').strip()
-            # print(f"[DEBUG] CMD: {cmd.strip()} -> RAW RESP: '{repr(response)}'")
-            return response
+            try:
+                self.ser.reset_input_buffer()
+                self.ser.reset_output_buffer()
+                self.ser.write(f"{cmd.strip()}\r".encode('ascii'))
+                time.sleep(0.1)
+                response = self.ser.read_all().decode('ascii', errors='ignore').strip()
+                # print(f"[DEBUG] CMD: {cmd.strip()} -> RAW RESP: '{repr(response)}'")
+                return response
+            except Exception as e:
+                print(f"Got error sending CMD: {cmd.strip()} -> error: '{e}'")
+                return ""
 
     def close(self):
         if self.ser and self.ser.is_open:
@@ -93,7 +97,10 @@ class LaserDashboardGUI:
         self.lbl_psu_temp = ttk.Label(tele_frame, text="PSU Temp: -- °C", font=('Consolas', 10))
         self.lbl_psu_temp.pack(anchor=tk.W, pady=2)
 
-        self.fig, (self.ax_pwr, self.ax_temp) = plt.subplots(2, 1, figsize=(6, 5), sharex=True)
+        # self.fig, (self.ax_pwr, self.ax_temp) = plt.subplots(2, 1, figsize=(6, 5), sharex=True)
+        self.fig = Figure(figsize=(6, 5))
+        self.ax_pwr = self.fig.add_subplot(211)
+        self.ax_temp = self.fig.add_subplot(212, sharex=self.ax_pwr)
         self.fig.tight_layout(pad=3.0)
 
         self.line_pwr, = self.ax_pwr.plot([], [], 'r-', label="Power (mW)")
@@ -132,7 +139,7 @@ class LaserDashboardGUI:
         if match:
             # print("regex matched, raw_val: ", raw_val, "taking float of ", match.group(0))
             return float(match.group(0))
-        print(f"[DEBUG] t={time.time() - self.start_time} no regex match, returning 0 for raw_val:{raw_val}")
+        print(f"[DEBUG] t={time.time() - self.start_time:.0f} no regex match, returning 0 for raw_val:{raw_val}")
         return 0.0
 
     def _poll_telemetry(self):
