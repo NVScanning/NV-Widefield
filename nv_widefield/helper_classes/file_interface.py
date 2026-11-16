@@ -13,7 +13,7 @@ import nv_widefield.helper_classes.odmr_plotting as oPlot
 
 # CONSTANTS:
 desktop_dir = "C:\\Users\\NVCFM\\Desktop"
-
+NVCFM_data_dir = "NVCFM Data"
 
 
 def print_params(params):
@@ -35,7 +35,7 @@ def print_params(params):
     print("")
 
 def read_widefield_odmr(date, time) -> tuple[Any, Any, Any, Any, Any, Any]:
-    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "widefield_cw_odmr_" + time)
+    filepath = os.path.join(desktop_dir, NVCFM_data_dir, date, "widefield_cw_odmr_" + time)
     data = np.load(filepath + ".npz")
 
     x_points, y_points, freqs, counts_2D = data["x"], data["y"], data["f"], data["odmrs"]
@@ -57,7 +57,7 @@ def read_widefield_odmr(date, time) -> tuple[Any, Any, Any, Any, Any, Any]:
 
 
 def read_snr_contr(date, time) -> tuple[Any, Any]:
-    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "snr_contr_cw_odmr_" + time)
+    filepath = os.path.join(desktop_dir, NVCFM_data_dir, date, "snr_contr_cw_odmr_" + time)
     data = np.load(filepath + ".npz")
 
     # x_points = data["x"]
@@ -73,7 +73,7 @@ def read_snr_contr(date, time) -> tuple[Any, Any]:
     return contrasts, snrs
 
 def read_scanned_ODMR(date, time) -> tuple[Any, Any, Any, Any]:
-    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "scanned_cw_odmr_" + time)
+    filepath = os.path.join(desktop_dir, NVCFM_data_dir, date, "scanned_cw_odmr_" + time)
 
     data = np.load(filepath + ".npz")
     x_points, y_points, freqs, counts_2D = data["x"], data["y"], data["f"], data["odmrs"]
@@ -93,7 +93,7 @@ def read_scanned_ODMR(date, time) -> tuple[Any, Any, Any, Any]:
     return counts_2D, freqs, x_points, y_points
 
 def read_point_ODMR(date, time) -> tuple[Any, Any]:
-    filepath = os.path.join(desktop_dir, "NVCFM_Data", date, "cw_odmr_" + time)
+    filepath = os.path.join(desktop_dir, NVCFM_data_dir, date, "cw_odmr_" + time)
     data = np.load(filepath + ".npz")
     if is_freq_saved(date, time):
         freqs, counts = data["x"], data["y"]
@@ -153,8 +153,7 @@ def get_newfile_dir(prefix, print_saving=True):
     now = datetime.datetime.now()
     datestamp = now.strftime("%Y-%m-%d")
     timestamp = now.strftime("%H-%M-%S")
-    project_root = "C:\\Users\\NVCFM\\Desktop"
-    directory = os.path.join(project_root, "NVCFM_Data", datestamp)
+    directory = os.path.join(desktop_dir, NVCFM_data_dir, datestamp)
     if not os.path.exists(directory):
         os.makedirs(directory)
     save_path = os.path.join(directory, f"{prefix}cw_odmr_{timestamp}.npz")

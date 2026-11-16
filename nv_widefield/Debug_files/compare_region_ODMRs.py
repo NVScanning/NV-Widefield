@@ -13,10 +13,8 @@ from numpy import dtype, ndarray
 sys.path.append(os.path.abspath(".."))
 import connection_setup as cs
 import helper_classes.pco_cam_interface as pci
-import helper_classes.odmr_plotting as oPlot
 import nv_widefield.helper_classes.file_interface as iFile
 import widefield_odmr as wODMR
-import nv_setup.cw_odmr.Lorentzian_fit as Lfit
 
 
 """
@@ -64,8 +62,8 @@ def extract_region_odmrs(counts_3d, x_space, y_space, regions):
         cx, cy = reg["center"]
         w = reg["width"]
 
-        y_min, y_max = cy-w//2,cy+w//2
-        x_min, x_max = cx-w//2,cx+w//2
+        y_min, y_max = cy + (-w // 2), cy + w // 2
+        x_min, x_max = cx + (-w // 2), cx + w // 2
 
         counts_roi = counts_3d[y_min:y_max, x_min:x_max, :]
 
@@ -109,8 +107,8 @@ def region_to_metadata(x_space, y_space, regions):
         #
         # if x_indices.size == 0 or y_indices.size == 0:
         #     raise ValueError(f"Region {idx} at center ({cx}, {cy}) with width {w} falls outside ROI spatial bounds.")
-        y_min, y_max = cy-w//2,cy+w//2
-        x_min, x_max = cx-w//2,cx+w//2
+        y_min, y_max = cy + (-w // 2), cy + w // 2
+        x_min, x_max = cx + (-w // 2), cx + w // 2
 
         region_metadata.append({
             "region_idx": idx,
@@ -299,18 +297,8 @@ def main():
             cam.close()
 
     else:
-
-        # data = np.load(old_Measurement_Path)
-        #
-        # x_space = data["x"]
-        # y_space = data["y"]
-        # freqs = data["f"]
-        # counts_2D = data["odmrs"]
-
         B_Z_overall, counts_2D, freqs, x_space, y_space, params = iFile.read_widefield_odmr(date, time)
         region_meta = region_to_metadata(x_space, y_space, target_regions)
-        # mean_image = np.mean(counts_2D, axis=-1) # average along the freq axis
-        # plot_regions(mean_image, x_space, y_space, region_meta)
 
     print("Frequency sweeping complete. Processing defined regions...")
     region_odmrs = extract_region_odmrs(counts_2D, x_space, y_space, target_regions)

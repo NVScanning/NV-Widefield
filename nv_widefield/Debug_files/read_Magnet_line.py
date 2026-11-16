@@ -112,120 +112,120 @@ def plot_dip_vs_axis(y_positions, dip_centers, udip_centers, fixed_pos_val):
     plt.legend(loc="best")
     plt.show()
 
-def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
-    """
-    Converts fitted frequency dip centers to magnetic field B (Tesla) using
-    electron gyromagnetic ratio and fits a 1/r wire field model along the slice.
-    """
-    axis_positions = np.array(axis_positions)
-    B_fitted = np.array(B_fitted)*1000 # convert to mT
-    uB_fitted = np.array(uB_fitted)*1000 # convert to mT
-
-    # Calculate local magnetic field values assuming Zeeman splitting shift
-    # Note: If tracking single-dip displacement from zero-field, adjust scaling accordingly
-
-    plt.figure(figsize=(6, 4), layout="constrained")
-    plt.errorbar(axis_positions, B_fitted, yerr=uB_fitted, color='crimson', label='Measured $B_z$', marker='o', linestyle="", markersize=5,capsize=10)
-
-    axis_label = "x" if slice_axis == "x" else "y"
-    fixed_label = "y" if slice_axis == "x" else "x"
-
-    if len(axis_positions) >= 3:
-        try:
-            if fixed_B:
-                if B_fitted[0] > B_fitted[-1]:
-                    # wire at more negative position
-                    initial_pos0 = axis_positions[0] - 0.15  # Initial guess 150 um away
-                else:
-                    # wire at more positive positoin
-                    initial_pos0 = axis_positions[-1] + 0.15  # Initial guess 150 um away
-                p0 = [initial_pos0]
-                b_offset = -65e-6
-                print("Guessing initial params:", p0)
-
-                popt, pcov = curve_fit(
-                    lambda pos, pos0: wire_b_field(pos, pos0, b_offset, I=I_applied),
-                    axis_positions,
-                    B_fitted/1000, # convert mT to T
-                    sigma=uB_fitted, # convert mT to T
-                    absolute_sigma=True,
-                    p0=p0
-                )
-
-                fit_pos0 = popt
-                perr = np.sqrt(np.diag(pcov))
-                print("fit_pos0[0]:", fit_pos0[0], "type=", type(fit_pos0[0]))
-                print("perr[0]:", perr[0], "type=", type(perr[0]))
-
-                pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
-                b_fit = wire_b_field(pos_fine, fit_pos0, b_offset, I=I_applied) * 1000 # convert T to mT
-
-                print("--- Wire Distance Fit Results ---")
-                print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0[0]:.4f} ± {perr[0]:.4f} mm")
-                # print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
-
-                minusR = f"{axis_label}-{fit_pos0[0]:.2f}" if fit_pos0[0] > 0 else f"{axis_label}+{-fit_pos0[0]:.2f}"
-                plt.plot(
-                    pos_fine,
-                    b_fit,
-                    '--',
-                    color='navy',
-                    linewidth=2.0,
-                    label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({minusR})}} + {b_offset:.3e}$ T'
-                )
-
-            else:
-                if B_fitted[0] > B_fitted[-1]:
-                    # wire at more negative position
-                    initial_pos0 = axis_positions[0] - 0.25  # Initial guess 150 um away
-                else:
-                    # wire at more positive positoin
-                    initial_pos0 = axis_positions[-1] + 0.25  # Initial guess 150 um away
-                initial_b_offset = 0
-                p0 = [initial_pos0, initial_b_offset]
-                print("Guessing initial params:", p0)
-
-                popt, pcov = curve_fit(
-                    lambda pos, pos0, b_off: wire_b_field(pos, pos0, b_off, I=I_applied),
-                    axis_positions,
-                    B_fitted/1000, # convert mT to T
-                    sigma=uB_fitted/1000, # convert mT to T
-                    absolute_sigma=True,
-                    p0=p0
-                )
-
-                fit_pos0, fit_b_off = popt
-                perr = np.sqrt(np.diag(pcov))
-
-                pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
-                b_fit = wire_b_field(pos_fine, fit_pos0, fit_b_off, I=I_applied) * 1000 # convert T to mT
-
-                print("--- Wire Distance Fit Results ---")
-                print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0:.4f} ± {perr[0]:.4f} mm")
-                print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
-
-                minusR = f"{axis_label}-{fit_pos0:.2f}" if fit_pos0 > 0 else f"{axis_label}+{-fit_pos0:.2f}"
-
-                plt.plot(
-                    pos_fine,
-                    b_fit,
-                    '--',
-                    color='navy',
-                    linewidth=2.0,
-                    label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({minusR})}} + {fit_b_off:.3e}$ T'
-                )
-
-
-
-        except Exception as fit_err:
-            print(f"[Warning] 1/r Curve fit failed: {fit_err}")
-
-    plt.xlabel(f"{axis_label} position [mm]", fontsize=12)
-    plt.ylabel(r"$\partial$B [mT]", fontsize=12)
-    plt.title(f"B field 1/r fit vs. {axis_label} (Fixed {fixed_label} = {fixed_pos_val:.4f} mm)", fontsize=13)
-    plt.grid(True, linestyle="--", alpha=0.6)
-    plt.legend(loc="best", frameon=True, shadow=True)
-    plt.show()
+# def fit_and_plot_b_vs_axis(axis_positions, B_fitted, uB_fitted, fixed_pos_val):
+#     """
+#     Converts fitted frequency dip centers to magnetic field B (Tesla) using
+#     electron gyromagnetic ratio and fits a 1/r wire field model along the slice.
+#     """
+#     axis_positions = np.array(axis_positions)
+#     B_fitted = np.array(B_fitted)*1000 # convert to mT
+#     uB_fitted = np.array(uB_fitted)*1000 # convert to mT
+#
+#     # Calculate local magnetic field values assuming Zeeman splitting shift
+#     # Note: If tracking single-dip displacement from zero-field, adjust scaling accordingly
+#
+#     plt.figure(figsize=(6, 4), layout="constrained")
+#     plt.errorbar(axis_positions, B_fitted, yerr=uB_fitted, color='crimson', label='Measured $B_z$', marker='o', linestyle="", markersize=5,capsize=10)
+#
+#     axis_label = "x" if slice_axis == "x" else "y"
+#     fixed_label = "y" if slice_axis == "x" else "x"
+#
+#     if len(axis_positions) >= 3:
+#         try:
+#             if fixed_B:
+#                 if B_fitted[0] > B_fitted[-1]:
+#                     # wire at more negative position
+#                     initial_pos0 = axis_positions[0] - 0.15  # Initial guess 150 um away
+#                 else:
+#                     # wire at more positive positoin
+#                     initial_pos0 = axis_positions[-1] + 0.15  # Initial guess 150 um away
+#                 p0 = [initial_pos0]
+#                 b_offset = -65e-6
+#                 print("Guessing initial params:", p0)
+#
+#                 popt, pcov = curve_fit(
+#                     lambda pos, pos0: wire_b_field(pos, pos0, b_offset, I=I_applied),
+#                     axis_positions,
+#                     B_fitted/1000, # convert mT to T
+#                     sigma=uB_fitted, # convert mT to T
+#                     absolute_sigma=True,
+#                     p0=p0
+#                 )
+#
+#                 fit_pos0 = popt
+#                 perr = np.sqrt(np.diag(pcov))
+#                 print("fit_pos0[0]:", fit_pos0[0], "type=", type(fit_pos0[0]))
+#                 print("perr[0]:", perr[0], "type=", type(perr[0]))
+#
+#                 pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
+#                 b_fit = wire_b_field(pos_fine, fit_pos0, b_offset, I=I_applied) * 1000 # convert T to mT
+#
+#                 print("--- Wire Distance Fit Results ---")
+#                 print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0[0]:.4f} ± {perr[0]:.4f} mm")
+#                 # print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
+#
+#                 minusR = f"{axis_label}-{fit_pos0[0]:.2f}" if fit_pos0[0] > 0 else f"{axis_label}+{-fit_pos0[0]:.2f}"
+#                 plt.plot(
+#                     pos_fine,
+#                     b_fit,
+#                     '--',
+#                     color='navy',
+#                     linewidth=2.0,
+#                     label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({minusR})}} + {b_offset:.3e}$ T'
+#                 )
+#
+#             else:
+#                 if B_fitted[0] > B_fitted[-1]:
+#                     # wire at more negative position
+#                     initial_pos0 = axis_positions[0] - 0.25  # Initial guess 150 um away
+#                 else:
+#                     # wire at more positive positoin
+#                     initial_pos0 = axis_positions[-1] + 0.25  # Initial guess 150 um away
+#                 initial_b_offset = 0
+#                 p0 = [initial_pos0, initial_b_offset]
+#                 print("Guessing initial params:", p0)
+#
+#                 popt, pcov = curve_fit(
+#                     lambda pos, pos0, b_off: wire_b_field(pos, pos0, b_off, I=I_applied),
+#                     axis_positions,
+#                     B_fitted/1000, # convert mT to T
+#                     sigma=uB_fitted/1000, # convert mT to T
+#                     absolute_sigma=True,
+#                     p0=p0
+#                 )
+#
+#                 fit_pos0, fit_b_off = popt
+#                 perr = np.sqrt(np.diag(pcov))
+#
+#                 pos_fine = np.linspace(np.min(axis_positions), np.max(axis_positions), 200)
+#                 b_fit = wire_b_field(pos_fine, fit_pos0, fit_b_off, I=I_applied) * 1000 # convert T to mT
+#
+#                 print("--- Wire Distance Fit Results ---")
+#                 print(f"Wire {axis_label}-position ({axis_label}0): {fit_pos0:.4f} ± {perr[0]:.4f} mm")
+#                 print(f"Ambient B-offset: {fit_b_off:.2e} ± {perr[1]:.2e} T")
+#
+#                 minusR = f"{axis_label}-{fit_pos0:.2f}" if fit_pos0 > 0 else f"{axis_label}+{-fit_pos0:.2f}"
+#
+#                 plt.plot(
+#                     pos_fine,
+#                     b_fit,
+#                     '--',
+#                     color='navy',
+#                     linewidth=2.0,
+#                     label=rf'1/r Fit: $\frac{{\mu_0 I}}{{2\pi ({minusR})}} + {fit_b_off:.3e}$ T'
+#                 )
+#
+#
+#
+#         except Exception as fit_err:
+#             print(f"[Warning] 1/r Curve fit failed: {fit_err}")
+#
+#     plt.xlabel(f"{axis_label} position [mm]", fontsize=12)
+#     plt.ylabel(r"$\partial$B [mT]", fontsize=12)
+#     plt.title(f"B field 1/r fit vs. {axis_label} (Fixed {fixed_label} = {fixed_pos_val:.4f} mm)", fontsize=13)
+#     plt.grid(True, linestyle="--", alpha=0.6)
+#     plt.legend(loc="best", frameon=True, shadow=True)
+#     plt.show()
 
 def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     print("There should be ", (end_idx//every_nth_idx-start_idx//every_nth_idx+1), "ODMRS plotted")
@@ -386,8 +386,8 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     plt.show()
     if len(dip_centers_ghz) > 0 and plot_dip_centers:
         plot_dip_vs_axis(fitted_axis_positions, dip_centers_ghz, udip_centers, fixed_axis_val)
-    if len(B_fitted) > 0 and fit_Br_fn:
-        fit_and_plot_b_vs_axis(fitted_axis_positions, B_fitted, uB_fitted, fixed_axis_val)
+    # if len(B_fitted) > 0 and fit_Br_fn:
+    #     fit_and_plot_b_vs_axis(fitted_axis_positions, B_fitted, uB_fitted, fixed_axis_val)
 
 
 def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):

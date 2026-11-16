@@ -47,7 +47,7 @@ subtract_blurred_ODMR = False # when reading a point ODMR, if True then subtract
 subtract_gaussian_sigma = None # when subtracting a gaussian ODMR, this is the sigma to use (None or num samples)
 
 def main():
-    directory = os.path.join(iFile.desktop_dir, "NVCFM_Data", date)
+    directory = os.path.join(iFile.desktop_dir, iFile.NVCFM_data_dir, date)
     onlyfiles = [f for f in listdir(directory) if isfile(join(directory, f))]  # list of strings of filenames
     match = [item for item in onlyfiles if "cw_odmr_" + time in item] # filter to only have files with '"cw_odmr" + date'
 
