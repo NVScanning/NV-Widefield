@@ -232,9 +232,9 @@ def get_spacial_params(binning_amount, pos_data) -> tuple[tuple[int, int, int, i
 
     focus_point_size, focus_point_centre_x, focus_point_centre_y = pos_data
     if focus_point_size/binning_amount < 32:
-        raise camera_exception.CameraException("Focus point size too small must be >=32 after binning")
-    if focus_point_centre_x <8 | focus_point_centre_y <8 | focus_point_centre_x > 2040 | focus_point_centre_y > 2040:
-        raise camera_exception.CameraException("Focus centre outside camera frame, must be 8<=x,y <=2040")
+        raise camera_exception.CameraException(f"Focus point size too small must be >=32 after binning, had focus point={focus_point_size//binning_amount}")
+    if focus_point_centre_x <8 or focus_point_centre_y <8 or focus_point_centre_x > 2040 or focus_point_centre_y > 2040:
+        raise camera_exception.CameraException(f"Focus centre outside camera frame, must be 8<=x,y <=2040, had (x,y)=({focus_point_centre_x},{focus_point_centre_y})")
     fps = focus_point_size // 16 * 16 // binning_amount
     fpcx = focus_point_centre_x // 16 * 16 // binning_amount
     fpcy = focus_point_centre_y // 16 * 16 // binning_amount

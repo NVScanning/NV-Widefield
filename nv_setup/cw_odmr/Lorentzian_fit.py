@@ -206,7 +206,7 @@ def guess_initial_params(freqs, vals, max_peaks=None, dip_range=(2.6, 3.2)):
 
 def asls_baseline(y, lam=1e5, p=0.9, n_iter=30):
     n = len(y)
-    D = sparse.diags([1, -2, 1], [0, -1, -2], shape=(n, n - 2))
+    D = sparse.diags([1.0, -2.0, 1.0], [0, -1, -2], shape=(n, n - 2), dtype=float)
     P = lam * D.dot(D.T)
     w = np.ones(n)
     for _ in range(n_iter):
@@ -737,7 +737,7 @@ def counts_to_B_Z(x_points, y_points, counts_2D, freqs, max_peaks=4):
 
     # TODO: convert this fitting to be on the GPU with JAXFit
     # TODO: find a way to have a background term that's shared between nearby pixels
-    # TODO: if fitting problem, then save NaN rather than 0
+
     B_Z_overall = np.zeros((len(y_points), len(x_points)), dtype=float)
     problem_points = []
 
@@ -825,7 +825,7 @@ def counts_to_B_Z_bin_init_params(x_points, y_points, counts_2D, freqs, max_peak
                             problem_points.append((x_ind * binning_num + x_in_bin, y_ind * binning_num + y_in_bin))
     return B_Z_overall, problem_points
 
-def counts_to_SNR_contrast(x_points, y_points, counts_2D, freqs,max_peaks):
+def countsArr_to_SNR_contrast(x_points, y_points, counts_2D, freqs, max_peaks):
     # fit lorentzians to a 3D array of freq-dependent counts over 2D space and return the SNRs and contrasts for each pixel
 
     # x_ and y_points are arrays for the the x and y axis of the FOV in mm
@@ -909,6 +909,7 @@ def counts_to_SNR_contrast_init_params(x_points, y_points, counts_2D, freqs, max
                         all_snrs[x_ind * binning_num + x_in_bin, y_ind * binning_num + y_in_bin, :] = snrs
                         all_contrasts[x_ind * binning_num + x_in_bin, y_ind * binning_num + y_in_bin, :] = contrasts
             except:
+                # print("Got an error when getting SNRs and contrasts from binned measurement", e)
                 for x_in_bin in range(binning_num):
                     for y_in_bin in range(binning_num):
                         # Fit without initial params

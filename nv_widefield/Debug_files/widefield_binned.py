@@ -29,8 +29,8 @@ and now is used as a quick check for ODMR sensitivity
 
 # params
 binning_amount = 1  # built-int pco camera binning, can only be 1,2,4
-focus_point_size = 600  # in pixels, approximate width of image taken, must be >=32 after binning
-focus_point_centre_x, focus_point_centre_y = 1010, 1200  # in pixels, center of the laser point
+focus_point_size = 200  # in pixels, approximate width of image taken, must be >=32 after binning
+focus_point_centre_x, focus_point_centre_y = 1000, 1220  # in pixels, center of the laser point
 
 exposure_time = None # in S or None to autoexpose
 
@@ -45,7 +45,7 @@ dwell = 0.01  # seconds - time between setting a frequency on fn generator and r
 n_iter = 1
 # frequency parameters
 f_center = 2.87e9  # Hz, generally near 2.87GHz
-span = 0.6e9  # Hz, range of frequencies to sample
+span = 0.2e9  # Hz, range of frequencies to sample
 N = 101  # num points in the frequency space to sample
 
 max_peaks = 3

@@ -2,7 +2,7 @@ The cw_odmr directory is for point measurements using the mfli lock-in amplifier
 This is mostly just used for the Fraunhofer OLED-illumination samples.
 
 The nv_setup directory is for point measurements using the single photon counting module (SPCM)
- + quantum machine. The Lorentzian_fit file which is used in nv_setup and in nv_widefield
+ + quantum machine. The Lorentzian_fit and connection_setup file is used in nv_setup and in nv_widefield
 
 nv_widefield directory is for widefield measurements using the PCO camera.
 There is the main widefield_odmr

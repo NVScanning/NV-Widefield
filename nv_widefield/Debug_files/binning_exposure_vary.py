@@ -170,7 +170,7 @@ def bin_full_measurement(counts_2D, freqs: ndarray[tuple[Any, ...], dtype[float6
     for bin in range(n_bins):
         print(f"binning+analyzing {2 ** bin}x{2 ** bin} area:")
         binned_counts, x_binned, y_binned = pci.bin_counts(counts_2D, 2 ** bin, x_space, y_space)
-        snrs, contrasts = Lfit.counts_to_SNR_contrast(x_binned, y_binned, binned_counts, freqs, max_peaks)
+        snrs, contrasts = Lfit.countsArr_to_SNR_contrast(x_binned, y_binned, binned_counts, freqs, max_peaks)
 
         overall_avg_snr = ufloat(np.mean(snrs), np.std(snrs))
         overall_avg_contrast = ufloat(np.mean(contrasts), np.std(contrasts))
@@ -205,7 +205,7 @@ def vary_exposure_time():
         counts_2D, _ = pci.run_odmr_measurement((roi, binning_amount, exposure_time), amp_dbm, wODMR.measure_odmr, (freqs, dwell, n_windows_per_point, n_iter))
 
         print(f"\nAnalyzing SNR&contrast from ODMR for {2**window_exp} window(s), estimate time to completion ~{focus_point_size**2/200:.0f}s")
-        snrs, contrasts = Lfit.counts_to_SNR_contrast(x_space, y_space, counts_2D, freqs, max_peaks)
+        snrs, contrasts = Lfit.countsArr_to_SNR_contrast(x_space, y_space, counts_2D, freqs, max_peaks)
 
         params = {
             "binning_amount": binning_amount,

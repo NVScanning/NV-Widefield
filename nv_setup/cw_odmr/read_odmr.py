@@ -39,8 +39,8 @@ it's possible there were mistakes in the code, so be aware of where things are s
 """
 
 # Params to change
-date = "2026-11-04" # YYYY-MM-DD
-time = "09-45-03"   # hh-mm_ss
+date = "2026-11-13" # YYYY-MM-DD
+time = "15-26-38"   # hh-mm_ss
 max_peaks = 8
 fft_point_measurement = False # when reading a point ODMR, if True then perform an FFT of it
 subtract_blurred_ODMR = False # when reading a point ODMR, if True then subtract a gaussian blurred

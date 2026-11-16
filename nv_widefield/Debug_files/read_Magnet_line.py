@@ -22,17 +22,17 @@ All main params have a comment explaining what it does
 
 
 
-date = "2026-11-04" # YYYY-MM-DD
-time = "09-45-03"   # hh-mm_ss
-slice_axis = "y"        # Choose "x" or "y" to slice along that axis
+date = "2026-11-13" # YYYY-MM-DD
+time = "15-26-38"  # hh-mm_ss
+slice_axis = "x"        # Choose "x" or "y" to slice along that axis
                         # slicing along x, means y is constant (horizontal line)
-target_idx =35  # The specific spatial x-index to extract across all y's
+region_axis_idx =20  # int, The specific spatial index that is constant (not slice axis)
 
-diff_start_idx = 20
-diff_end_idx = 70
-every_nth_idx = 2
+region_start_idx = 15 # int,
+region_end_idx = 35
+every_nth_idx = 1 # int >=1
 
-plot_ODMR_fits = True # true to plot the lorentzian fit on top of the ODMR data
+plot_ODMR_fits = False # true to plot the lorentzian fit on top of the ODMR data
 fit_Br_fn = False # True to fit a 1/r B-r relationship to the B determined from ODMRs along this slice (mostly for B from a wire measurements)
 use_offaxis_binning = False # True to add the entire row/column of the non-slice axis to gain SNR in the case of a symmetric measurement, False to use one pixel
 fixed_B = False # True to have a set B offset, False to let it autofit
@@ -42,7 +42,7 @@ plot_dip_centers = False # True to plot red dots at the dip-centers of the fitte
 max_peaks = 8 # limit the autofit code to get max_peaks dips
 labelled_dip_idx = -1 # which dip to use for the dip-r relationship graph
 
-offset = 0.006 # vertical space between adjacent ODMRs
+offset = 0.015 # vertical space between adjacent ODMRs
 I_applied = 1 # current applied when fitting 1/r relationship of B from current in a wire
 
 def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx, end_idx):
@@ -51,7 +51,7 @@ def plot_odmr_differences(freqs, axis_points, counts_2D, target_x_idx, start_idx
     differences (y_{i+1} - y_i), and plots the residuals.
     """
     # print("Looking at differences between following Y:", selected_axis)
-    selected_axis = axis_points[diff_start_idx:diff_end_idx]
+    selected_axis = axis_points[region_start_idx:region_end_idx]
 
 
     # Extract and normalize traces in the specified range
@@ -358,8 +358,8 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
             plt.plot(
                 freqs / 1e9,
                 counts / max(counts) + offset*(idx-start_idx)/every_nth_idx,
-                label=f"y = {axis_pos*1000:.1f} um",
-                # label=f"{slice_axis}={axis_pos*1000:.1f}um, avg_val={np.mean(counts):.1e}",
+                # label=f"y = {axis_pos*1000:.1f} um",
+                label=f"{slice_axis}={axis_pos*1000:.1f}um, avg_val={np.mean(counts):.1e}",
                 color=colors[idx-start_idx],
                 linewidth=1.5,
                 alpha=0.85
@@ -372,9 +372,9 @@ def plot_odmrs(freqs, sweep_results, fixed_axis_val, start_idx, end_idx):
     plt.legend(loc="center left")
 
     if slice_axis == "x":
-        plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val*1000:.1f}um, idx={target_idx})", fontsize=13)
+        plt.title(f"Widefield ODMR Trace Slice (Fixed y = {fixed_axis_val*1000:.1f}um, idx={region_axis_idx})", fontsize=13)
     else:
-        plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val*1000:.1f}um), idx={target_idx}", fontsize=13)
+        plt.title(f"Widefield ODMR Trace Slice (Fixed x = {fixed_axis_val*1000:.1f}um), idx={region_axis_idx}", fontsize=13)
     # plt.xlim(2.87,2.93)
     # plt.ylim(0.997, 1 + len(z_sweep_results.items())*0.0002)
     # plt.grid(True, linestyle="--", alpha=0.5)
@@ -425,14 +425,14 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
     if not use_offaxis_binning:
 
         if slice_axis == "x":
-            bottom_left_x = x_space[diff_start_idx]
+            bottom_left_x = x_space[region_start_idx]
             bottom_left_y = y_space[target_axis_idx]
-            w_spatial_x = x_space[diff_end_idx] - x_space[diff_start_idx]
+            w_spatial_x = x_space[region_end_idx] - x_space[region_start_idx]
             w_spatial_y = y_space[min(target_axis_idx+1,len(y_space)-1)] - y_space[max(0,target_axis_idx-1)]
         else:
             bottom_left_x = x_space[target_axis_idx]
-            bottom_left_y = y_space[diff_start_idx]
-            w_spatial_y = y_space[diff_end_idx] - y_space[diff_start_idx]
+            bottom_left_y = y_space[region_start_idx]
+            w_spatial_y = y_space[region_end_idx] - y_space[region_start_idx]
             w_spatial_x = x_space[min(target_axis_idx+1,len(x_space)-1)] - x_space[max(0,target_axis_idx-1)]
 
         rect = patches.Rectangle(
@@ -440,7 +440,7 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
             w_spatial_x*1000,
             w_spatial_y*1000,
             linewidth=2,
-            edgecolor="black",
+            edgecolor="green",
             facecolor="none"
         )
         ax.add_patch(rect)
@@ -455,6 +455,72 @@ def plot_magnet_with_slice(x_space, y_space, B_field_2D, target_axis_idx):
 
     # plt.legend(loc='upper right', framealpha=0.9)
 
+    plt.show()
+
+
+def plot_bMap_img_region(counts_3d, B_field_2D, x_space, y_space, target_axis_idx):
+
+    x_space, y_space = x_space*1000, y_space*1000 # convert to um
+    mean_image = np.mean(counts_3d, axis=-1) # average along the freq axis
+
+    fig, (ax_img, ax_bMap) = plt.subplots(1, 2, figsize=(19, 7))
+
+
+    mesh_img = ax_img.pcolormesh(
+        x_space, y_space, mean_image,
+        shading='nearest', cmap="gray",
+        vmin=np.min(mean_image), vmax=np.max(mean_image)
+    )
+    fig.colorbar(mesh_img, ax=ax_img, label="Mean PL Intensity (ADC counts)")
+
+    cmap = plt.cm.inferno
+    cmap.set_bad('white',1.)
+    mesh_bMap = plt.pcolormesh(x_space, y_space, B_field_2D*1000, shading='nearest', cmap=cmap)
+
+
+    fig.colorbar(mesh_bMap, ax=ax_bMap, label=r'$\partial$ B (mT)')
+
+
+
+    if slice_axis == "x":
+        bottom_left_x = x_space[region_start_idx]
+        bottom_left_y = y_space[target_axis_idx]
+        w_spatial_x = x_space[region_end_idx] - x_space[region_start_idx]
+        w_spatial_y = y_space[min(target_axis_idx + 1, len(y_space) - 1)] - y_space[max(0, target_axis_idx - 1)]
+    else:
+        bottom_left_x = x_space[target_axis_idx]
+        bottom_left_y = y_space[region_start_idx]
+        w_spatial_y = y_space[region_end_idx] - y_space[region_start_idx]
+        w_spatial_x = x_space[min(target_axis_idx + 1, len(x_space) - 1)] - x_space[max(0, target_axis_idx - 1)]
+
+    rect_img = patches.Rectangle(
+        (bottom_left_x, bottom_left_y),
+        w_spatial_x,
+        w_spatial_y,
+        linewidth=2,
+        edgecolor="green",
+        facecolor="none"
+    )
+    rect_bMap = patches.Rectangle(
+        (bottom_left_x, bottom_left_y),
+        w_spatial_x,
+        w_spatial_y,
+        linewidth=2,
+        edgecolor="green",
+        facecolor="none"
+    )
+
+    ax_img.add_patch(rect_img)
+    ax_bMap.add_patch(rect_bMap)
+
+
+    ax_img.set_xlabel(r"X Position ($\mu$m)")
+    ax_img.set_ylabel(r"Y Position ($\mu$m)")
+
+    ax_bMap.set_xlabel(r"X Position ($\mu$m)")
+    ax_bMap.set_ylabel(r"Y Position ($\mu$m)")
+
+    plt.tight_layout()
     plt.show()
 
 
@@ -479,13 +545,13 @@ def main():
     secondary_points = x_points if slice_axis == "x" else y_points
 
     # Check bounds of target x-slice
-    if target_idx >= len(primary_points) or target_idx < 0:
-        raise IndexError(f"Specified index {target_idx} is out of bounds for the selection.")
+    if region_axis_idx >= len(primary_points) or region_axis_idx < 0:
+        raise IndexError(f"Specified index {region_axis_idx} is out of bounds for the selection.")
 
     # Extract the coordinate value
-    actual_x_val = x_points[target_idx]
+    actual_x_val = x_points[region_axis_idx]
     if not use_offaxis_binning:
-        print(f"Slicing spatial data along x_index={target_idx} (x={actual_x_val:.4f} mm)")
+        print(f"Slicing spatial data along x_index={region_axis_idx} (x={actual_x_val:.4f} mm)")
 
     # Slice out all off-axis-scans for the single specified main axis-coordinate
     # Structure: { y_coordinate_val: 1D array of counts across frequencies }
@@ -500,15 +566,16 @@ def main():
         else:
             # Single pixel slice
             if slice_axis == "x":
-                slice_results[secondary_val] = counts_2D[target_idx, secondary_idx, :]
+                slice_results[secondary_val] = counts_2D[region_axis_idx, secondary_idx, :]
             else:
-                slice_results[secondary_val] = counts_2D[secondary_idx, target_idx, :]
+                slice_results[secondary_val] = counts_2D[secondary_idx, region_axis_idx, :]
 
     # Run the plot routine
-    plot_magnet_with_slice(x_points, y_points, B_Z_overall, target_idx)
+    # plot_magnet_with_slice(x_points, y_points, B_Z_overall, region_axis_idx)
+    plot_bMap_img_region(counts_2D, B_Z_overall, x_points, y_points, region_axis_idx)
     plot_odmrs(freqs, slice_results, actual_x_val,
-               diff_start_idx,
-               diff_end_idx)
+               region_start_idx,
+               region_end_idx)
 
 
 if __name__ == "__main__":

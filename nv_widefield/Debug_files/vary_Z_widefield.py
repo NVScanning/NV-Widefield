@@ -83,10 +83,10 @@ def process_and_plot_widefield_sweep(x_space, y_space, freqs, b_maps, odmrs_2d_m
     primary_points = y_space if rml.slice_axis == "x" else x_space
     secondary_points = x_space if rml.slice_axis == "x" else y_space
 
-    if rml.target_idx >= len(primary_points) or rml.target_idx < 0:
-        raise IndexError(f"Target index {rml.target_idx} out of bounds for space length {len(primary_points)}")
+    if rml.region_axis_idx >= len(primary_points) or rml.region_axis_idx < 0:
+        raise IndexError(f"Target index {rml.region_axis_idx} out of bounds for space length {len(primary_points)}")
 
-    fixed_pos_val = primary_points[rml.target_idx]
+    fixed_pos_val = primary_points[rml.region_axis_idx]
 
     for pos, B_field_2D in b_maps.items():
         print(f"\n--- Displaying Analysis for Stage Position: {pos:.5f} mm ---")
@@ -101,13 +101,13 @@ def process_and_plot_widefield_sweep(x_space, y_space, freqs, b_maps, odmrs_2d_m
                     slice_results[secondary_val] = np.mean(counts_2D[secondary_idx, :, :], axis=0)
             else:
                 if rml.slice_axis == "x":
-                    slice_results[secondary_val] = counts_2D[rml.target_idx, secondary_idx, :]
+                    slice_results[secondary_val] = counts_2D[rml.region_axis_idx, secondary_idx, :]
                 else:
-                    slice_results[secondary_val] = counts_2D[secondary_idx, rml.target_idx, :]
+                    slice_results[secondary_val] = counts_2D[secondary_idx, rml.region_axis_idx, :]
 
         # Delegate visualization directly to read_Magnet_line functions
-        rml.plot_magnet_with_slice(x_space, y_space, B_field_2D, rml.target_idx)
-        rml.plot_odmrs(freqs, slice_results, fixed_pos_val, rml.diff_start_idx, rml.diff_end_idx)
+        rml.plot_magnet_with_slice(x_space, y_space, B_field_2D, rml.region_axis_idx)
+        rml.plot_odmrs(freqs, slice_results, fixed_pos_val, rml.region_start_idx, rml.region_end_idx)
 
 
 def measure_widefield_odmr_at_z(
